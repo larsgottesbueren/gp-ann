@@ -34,7 +34,8 @@ struct InvertedIndex {
 
     NNVec Query(float* Q, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
 
-        for (int b : buckets_to_probe) {
+        for (size_t j = 0; j < num_buckets_to_probe; ++j) {
+            int b = buckets_to_probe[j];
             for (int i = offsets[b]; i < offsets[b+1]; ++i) {
                 // TODO optimize?
                 float new_dist = distance(reordered_P.GetPoint(i), Q, reordered_P.d);
