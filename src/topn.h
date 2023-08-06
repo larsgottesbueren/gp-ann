@@ -9,7 +9,7 @@ struct TopN {
 	using value_type = std::pair<float, uint32_t>;
 	std::priority_queue<value_type> pq;
 
-	void Add(value_type& e) {
+	void Add(value_type e) {
 		if (pq.size() < n) {
 			pq.push(e);
 		} else if (pq.top() > e) {
@@ -27,4 +27,6 @@ struct TopN {
 		}
 		return res;
 	}
+
+	const value_type& Top() const { return pq.top(); }
 };

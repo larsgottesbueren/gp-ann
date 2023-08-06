@@ -14,8 +14,7 @@ std::vector<int> TopKNeighbors(PointSet& P, uint32_t my_id, int k) {
 	for (uint32_t i = 0; i < P.n; ++i) {
 	    if (i == my_id) continue;
 	    float new_dist = distance(P.GetPoint(i), Q, P.d);
-		auto x = std::make_pair(new_dist, i);
-		top_k.Add(x);
+		top_k.Add(std::make_pair(new_dist, i));
 	}
 	auto x = top_k.Take();
 	std::vector<int> y;

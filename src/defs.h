@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <cstdint>
 
 struct PointSet {
   std::vector<float> coordinates;
@@ -9,3 +10,7 @@ struct PointSet {
 };
 
 using AdjGraph = std::vector<std::vector<int>>;
+
+using NNVec = std::vector<std::pair<float, uint32_t>>;
+
+using VecNNVec = std::vector<NNVec>;

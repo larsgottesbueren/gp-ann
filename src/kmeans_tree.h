@@ -4,9 +4,10 @@
 
 struct KMeansTreeNode {
 	std::vector<KMeansTreeNode> children;
+	PointSet centroids;
 };
 
-struct KMeansTree {
+struct KMeansTreeRouter {
 
 	std::vector<int> Query(float* Q);
 };
