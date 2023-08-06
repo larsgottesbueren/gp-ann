@@ -9,7 +9,7 @@ struct InvertedIndex {
     std::vector<int> permutation;
     TopN top_k;
 
-    InvertexIndex(PointSet& P, const std::vector<int>& partition, int k) :
+    InvertedIndex(PointSet& P, const std::vector<int>& partition, int k) :
         top_k(k)
     {
         offsets.assign(k+1, 0);
@@ -32,8 +32,7 @@ struct InvertedIndex {
         }
     }
 
-    std::vector<std::pair<float, uint32_t>> Query(const float* Q, std::vector<int>& buckets_to_probe) {
-        std::sort(buckets_to_probe.begin(), buckets_to_probe.end());    // is this good for improving cache efficiency?
+    NNVec Query(float* Q, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
 
         for (int b : buckets_to_probe) {
             for (int i = offsets[b]; i < offsets[b+1]; ++i) {
