@@ -1,6 +1,7 @@
 #pragma once
 
 #include <queue>
+#include <cstdint>
 
 struct TopN {
 	TopN(size_t n) : n(n) { }
@@ -26,4 +27,4 @@ struct TopN {
 		}
 		return res;
 	}
-}
+};

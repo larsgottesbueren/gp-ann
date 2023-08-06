@@ -9,7 +9,13 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mtune=native -march
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 #set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS}")
 
+add_subdirectory(external/parlaylib)
+
 include_directories("src")
 
 add_executable(BuildKNNGraph build_knn_graph.cpp)
 add_executable(RunQueries run_queries.cpp)
+
+
+target_link_libraries(BuildKNNGraph PUBLIC parlay)
+target_link_libraries(RunQueries PUBLIC parlay)

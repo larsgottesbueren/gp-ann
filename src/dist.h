@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <x86intrin.h>
 #include <iostream>
@@ -9,7 +9,7 @@
 
 namespace efanna2e{
 
-  
+
     class Distance {
     public:
         virtual float compare(const float* a, const float* b, unsigned length) const = 0;
@@ -321,7 +321,7 @@ namespace efanna2e{
 
 float mips_distance(float *p, float *q, unsigned d){
     float result = 0;
-    for(int i=0; i<d; i++){
+    for(unsigned i=0; i<d; i++){
       result += (q[i]) * (p[i]);
     }
     return -result;
