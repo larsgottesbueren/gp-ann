@@ -15,7 +15,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
         for (uint32_t j = 0; j < points.n; ++j) {
             float* P = queries.GetPoint(j);
             float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(j, dist));
+            top_k.Add(std::make_pair(dist, j));
         }
         d[i] = top_k.Top().first;
     }, 1);
@@ -30,7 +30,7 @@ std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
         for (uint32_t j = 0; j < points.n; ++j) {
             float* P = queries.GetPoint(j);
             float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(j, dist));
+            top_k.Add(std::make_pair(dist, j));
         }
         res[i] = top_k.Take();
     }, 1);
