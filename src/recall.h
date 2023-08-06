@@ -38,8 +38,24 @@ std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
 }
 
 double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition) {
-    // TODO implement
-    return 0.0;
+    int num_shards = *std::max_element(partition.begin(),  partition.end()) + 1;
+    std::vector<int> freq;
+    double recall = 0.0;
+    for (const auto& neigh : ground_truth) {
+        freq.assign(num_shards, 0);
+        for (const auto& x : neigh) {
+            freq[partition[x.second]]++;
+        }
+
+
+        int hits = *std::max_element(freq.begin(), freq.end());
+        recall += static_cast<double>(hits) / neigh.size();
+        if (neigh.size() != 10) std::cerr << "neigh.size() != 10..." << neigh.size() << std::endl;
+    }
+
+    recall /= ground_truth.size();
+    std::cout << "Oracle first shard recall " << recall << std::endl;
+    return recall;
 }
 
 double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {

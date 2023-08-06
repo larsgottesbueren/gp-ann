@@ -328,7 +328,7 @@ float mips_distance(float *p, float *q, unsigned d){
 }
 
 float distance(float *p, float *q, unsigned d) {
-    #if true
+    #if false
     return mips_distance(p, q, d);
     #else
     efanna2e::DistanceL2 distfunc;

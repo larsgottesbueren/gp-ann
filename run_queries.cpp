@@ -41,6 +41,13 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
 
+    {
+        auto ground_truth = GetGroundTruth(points, queries, k);
+        std::cout << "computed ground truth" << std::endl;
+        double oracle_recall = OracleRecall(ground_truth, partition);
+        std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
+    }
+
     std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
 
     InvertedIndex inverted_index(points, partition, k);
