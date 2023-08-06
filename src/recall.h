@@ -14,7 +14,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
         float* Q = queries.GetPoint(i);
         for (uint32_t j = 0; j < points.n; ++j) {
             float* P = queries.GetPoint(j);
-            float dist = distance(P, Q, P.d);
+            float dist = distance(P, Q, points.d);
             top_k.Add(std::make_pair(j, dist));
         }
         d[i] = top_k.Top().first;
@@ -22,8 +22,28 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
     return d;
 }
 
+std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
+    std::vector<NNVec> res(queries.n);
+    parlay::parallel_for(0, queries.n, [&](size_t i) {
+        TopN top_k(k);
+        float* Q = queries.GetPoint(i);
+        for (uint32_t j = 0; j < points.n; ++j) {
+            float* P = queries.GetPoint(j);
+            float dist = distance(P, Q, points.d);
+            top_k.Add(std::make_pair(j, dist));
+        }
+        res[i] = top_k.Take();
+    }, 1);
+    return res;
+}
+
+double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition) {
+    // TODO implement
+    return 0.0;
+}
+
 double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {
-    size_t hits;
+    size_t hits = 0;
     for (size_t i = 0; i < neighbors_per_query.size(); ++i) {
         for (const auto& x : neighbors_per_query[i]) {
             if (x.first <= distance_to_kth_neighbor[i]) {

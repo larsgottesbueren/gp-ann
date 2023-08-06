@@ -17,16 +17,16 @@ struct InvertedIndex {
         for (int i = 2; i < k+1; ++i) offsets[i] += offsets[i-1];
         auto off = offsets;     // copy we can destroy
         permutation.resize(P.n);
-        for (int i = 0; i < P.n; ++i) {
+        for (size_t i = 0; i < P.n; ++i) {
             int b = partition[i];
             permutation[off[b]++] = i;
         }
 
         reordered_P.n = P.n; reordered_P.d = P.d;
         reordered_P.coordinates.reserve(P.coordinates.size());
-        for (int i = 0; i < P.n; ++i) {
+        for (size_t i = 0; i < P.n; ++i) {
             float* p = P.GetPoint(permutation[i]);
-            for (int j = 0; j < P.d; ++j) {
+            for (size_t j = 0; j < P.d; ++j) {
                 reordered_P.coordinates.push_back(p[j]);
             }
         }
