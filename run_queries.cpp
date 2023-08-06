@@ -1,11 +1,11 @@
 #include <iostream>
 
-#include "knn_graph.h"
 #include "points_io.h"
 #include "metis_io.h"
 #include "recall.h"
 #include "kmeans_tree.h"
 #include "inverted_index.h"
+
 
 void Normalize(PointSet& points) {
     for (size_t i = 0; i < points.n; ++i) {
@@ -19,8 +19,6 @@ void Normalize(PointSet& points) {
 }
 
 int main(int argc, const char* argv[]) {
-
-
     if (argc != 5) {
         std::cerr << "Usage ./RunQueries input-points queries k partition" << std::endl;
         std::abort();
@@ -41,12 +39,18 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
 
+    std::cout << "k=" << k << std::endl;
+    // queries.n = 100;
+
     {
+        std::cout << "start computing ground truth" << std::endl;
         auto ground_truth = GetGroundTruth(points, queries, k);
         std::cout << "computed ground truth" << std::endl;
         double oracle_recall = OracleRecall(ground_truth, partition);
         std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
     }
+
+    return 0;
 
     std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
 

@@ -13,7 +13,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
         TopN top_k(k);
         float* Q = queries.GetPoint(i);
         for (uint32_t j = 0; j < points.n; ++j) {
-            float* P = queries.GetPoint(j);
+            float* P = points.GetPoint(j);
             float dist = distance(P, Q, points.d);
             top_k.Add(std::make_pair(dist, j));
         }
@@ -28,7 +28,7 @@ std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
         TopN top_k(k);
         float* Q = queries.GetPoint(i);
         for (uint32_t j = 0; j < points.n; ++j) {
-            float* P = queries.GetPoint(j);
+            float* P = points.GetPoint(j);
             float dist = distance(P, Q, points.d);
             top_k.Add(std::make_pair(dist, j));
         }
@@ -47,13 +47,12 @@ double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<in
             freq[partition[x.second]]++;
         }
 
-
         int hits = *std::max_element(freq.begin(), freq.end());
-        recall += static_cast<double>(hits) / neigh.size();
+        recall += static_cast<double>(hits);
         if (neigh.size() != 10) std::cerr << "neigh.size() != 10..." << neigh.size() << std::endl;
     }
 
-    recall /= ground_truth.size();
+    recall /= (10.0 * ground_truth.size());
     std::cout << "Oracle first shard recall " << recall << std::endl;
     return recall;
 }
