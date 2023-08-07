@@ -38,7 +38,7 @@ struct InvertedIndex {
         std::cout << "b" << std::endl;
         std::cout << reordered_P.coordinates.size() << std::endl;
 
-
+        reordered_P.Init();
 
         for (int i = 0; i < P.n; ++i) {
             float* p = P.GetPoint(i);

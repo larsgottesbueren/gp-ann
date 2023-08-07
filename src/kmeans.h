@@ -24,6 +24,7 @@ void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_
 
 void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
 	centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
+	centroids.Init();
 	std::vector<size_t> cluster_size(centroids.n, 0);
 	for (size_t i = 0; i < closest_center.size(); ++i) {
 		int c = closest_center[i];
@@ -44,6 +45,7 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
 
 void KMeans(PointSet& P, PointSet& centroids, size_t d, size_t n) {
 	centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
+    centroids.Init();
 	std::vector<int> closest_center(P.n, -1);
 	static constexpr size_t NUM_ROUNDS = 11;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
