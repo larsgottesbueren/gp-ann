@@ -9,9 +9,9 @@ struct KMeansTreeNode {
 
 struct KMeansTreeRouter {
 
-	std::vector<int> Query(float* Q, int k) {
-	    std::vector<int> probes(k);
-	    for (int i = 0; i < k; ++i) { probes[i] = i; }
+	std::vector<int> Query(float* Q, int num_shards) {
+	    std::vector<int> probes(num_shards);
+	    for (int i = 0; i < num_shards; ++i) { probes[i] = i; }
 	    return probes;
 	}
 };

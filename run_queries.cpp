@@ -38,9 +38,10 @@ int main(int argc, const char* argv[]) {
     }
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
+    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
     std::cout << "k=" << k << std::endl;
-    // queries.n = 100;
+    queries.n = 20;
 
     {
         std::cout << "start computing ground truth" << std::endl;
@@ -50,25 +51,25 @@ int main(int argc, const char* argv[]) {
         std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
     }
 
-    return 0;
-
     std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
+
+    std::cout << "Computed distance to kth neighbor" << std::endl;
 
     InvertedIndex inverted_index(points, partition, k);
     KMeansTreeRouter router;
+
 
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
     std::vector<NNVec> neighbors_by_query(queries.n);
 
     auto t1 = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < queries.n; ++i) {
-        buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), k);
+        buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), num_shards);
     }
     auto t2 = std::chrono::high_resolution_clock::now();
     double time_routing = (t2-t1).count() / 1e6;
-    std::cout << "Routing took " << time_routing << " ms overall, and " << time_routing / queries.n << " per query";
+    std::cout << "Routing took " << time_routing << " ms overall, and " << time_routing / queries.n << " per query" << std::endl;
 
-    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
     std::vector<double> time_per_num_probes(num_shards, 0.0);
     std::vector<double> recall_per_num_probes(num_shards, 0.0);
 
@@ -80,16 +81,15 @@ int main(int argc, const char* argv[]) {
             neighbors_by_query[i] = inverted_index.Query(Q, buckets_to_probe_by_query[i], num_probes);
         }
         auto t4 = std::chrono::high_resolution_clock::now();
-
+        std::cout << "finished query. now compute recall" << std::endl;
         double recall = Recall(neighbors_by_query, distance_to_kth_neighbor, k);
         double time_probes = (t4-t3).count() / 1e6;
-        std::cout << "Probing " << num_shards << " took " << time_probes << "ms overall, and " << time_probes / queries.n << " per query. Recall achieved " << recall << std::endl;
+        std::cout << "Probing " << num_probes << " took " << time_probes << "ms overall, and " << time_probes / queries.n << " per query. Recall achieved " << recall << std::endl;
 
         recall_per_num_probes[num_probes-1] = recall;
         time_per_num_probes[num_probes-1] = time_probes / queries.n;
     }
 
     // TODO parsable output
-
 
 }
