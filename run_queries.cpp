@@ -43,7 +43,7 @@ int main(int argc, const char* argv[]) {
     std::cout << "k=" << k << std::endl;
     queries.n = 20;
 
-    {
+    if (true) {
         std::cout << "start computing ground truth" << std::endl;
         auto ground_truth = GetGroundTruth(points, queries, k);
         std::cout << "computed ground truth" << std::endl;

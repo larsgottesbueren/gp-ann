@@ -35,15 +35,10 @@ struct InvertedIndex {
             }
         }
 
-        std::cout << "b" << std::endl;
-        std::cout << reordered_P.coordinates.size() << std::endl;
-
-        reordered_P.Init();
-
-        for (int i = 0; i < P.n; ++i) {
+        for (size_t i = 0; i < P.n; ++i) {
             float* p = P.GetPoint(i);
             float* q = reordered_P.GetPoint(inverse_permutation[i]);
-            for (int j = 0; j < P.d; ++j) {
+            for (size_t j = 0; j < P.d; ++j) {
                 if (p[j] != q[j]) {
                     std::cerr << "permutation bad? " << p[j] << " " << q[j] << " " << j << " " << i << " " << inverse_permutation[i] << std::endl;
                 }
@@ -51,7 +46,7 @@ struct InvertedIndex {
 
             p = P.GetPoint(permutation[i]);
             q = reordered_P.GetPoint(i);
-            for (int j = 0; j < P.d; ++j) {
+            for (size_t j = 0; j < P.d; ++j) {
                 if (p[j] != q[j]) {
                     std::cerr << "inverse permutation bad? " << p[j] << " " << q[j] << " " << j << " " << i << " " << inverse_permutation[i] << std::endl;
                 }

@@ -2,6 +2,8 @@
 
 #include "dist.h"
 #include <parlay/parallel.h>
+#include <numeric>
+#include <random>
 
 int Top1Neighbor(PointSet& P, float* Q) {
 	int best = -1;
@@ -24,7 +26,6 @@ void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_
 
 void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
 	centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
-	centroids.Init();
 	std::vector<size_t> cluster_size(centroids.n, 0);
 	for (size_t i = 0; i < closest_center.size(); ++i) {
 		int c = closest_center[i];
@@ -43,9 +44,28 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
 	}
 }
 
-void KMeans(PointSet& P, PointSet& centroids, size_t d, size_t n) {
-	centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
-    centroids.Init();
+PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
+    PointSet centroids;
+    centroids.n = num_samples;
+    centroids.d = points.d;
+
+    std::vector<int> iota(points.n);
+    std::iota(iota.begin(), iota.end(), 0);
+
+    std::mt19937 prng(seed);
+    std::vector<int> sample(num_samples);
+    std::sample(iota.begin(), iota.end(), sample.begin(), num_samples, prng);
+
+    for (int i : sample) {
+        float* p = points.GetPoint(i);
+        for (size_t j = 0; j < points.d; ++j) {
+            centroids.coordinates.push_back(p[j]);
+        }
+    }
+    return centroids;
+}
+
+std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	std::vector<int> closest_center(P.n, -1);
 	static constexpr size_t NUM_ROUNDS = 11;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
@@ -53,4 +73,5 @@ void KMeans(PointSet& P, PointSet& centroids, size_t d, size_t n) {
 		AggregateClusters(P, centroids, closest_center);
 		// TODO stop early?
 	}
+	return closest_center;
 }

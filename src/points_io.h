@@ -21,7 +21,6 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
     points.n = n; points.d = d;
     points.coordinates.resize(points.n * points.d);
     in.read(reinterpret_cast<char*>(&points.coordinates[0]), points.n * points.d * sizeof(float));
-    points.Init();
     return points;
 }
 

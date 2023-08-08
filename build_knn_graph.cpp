@@ -9,7 +9,7 @@ void Normalize(PointSet& points) {
         float* p = points.GetPoint(i);
         bool all_zero = true;
         for (size_t j = 0; j < points.d; ++j) {
-            if (p[j] != 0) {
+            if (p[j] != 0.0f) {
                 all_zero = false;
                 break;
             }
@@ -19,7 +19,7 @@ void Normalize(PointSet& points) {
         }
         efanna2e::DistanceFastL2 dst;
         float norm = dst.norm(p, points.d);
-        if (norm < 1e-9) {
+        if (norm < 1e-9f) {
             std::cout << "tiny norm" << std::endl;
         }
         for (size_t j = 0; j < points.d; ++j) {
