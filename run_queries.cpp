@@ -17,6 +17,7 @@ void Normalize(PointSet& points) {
 }
 
 int main(int argc, const char* argv[]) {
+    // TODO parse parameters
     if (argc != 5) {
         std::cerr << "Usage ./RunQueries input-points queries k partition" << std::endl;
         std::abort();
@@ -38,7 +39,17 @@ int main(int argc, const char* argv[]) {
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
-    std::cout << "k=" << k << std::endl;
+    KMeansTreeRouter router;
+    Options options;
+    options.budget = 50000;
+    auto tx = std::chrono::high_resolution_clock::now();
+    router.Train(points, partition, options);
+    auto ty = std::chrono::high_resolution_clock::now();
+    double time_training = (ty-tx).count() / 1e6;
+    std::cout << "Training the router took " << time_training << " ms" << std::endl;
+
+    return 0;
+
     queries.n = 20;
 
     if (true) {
@@ -49,12 +60,10 @@ int main(int argc, const char* argv[]) {
         std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
     }
 
+
     std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
 
     std::cout << "Computed distance to kth neighbor" << std::endl;
-
-    InvertedIndex inverted_index(points, partition, k);
-    KMeansTreeRouter router;
 
 
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
@@ -70,6 +79,8 @@ int main(int argc, const char* argv[]) {
 
     std::vector<double> time_per_num_probes(num_shards, 0.0);
     std::vector<double> recall_per_num_probes(num_shards, 0.0);
+
+    InvertedIndex inverted_index(points, partition, k);
 
     for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
 

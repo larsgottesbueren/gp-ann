@@ -26,7 +26,7 @@ int main(int argc, const char* argv[]) {
     std::string k_string = argv[3];
     int k = std::stoi(k_string);
     PointSet points = ReadPoints(input_file);
-    if (true) {
+    if (false) {
         Normalize(points);
     }
     AdjGraph knn_graph = BuildKNNGraph(points, k);
