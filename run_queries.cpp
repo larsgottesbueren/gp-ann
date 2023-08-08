@@ -6,16 +6,14 @@
 #include "kmeans_tree.h"
 #include "inverted_index.h"
 
-
 void Normalize(PointSet& points) {
     for (size_t i = 0; i < points.n; ++i) {
         float* p = points.GetPoint(i);
-        efanna2e::DistanceFastL2 dst;
-        float norm = dst.norm(p, points.d);
-        for (size_t j = 0; j < points.d; ++j) {
-            p[j] /= norm;
+        if (!L2Normalize(p, points.d)) {
+            std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
         }
     }
+    std::cout << "finished normalizing" << std::endl;
 }
 
 int main(int argc, const char* argv[]) {

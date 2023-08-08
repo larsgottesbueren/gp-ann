@@ -134,6 +134,20 @@ float mips_distance(float *p, float *q, unsigned d){
     return -result;
 }
 
+double vec_norm(float* p, unsigned d) {
+    double result = 0.f;
+    for (unsigned i = 0; i < d; ++i) result += p[i] * p[i];
+    return result;
+}
+
+bool L2Normalize(float* p, unsigned d) {
+    double norm = vec_norm(p, d);
+    if (norm < 1e-10) return false;
+    double sqrt_norm = std::sqrt(norm);
+    for (unsigned i = 0; i < d; ++i) p[i] /= sqrt_norm;
+    return false;
+}
+
 float distance(float *p, float *q, unsigned d) {
     #if false
     return mips_distance(p, q, d);
