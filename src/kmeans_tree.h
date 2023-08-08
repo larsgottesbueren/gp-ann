@@ -23,6 +23,7 @@ struct KMeansTreeRouter {
         num_shards = buckets.size();
         roots.resize(num_shards);
 
+        dim = points.d;
         double split = static_cast<double> (options.budget) / static_cast<double> (partition.size());
 
         parlay::parallel_for(0, num_shards, [&](size_t b) {
@@ -108,16 +109,49 @@ struct KMeansTreeRouter {
         float dist = 0.f;
         int shard_id = -1;
         TreeNode* node = nullptr;
+        bool operator>(const PQEntry& other) const {
+            return dist > other.dist;
+        }
     };
 
 
-    std::vector<int> Query(float* Q, int num_shards) {
+    bool centroids_in_roots = false;
+    uint32_t dim = 0;
+
+    std::vector<int> Query(float* Q, int budget) {
+        // TODO optimize
+        // a) avoid re-allocs of PQ and probes vector
+        //
         std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
+        std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
+
+        for (int u = 0; u < roots.size(); ++u) {
+            float dist = 0.f;
+            if (centroids_in_roots) {
+                dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
+                budget--;
+            }
+            pq.push(PQEntry{dist, u, &roots[u]});
+        }
+
+        while (!pq.empty() && budget > 0) {
+            PQEntry top = pq.top(); pq.pop();
+            budget -= top.node->centroids.n;
+            for (int i = 0; i < top.node->centroids.n; ++i) {
+                float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
+                min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
+                if (i < top.node->children.size()) {
+                    pq.push(PQEntry{dist, top.shard_id, &top.node->children[i]});
+                }
+            }
+        }
+
         std::vector<int> probes(num_shards);
-        for (int i = 0; i < num_shards; ++i) { probes[i] = i; }
+        std::iota(probes.begin(), probes.end(), 0);
+        std::sort(probes.begin(), probes.end(), [&](int l, int r) {
+            return min_dist[l] < min_dist[r];
+        });
         return probes;
-
-
     }
 
 };

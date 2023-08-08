@@ -7,10 +7,8 @@ struct InvertedIndex {
     PointSet reordered_P;
     std::vector<int> offsets;
     std::vector<int> permutation;
-    TopN top_k;
 
-    InvertedIndex(PointSet& P, const std::vector<int>& partition, int k) :
-        top_k(k)
+    InvertedIndex(PointSet& P, const std::vector<int>& partition)
     {
         int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
         offsets.assign(num_shards+1, 0);
@@ -24,7 +22,6 @@ struct InvertedIndex {
             inverse_permutation[i] = off[b];
             permutation[off[b]++] = i;
         }
-        std::cout << "a" << std::endl;
 
         reordered_P.n = P.n; reordered_P.d = P.d;
         reordered_P.coordinates.reserve(P.coordinates.size());
@@ -55,7 +52,8 @@ struct InvertedIndex {
 
     }
 
-    NNVec Query(float* Q, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
+    NNVec Query(float* Q, int k, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
+        TopN top_k(k);
         for (size_t j = 0; j < num_buckets_to_probe; ++j) {
             int b = buckets_to_probe[j];
             for (int i = offsets[b]; i < offsets[b+1]; ++i) {

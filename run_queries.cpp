@@ -48,9 +48,7 @@ int main(int argc, const char* argv[]) {
     double time_training = (ty-tx).count() / 1e6;
     std::cout << "Training the router took " << time_training << " ms" << std::endl;
 
-    return 0;
-
-    queries.n = 20;
+    // queries.n = 100;
 
     if (true) {
         std::cout << "start computing ground truth" << std::endl;
@@ -69,10 +67,14 @@ int main(int argc, const char* argv[]) {
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
     std::vector<NNVec> neighbors_by_query(queries.n);
 
+    int search_budget = 10000;
+
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < queries.n; ++i) {
-        buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), num_shards);
+    parlay::parallel_for(0, queries.n, [&](size_t i) {
+    //for (size_t i = 0; i < queries.n; ++i) {
+        buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), search_budget);
     }
+    );
     auto t2 = std::chrono::high_resolution_clock::now();
     double time_routing = (t2-t1).count() / 1e6;
     std::cout << "Routing took " << time_routing << " ms overall, and " << time_routing / queries.n << " per query" << std::endl;
@@ -80,15 +82,17 @@ int main(int argc, const char* argv[]) {
     std::vector<double> time_per_num_probes(num_shards, 0.0);
     std::vector<double> recall_per_num_probes(num_shards, 0.0);
 
-    InvertedIndex inverted_index(points, partition, k);
+    InvertedIndex inverted_index(points, partition);
 
     for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
 
         auto t3 = std::chrono::high_resolution_clock::now();
-        for (size_t i = 0; i < queries.n; ++i) {
+        parlay::parallel_for(0, queries.n, [&](size_t i) {
+        // for (size_t i = 0; i < queries.n; ++i) {
             float* Q = queries.GetPoint(i);
-            neighbors_by_query[i] = inverted_index.Query(Q, buckets_to_probe_by_query[i], num_probes);
+            neighbors_by_query[i] = inverted_index.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
         }
+        );
         auto t4 = std::chrono::high_resolution_clock::now();
         std::cout << "finished query. now compute recall" << std::endl;
         double recall = Recall(neighbors_by_query, distance_to_kth_neighbor, k);
