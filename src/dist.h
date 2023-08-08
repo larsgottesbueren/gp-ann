@@ -142,10 +142,17 @@ double vec_norm(float* p, unsigned d) {
 
 bool L2Normalize(float* p, unsigned d) {
     double norm = vec_norm(p, d);
-    if (norm < 1e-10) return false;
+    if (norm < 1e-10) {
+        std::cerr << "Vector is fully zero " << std::endl;
+        for (unsigned i = 0; i < d; ++i) {
+            std::cerr << p[i] << " ";
+        }
+        std::cerr << std::endl;
+        return false;
+    }
     double sqrt_norm = std::sqrt(norm);
     for (unsigned i = 0; i < d; ++i) p[i] /= sqrt_norm;
-    return false;
+    return true;
 }
 
 float distance(float *p, float *q, unsigned d) {
