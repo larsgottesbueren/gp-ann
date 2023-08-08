@@ -36,11 +36,43 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
 			C[j] += Pi[j];
 		}
 	}
+
+	bool any_zero = false;
 	for (size_t i = 0; i < centroids.n; ++i) {
 		float* C = centroids.GetPoint(i);
+		if (cluster_size[i] == 0) {
+		    any_zero = true;
+		    continue;
+		}
 		for (size_t j = 0; j < P.d; ++j) {
 			C[j] /= cluster_size[i];
 		}
+	}
+
+	if (any_zero) {
+	    std::vector<int> remapped_cluster_ids(centroids.n, -1);
+	    size_t l = 0;
+	    for (size_t r = 0; r < centroids.n; ++r) {
+	        if (cluster_size[r] != 0) {
+	            if (l != r) {       // don't do the copy if not necessary
+                    float* L = centroids.GetPoint(l);
+                    float* R = centroids.GetPoint(r);
+                    for (size_t j = 0; j < centroids.d; ++j) {
+                        L[j] = R[j];
+                    }
+	            }
+	            remapped_cluster_ids[r] = l;
+                l++;
+            }
+	    }
+	    // std::cout << "Removed " << (centroids.n - l) << " empty clusters" << std::endl;
+	    centroids.n = l;
+	    if (centroids.n <= 10) {
+	        std::cout << "<= 10 clusters left -.-" << std::endl;
+	    }
+	    for (int& cluster_id : closest_center) {
+            cluster_id = remapped_cluster_ids[cluster_id];
+	    }
 	}
 }
 

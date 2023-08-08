@@ -12,6 +12,7 @@ struct Options {
     size_t num_centroids = 64;
     size_t min_cluster_size = 250;
     int64_t budget = 50000;
+    int64_t search_budget = 10000;
 };
 
 struct KMeansTreeRouter {
@@ -53,6 +54,12 @@ struct KMeansTreeRouter {
 
         options.budget -= tree_node.centroids.n;
         if (options.budget <= 0) return;
+
+        if (tree_node.centroids.n == 1) {
+            std::cout << "LOADS of DUPES" << std::endl;
+            // Don't split it further. There's no use.
+            return;
+        }
 
         tree_node.children.resize(num_buckets_in_recursion);
 
@@ -118,6 +125,8 @@ struct KMeansTreeRouter {
     bool centroids_in_roots = false;
     uint32_t dim = 0;
 
+    #define PRINT false
+
     std::vector<int> Query(float* Q, int budget) {
         // TODO optimize
         // a) avoid re-allocs of PQ and probes vector
@@ -126,7 +135,7 @@ struct KMeansTreeRouter {
         std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
         for (int u = 0; u < roots.size(); ++u) {
-            float dist = 0.f;
+            float dist = std::numeric_limits<float>::lowest();
             if (centroids_in_roots) {
                 dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
                 budget--;
@@ -134,9 +143,14 @@ struct KMeansTreeRouter {
             pq.push(PQEntry{dist, u, &roots[u]});
         }
 
+        size_t iter = 0;
+
         while (!pq.empty() && budget > 0) {
             PQEntry top = pq.top(); pq.pop();
             budget -= top.node->centroids.n;
+            #if PRINT
+            std::cout << "iter " << iter++ << " dist " << top.dist << " shard " << top.shard_id << " budget " << budget << " num centroids " << top.node->centroids.n << std::endl;
+            #endif
             for (int i = 0; i < top.node->centroids.n; ++i) {
                 float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
                 min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
@@ -151,6 +165,15 @@ struct KMeansTreeRouter {
         std::sort(probes.begin(), probes.end(), [&](int l, int r) {
             return min_dist[l] < min_dist[r];
         });
+
+        #if PRINT
+        std::cout << "done" << std::endl;
+        std::cout << "min dists ";
+        for (int i = 0; i < num_shards; ++i) {
+            std::cout << min_dist[i] << " ";
+        }
+        std::cout << std::endl;
+        #endif
         return probes;
     }
 

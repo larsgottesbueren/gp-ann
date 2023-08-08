@@ -156,7 +156,7 @@ bool L2Normalize(float* p, unsigned d) {
 }
 
 float distance(float *p, float *q, unsigned d) {
-    #if false
+    #if true
     return mips_distance(p, q, d);
     #else
     efanna2e::DistanceL2 distfunc;
