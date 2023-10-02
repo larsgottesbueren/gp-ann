@@ -19,7 +19,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     for (int part_id : partition) cluster_sizes[part_id]++;
 
     int next_part_id = num_clusters;
-    for (int part_id = 0; part_id < cluster_sizes.size(); ++part_id) {
+    for (int part_id = 0; part_id < int(cluster_sizes.size()); ++part_id) {
         if (cluster_sizes[part_id] > max_cluster_size) {
             // Determine nodes in the cluster (could do it for all clusters at once, be we assume that this happens for 1-2 clusters --> this is faster and uses less memory)
             std::vector<uint32_t> cluster;
@@ -35,7 +35,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
             cluster_point_set.n = cluster.size();
             for (uint32_t point_id : cluster) {
                 float* P = points.GetPoint(point_id);
-                for (int d = 0; d < points.d; ++d) {
+                for (size_t d = 0; d < points.d; ++d) {
                     cluster_point_set.coordinates.push_back(P[d]);
                 }
             }
