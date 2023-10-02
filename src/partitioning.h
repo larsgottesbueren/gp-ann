@@ -63,6 +63,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, int num_clusters,
 std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double epsilon) {
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    Symmetrize(knn_graph);
 
     // TODO call kaminpar
     std::vector<int> partition;
