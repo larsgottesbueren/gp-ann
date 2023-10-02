@@ -12,6 +12,14 @@ std::vector<int> ReadMetisPartition(const std::string& path) {
     return partition;
 }
 
+void WriteMetisPartition(const std::vector<int>& partition, const std::string& path) {
+    std::ofstream out(path);
+    for (int p : partition) {
+        out << p << "\n";
+    }
+    out.close();
+}
+
 void WriteMetisGraph(const std::string& path, const AdjGraph& graph) {
     uint64_t num_edges = 0;
     for (const auto& n : graph) num_edges += n.size();
