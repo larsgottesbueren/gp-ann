@@ -3,6 +3,8 @@
 #include "kmeans.h"
 #include "knn_graph.h"
 
+#include <kaminpar/kaminpar.h>
+
 std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int num_clusters = -1) {
     if (num_clusters < 0) {
         num_clusters = static_cast<int>(points.n / max_cluster_size);
@@ -65,8 +67,25 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     Symmetrize(knn_graph);
 
-    // TODO call kaminpar
-    std::vector<int> partition;
+    // convert AdjList to CSR
+    std::vector<kaminpar::shm::EdgeID> xadj(1, 0);
+    size_t num_edges = 0; for (const auto& n : knn_graph) num_edges += n.size();
+    std::vector<kaminpar::shm::NodeID> adjncy;
+    xadj.reserve(points.n + 1); adjncy.reserve(num_edges);
+    for (const auto& n : knn_graph) {
+        for (const int neighbor : n) {
+            adjncy.push_back(neighbor);
+        }
+        xadj.push_back(adjncy.size());
+    }
 
+    // call kaminpar
+    std::vector<kaminpar::shm::BlockID> kaminpar_partition(points.n, -1);
+    kaminpar::KaMinPar shm(std::thread::hardware_concurrency(), kaminpar::shm::create_default_context());
+    shm.take_graph(points.n, xadj.data(), adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
+    shm.compute_partition(555, num_clusters, kaminpar_partition.data());
+
+    std::vector<int> partition(points.n);
+    for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
     return partition;
 }
