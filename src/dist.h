@@ -163,3 +163,13 @@ float distance(float *p, float *q, unsigned d) {
     return distfunc.compare(p, q, d);
     #endif
 }
+
+void Normalize(PointSet& points) {
+    for (size_t i = 0; i < points.n; ++i) {
+        float* p = points.GetPoint(i);
+        if (!L2Normalize(p, points.d)) {
+            std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
+        }
+    }
+    std::cout << "finished normalizing" << std::endl;
+}

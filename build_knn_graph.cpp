@@ -1,19 +1,9 @@
 #include <iostream>
-#include <iomanip>
 
 #include "knn_graph.h"
 #include "points_io.h"
 #include "metis_io.h"
 
-void Normalize(PointSet& points) {
-    for (size_t i = 0; i < points.n; ++i) {
-        float* p = points.GetPoint(i);
-        if (!L2Normalize(p, points.d)) {
-            std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
-        }
-    }
-    std::cout << "finished normalizing" << std::endl;
-}
 
 int main(int argc, const char* argv[]) {
     if (argc != 4) {
