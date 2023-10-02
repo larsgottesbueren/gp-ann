@@ -143,8 +143,10 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
                 }
             }
 
+            // Partition recursively
             std::vector<int> sub_partition = RecursiveKMeansPartitioning(cluster_point_set, max_cluster_size);
 
+            // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
             for (uint32_t sub_point_id = 0; sub_point_id < cluster.size(); ++sub_point_id) {
                 uint32_t point_id = cluster[sub_point_id];
