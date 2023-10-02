@@ -1,3 +1,6 @@
 [submodule "external/parlaylib"]
 	path = external/parlaylib
 	url = git@github.com:cmuparlay/parlaylib.git
+[submodule "external/KaMinPar"]
+	path = external/KaMinPar
+	url = git@github.com:KaHIP/KaMinPar.git
