@@ -91,3 +91,16 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
     for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
     return partition;
 }
+
+std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon) {
+    // Subsample points
+
+    // Aggregate via k-means
+
+    // Build kNN graph and partition
+
+    // Assign points to the partition of the closest point in the aggregate set
+    // Fix balance by assigning to the second closest etc.
+
+    return { };
+}
