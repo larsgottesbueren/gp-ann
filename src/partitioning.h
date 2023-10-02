@@ -81,7 +81,9 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
 
     // call kaminpar
     std::vector<kaminpar::shm::BlockID> kaminpar_partition(points.n, -1);
-    kaminpar::KaMinPar shm(std::thread::hardware_concurrency(), kaminpar::shm::create_default_context());
+    auto context = kaminpar::shm::create_default_context();
+    context.partition.epsilon = epsilon;
+    kaminpar::KaMinPar shm(std::thread::hardware_concurrency(), context);
     shm.take_graph(points.n, xadj.data(), adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
     shm.compute_partition(555, num_clusters, kaminpar_partition.data());
 
