@@ -182,10 +182,6 @@ struct ApproximateKNNGraphBuilder {
     static constexpr int FANOUT = 3;
 };
 
-
-
-
-
 void Symmetrize(AdjGraph& graph) {
     std::vector<size_t> degrees; degrees.reserve(graph.size());
     for (const auto& n : graph) degrees.push_back(n.size());
