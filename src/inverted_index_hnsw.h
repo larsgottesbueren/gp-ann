@@ -22,7 +22,7 @@ struct InvertedIndexHNSW {
         for (int x : partition) bucket_size[x]++;
 
         for (int b = 0; b < num_shards; ++b) {
-            bucket_hnsws[b] = new hnswlib::HierarchicalNSW<float>(&space, bucket_size[b], M, ef_construction, /* seed = */ 555 + b);
+            bucket_hnsws[b] = new hnswlib::HierarchicalNSW<float>(&space, bucket_size[b], M, ef_construction, /* random_seed = */ 555 + b);
         }
 
         parlay::parallel_for(0, points.n, [&](size_t i) {
@@ -37,7 +37,7 @@ struct InvertedIndexHNSW {
         }
     }
 
-    NNVec Query(float* Q, int num_neighbors, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
+    NNVec Query(float* Q, int num_neighbors, const std::vector<int>& buckets_to_probe) const {
         TopN top_k(num_neighbors);
         for (int bucket : buckets_to_probe) {
             std::priority_queue<std::pair<float, hnswlib::labeltype>> result = bucket_hnsws[bucket]->searchKnn(Q, num_neighbors);
