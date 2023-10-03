@@ -11,6 +11,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 
 add_subdirectory(external/parlaylib)
 add_subdirectory(external/KaMinPar)
+add_subdirectory(external/hnswlib)
 
 include_directories("src")
 
