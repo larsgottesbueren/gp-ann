@@ -26,10 +26,8 @@ struct InvertedIndexHNSW {
         }
 
         parlay::parallel_for(0, points.n, [&](size_t i) {
-            int b = partition[i];
-            auto hnsw = bucket_hnsws[b];
             float* p = points.GetPoint(i);
-            hnsw->addPoint(p, i);
+            bucket_hnsws[partition[i]]->addPoint(p, i);
         });
     }
 
