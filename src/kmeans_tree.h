@@ -177,4 +177,26 @@ struct KMeansTreeRouter {
         return probes;
     }
 
+    std::pair<PointSet, std::vector<int>> ExtractPoints() {
+        PointSet points;
+        points.d = roots[0].centroids.d;
+        std::vector<int> offsets(1, 0);
+
+        for (TreeNode& root : roots) {
+            std::queue<TreeNode*> queue;
+            queue.push(&root);
+            while (!queue.empty()) {
+                TreeNode* u = queue.front(); queue.pop();
+                for (TreeNode& c : u->children) {
+                    queue.push(&c);
+                }
+                points.coordinates.insert(points.coordinates.end(), u->centroids.coordinates.begin(), u->centroids.coordinates.end());
+                points.n += u->centroids.n;
+            }
+            offsets.push_back(points.n);
+        }
+
+        return std::make_pair(std::move(points), std::move(offsets));
+    }
+
 };

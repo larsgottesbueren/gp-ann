@@ -5,7 +5,7 @@
 
 struct PointSet {
   std::vector<float> coordinates;   // potentially empty
-  size_t d, n;
+  size_t d = 0, n = 0;
   float* GetPoint(size_t i) { return &coordinates[i*d]; }
 };
 
