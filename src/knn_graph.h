@@ -115,7 +115,7 @@ struct ApproximateKNNGraphBuilder {
     }
 
 
-    std::vector<std::vector<TopN::value_type>> CrunchBucket(PointSet& points, const Bucket& bucket, int num_neighbors) {
+    std::vector<NNVec> CrunchBucket(PointSet& points, const Bucket& bucket, int num_neighbors) {
         std::vector<TopN> neighbors(bucket.size(), TopN(num_neighbors));
         for (size_t i = 0; i < bucket.size(); ++i) {
             float* P = points.GetPoint(bucket[i]);
@@ -127,7 +127,7 @@ struct ApproximateKNNGraphBuilder {
             }
         }
 
-        std::vector<std::vector<TopN::value_type>> result(bucket.size());
+        std::vector<NNVec> result(bucket.size());
         for (size_t i = 0; i < bucket.size(); ++i) {
             result[i] = neighbors[i].Take();
         }
@@ -136,7 +136,7 @@ struct ApproximateKNNGraphBuilder {
 
     AdjGraph BruteForceBuckets(PointSet& points, std::vector<Bucket>& buckets, int num_neighbors) {
         std::vector<SpinLock> locks(points.n);
-        std::vector<std::vector<TopN::value_type>> top_neighbors(points.n);
+        std::vector<NNVec> top_neighbors(points.n);
         parlay::parallel_for(0, buckets.size(), [&](size_t bucket_id) {
             auto& bucket = buckets[bucket_id];
             auto bucket_neighbors = CrunchBucket(points, bucket, num_neighbors);
