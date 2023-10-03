@@ -5,6 +5,7 @@
 #include "recall.h"
 #include "kmeans_tree.h"
 #include "inverted_index.h"
+#include "inverted_index_hnsw.h"
 
 int main(int argc, const char* argv[]) {
     // TODO parse parameters

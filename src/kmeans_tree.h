@@ -134,7 +134,7 @@ struct KMeansTreeRouter {
         std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
         std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
-        for (int u = 0; u < roots.size(); ++u) {
+        for (size_t u = 0; u < roots.size(); ++u) {
             float dist = std::numeric_limits<float>::lowest();
             if (centroids_in_roots) {
                 dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
@@ -151,7 +151,7 @@ struct KMeansTreeRouter {
             #if PRINT
             std::cout << "iter " << iter++ << " dist " << top.dist << " shard " << top.shard_id << " budget " << budget << " num centroids " << top.node->centroids.n << std::endl;
             #endif
-            for (int i = 0; i < top.node->centroids.n; ++i) {
+            for (size_t i = 0; i < top.node->centroids.n; ++i) {
                 float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
                 min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
                 if (i < top.node->children.size()) {
