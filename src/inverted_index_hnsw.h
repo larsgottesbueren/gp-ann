@@ -39,7 +39,16 @@ struct InvertedIndexHNSW {
         }
     }
 
-    NNVec Query(float* Q, int k, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
-        return {};
+    NNVec Query(float* Q, int num_neighbors, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
+        TopN top_k(num_neighbors);
+        for (int bucket : buckets_to_probe) {
+            std::priority_queue<std::pair<float, hnswlib::labeltype>> result = bucket_hnsws[bucket]->searchKnn(Q, num_neighbors);
+            while (!result.empty()) {
+                const auto [dist, label] = result.top();
+                result.pop();
+                top_k.Add(std::make_pair(dist, label));
+            }
+        }
+        return top_k.Take();
     }
 };
