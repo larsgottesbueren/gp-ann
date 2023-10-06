@@ -6,7 +6,6 @@
 #include <type_traits>
 #include <math.h>
 
-
 namespace efanna2e {
 
     class Distance {

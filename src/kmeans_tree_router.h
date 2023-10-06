@@ -198,5 +198,4 @@ struct KMeansTreeRouter {
 
         return std::make_pair(std::move(points), std::move(offsets));
     }
-
 };
