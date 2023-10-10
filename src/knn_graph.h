@@ -61,6 +61,8 @@ struct ApproximateKNNGraphBuilder {
             return { ids };
         }
 
+        if (depth == 0) { timer.Start(); }
+
         // sample leaders
         size_t num_leaders = depth == 0 ? TOP_LEVEL_NUM_LEADERS : ids.size() * FRACTION_LEADERS;
         num_leaders = std::min<size_t>(num_leaders, 5000);
@@ -92,6 +94,10 @@ struct ApproximateKNNGraphBuilder {
         });
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
         leaders.clear(); leaders.shrink_to_fit();
+
+        if (depth == 0) {
+            std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
+        }
 
         // recurse on clusters
         std::vector<Bucket> buckets;
@@ -205,6 +211,8 @@ struct ApproximateKNNGraphBuilder {
     static constexpr int MAX_DEPTH = 20;
     static constexpr int CONCERNING_DEPTH = 12;
     static constexpr double TOO_SMALL_SHRINKAGE_FRACTION = 0.9;
+
+    Timer timer;
 };
 
 void Symmetrize(AdjGraph& graph) {

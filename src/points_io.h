@@ -53,7 +53,6 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
 
     std::cout << "Read took " << timer.Stop() << std::endl;
 
-    std::exit(0);
     return points;
 }
 
