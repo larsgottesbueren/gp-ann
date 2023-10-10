@@ -56,7 +56,7 @@ struct ApproximateKNNGraphBuilder {
         return top_k;
     }
 
-    std::vector<Bucket> RecursivelySketch(PointSet& points, const Bucket& ids, int depth, int fanout=1) {
+    std::vector<Bucket> RecursivelySketch(PointSet& points, const Bucket& ids, int depth, int fanout) {
         if (ids.size() <= MAX_CLUSTER_SIZE) {
             return { ids };
         }
@@ -64,6 +64,7 @@ struct ApproximateKNNGraphBuilder {
         // sample leaders
         size_t num_leaders = depth == 0 ? TOP_LEVEL_NUM_LEADERS : ids.size() * FRACTION_LEADERS;
         num_leaders = std::min<size_t>(num_leaders, 5000);
+        num_leaders = std::max<size_t>(num_leaders, 3);
         Bucket leaders(num_leaders);
         std::mt19937 prng(seed);
         std::sample(ids.begin(), ids.end(), leaders.begin(), leaders.size(), prng);
@@ -74,6 +75,7 @@ struct ApproximateKNNGraphBuilder {
         parlay::parallel_for(0, ids.size(), [&](size_t i) {
             auto point_id = ids[i];
             auto closest_leaders = ClosestLeaders(points, leaders, point_id, fanout).Take();
+
             while (!closest_leaders.empty()) {
                 for (size_t j = 0; j < closest_leaders.size(); ++j) {
                     const auto leader = closest_leaders[j].second;
@@ -89,12 +91,29 @@ struct ApproximateKNNGraphBuilder {
             }
         });
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
+        leaders.clear(); leaders.shrink_to_fit();
 
         // recurse on clusters
         std::vector<Bucket> buckets;
         SpinLock bucket_lock;
         parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
-            auto recursive_buckets = RecursivelySketch(points, clusters[cluster_id], depth + 1, /*fanout=*/1);
+            std::vector<Bucket> recursive_buckets;
+            if (depth > MAX_DEPTH || (depth > CONCERNING_DEPTH && clusters[cluster_id].size() > TOO_SMALL_SHRINKAGE_FRACTION * ids.size())) {
+                // Base case for duplicates and near-duplicates. Split the buckets randomly
+                auto ids_copy = ids;
+                std::mt19937 prng(seed + depth + ids.size());
+                std::shuffle(ids_copy.begin(), ids_copy.end(), prng);
+                for (size_t i = 0; i < ids_copy.size(); i += MAX_CLUSTER_SIZE) {
+                    auto& new_bucket = recursive_buckets.emplace_back();
+                    for (size_t j = 0; j < MAX_CLUSTER_SIZE; ++j) {
+                        new_bucket.push_back(ids_copy[j]);
+                    }
+                }
+            } else {
+                // The normal case
+                recursive_buckets = RecursivelySketch(points, clusters[cluster_id], depth + 1, /*fanout=*/1);
+            }
+
             bucket_lock.lock();
             buckets.insert(buckets.end(), recursive_buckets.begin(), recursive_buckets.end());
             bucket_lock.unlock();
@@ -183,6 +202,9 @@ struct ApproximateKNNGraphBuilder {
     static constexpr size_t MAX_CLUSTER_SIZE = 3500;
     static constexpr int REPETITIONS = 3;
     static constexpr int FANOUT = 3;
+    static constexpr int MAX_DEPTH = 20;
+    static constexpr int CONCERNING_DEPTH = 12;
+    static constexpr double TOO_SMALL_SHRINKAGE_FRACTION = 0.9;
 };
 
 void Symmetrize(AdjGraph& graph) {
