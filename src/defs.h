@@ -8,6 +8,7 @@ struct PointSet {
   std::vector<float> coordinates;   // potentially empty
   size_t d = 0, n = 0;
   float* GetPoint(size_t i) { return &coordinates[i*d]; }
+  void Drop() { coordinates.clear(); coordinates.shrink_to_fit(); }
 };
 
 using AdjGraph = std::vector<std::vector<int>>;

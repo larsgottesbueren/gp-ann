@@ -45,15 +45,28 @@ struct ApproximateKNNGraphBuilder {
         return top_k;
     }
 
-    static TopN ClosestLeaders(PointSet& points, const Bucket& leaders, uint32_t my_id, int k) {
+    static TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
         TopN top_k(k);
         float* Q = points.GetPoint(my_id);
-        for (uint32_t j = 0; j < leaders.size(); ++j) {
-            float* P = points.GetPoint(leaders[j]);
+        for (uint32_t j = 0; j < leader_points.n; ++j) {
+            float* P = leader_points.GetPoint(j);
             float dist = distance(P, Q, points.d);
             top_k.Add(std::make_pair(dist, j));
         }
         return top_k;
+    }
+
+    PointSet ExtractPoints(PointSet& points, const Bucket& ids) {
+        PointSet bucket_points;
+        bucket_points.d = points.d;
+        bucket_points.n = ids.size();
+        for (auto id : ids) {
+            float* P = points.GetPoint(id);
+            for (int d = 0; d < points.d; ++d) {
+                bucket_points.coordinates.push_back(P[d]);
+            }
+        }
+        return bucket_points;
     }
 
     std::vector<Bucket> RecursivelySketch(PointSet& points, const Bucket& ids, int depth, int fanout) {
@@ -71,12 +84,14 @@ struct ApproximateKNNGraphBuilder {
         std::mt19937 prng(seed);
         std::sample(ids.begin(), ids.end(), leaders.begin(), leaders.size(), prng);
 
+        PointSet leader_points = ExtractPoints(points, leaders);
+
         // find closest leaders and build clusters around leaders
         std::vector<Bucket> clusters(leaders.size());
         std::vector<SpinLock> cluster_locks(leaders.size());
         parlay::parallel_for(0, ids.size(), [&](size_t i) {
             auto point_id = ids[i];
-            auto closest_leaders = ClosestLeaders(points, leaders, point_id, fanout).Take();
+            auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
 
             for (auto & closest_leader : closest_leaders) {
                 const auto leader = closest_leader.second;
@@ -87,6 +102,7 @@ struct ApproximateKNNGraphBuilder {
         });
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
         leaders.clear(); leaders.shrink_to_fit();
+        leader_points.Drop();
 
         if (depth == 0) {
             std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
@@ -137,15 +153,7 @@ struct ApproximateKNNGraphBuilder {
 
 
     std::vector<NNVec> CrunchBucket(PointSet& points, const Bucket& bucket, int num_neighbors) {
-        PointSet bucket_points;
-        bucket_points.d = points.d;
-        bucket_points.n = bucket.size();
-        for (size_t id : bucket) {
-            float* P = points.GetPoint(id);
-            for (int d = 0; d < points.d; ++d) {
-                bucket_points.coordinates.push_back(P[d]);
-            }
-        }
+        PointSet bucket_points = ExtractPoints(points, bucket);
 
         std::vector<TopN> neighbors(bucket.size(), TopN(num_neighbors));
 
