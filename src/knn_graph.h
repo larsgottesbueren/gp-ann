@@ -137,11 +137,22 @@ struct ApproximateKNNGraphBuilder {
 
 
     std::vector<NNVec> CrunchBucket(PointSet& points, const Bucket& bucket, int num_neighbors) {
+        PointSet bucket_points;
+        bucket_points.d = points.d;
+        bucket_points.n = bucket.size();
+        for (size_t id : bucket) {
+            float* P = points.GetPoint(id);
+            for (int d = 0; d < points.d; ++d) {
+                bucket_points.coordinates.push_back(P[d]);
+            }
+        }
+
         std::vector<TopN> neighbors(bucket.size(), TopN(num_neighbors));
+
         for (size_t i = 0; i < bucket.size(); ++i) {
-            float* P = points.GetPoint(bucket[i]);
+            float* P = bucket_points.GetPoint(i);
             for (size_t j = i + 1; j < bucket.size(); ++j) {
-                float* Q = points.GetPoint(bucket[j]);
+                float* Q = bucket_points.GetPoint(j);
                 float dist = distance(P, Q, points.d);
                 neighbors[i].Add(std::make_pair(dist, bucket[j]));
                 neighbors[j].Add(std::make_pair(dist, bucket[i]));
@@ -160,9 +171,6 @@ struct ApproximateKNNGraphBuilder {
         std::vector<NNVec> top_neighbors(points.n);
 
         std::cout << "Number of buckets to crunch " << buckets.size() << std::endl;
-
-        size_t num_buckets_finished = 0;
-        size_t output_time_every_x_buckets = buckets.size() / 50;
 
         timer.Start();
 
@@ -183,6 +191,7 @@ struct ApproximateKNNGraphBuilder {
 
                 locks[point_id].unlock();
             }
+
         }, 1);
 
         std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
