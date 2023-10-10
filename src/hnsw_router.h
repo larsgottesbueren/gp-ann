@@ -4,7 +4,13 @@
 #include "dist.h"
 
 struct HNSWRouter {
-    HNSWRouter(PointSet& routing_points, const std::vector<int>& partition_offsets) {
+    PointSet routing_points;
+    std::vector<int> partition_offsets
+
+    HNSWRouter(PointSet routing_points, std::vector<int> partition_offsets) :
+        routing_points(std::move(routing_points)),
+        partition_offsets(std::move(partition_offsets))
+    {
 
     }
 

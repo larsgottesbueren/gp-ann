@@ -108,9 +108,12 @@ struct ApproximateKNNGraphBuilder {
         std::iota(all_ids.begin(), all_ids.end(), 0);
         std::vector<Bucket> buckets;
         for (int rep = 0; rep < REPETITIONS; ++rep) {
+            std::cout << "Graph building rep " << rep << std::endl;
             std::vector<Bucket> new_buckets = RecursivelySketch(points, all_ids, 0, FANOUT);
+            std::cout << "Finished sketching" << std::endl;
             buckets.insert(buckets.end(), new_buckets.begin(), new_buckets.end());
         }
+        std::cout << "Start bucket brute force" << std::endl;
         return BruteForceBuckets(points, buckets, num_neighbors);
     }
 

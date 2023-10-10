@@ -21,5 +21,6 @@ int main(int argc, const char* argv[]) {
     }
 
     std::vector<int> partition = GraphPartitioning(points, k, 0.05);
+    std::cout << "Finished partitioning" << std::endl;
     WriteMetisPartition(partition, output_file);
 }

@@ -15,5 +15,5 @@ using NNVec = std::vector<std::pair<float, uint32_t>>;
 
 struct HNSWParameters {
     int M = 16;
-    nt ef_construction = 200;
+    int ef_construction = 200;
 };
