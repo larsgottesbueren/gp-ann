@@ -169,34 +169,23 @@ struct ApproximateKNNGraphBuilder {
         parlay::parallel_for(0, buckets.size(), [&](size_t bucket_id) {
             auto& bucket = buckets[bucket_id];
             auto bucket_neighbors = CrunchBucket(points, bucket, num_neighbors);
-            #if false
-            while (!bucket.empty()) {
-                for (size_t j = 0; j < bucket.size(); ++j) {
-                    auto point_id = bucket[j];
-                    if (locks[point_id].tryLock()) {
-                        // insert new neighbors. due to possible duplicate neighbors, we can't insert directly into the top-k data structure, and instead have to do this
-                        auto& n = top_neighbors[point_id];
-                        n.insert(n.end(), bucket_neighbors[j].begin(), bucket_neighbors[j].end());
-                        std::sort(n.begin(), n.end(), [](const auto& l, const auto& r) {return std::tie(l.second, l.first) < std::tie(r.second, r.first);});
-                        n.erase(std::unique(n.begin(), n.end(), [&](const auto& l, const auto& r) { return l.second == r.second; }), n.end());
-                        std::sort(n.begin(), n.end());
-                        n.resize(std::min<size_t>(n.size(), num_neighbors));
+            for (size_t j = 0; j < bucket.size(); ++j) {
+                auto point_id = bucket[j];
 
-                        locks[point_id].unlock();
+                locks[point_id].lock();
+                // insert new neighbors. due to possible duplicate neighbors, we can't insert directly into the top-k data structure, and instead have to do this
+                auto& n = top_neighbors[point_id];
+                n.insert(n.end(), bucket_neighbors[j].begin(), bucket_neighbors[j].end());
+                std::sort(n.begin(), n.end(), [](const auto& l, const auto& r) {return std::tie(l.second, l.first) < std::tie(r.second, r.first);});
+                n.erase(std::unique(n.begin(), n.end(), [&](const auto& l, const auto& r) { return l.second == r.second; }), n.end());
+                std::sort(n.begin(), n.end());
+                n.resize(std::min<size_t>(n.size(), num_neighbors));
 
-                        bucket[j] = bucket.back();
-                        bucket.pop_back();
-                        bucket_neighbors[j] = std::move(bucket_neighbors.back());
-                        bucket_neighbors.pop_back();
-                        --j;
-                    }
-                }
+                locks[point_id].unlock();
             }
-            #endif
         }, 1);
 
         std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
-        std::exit(0);
 
         AdjGraph graph(points.n);
         parlay::parallel_for(0, points.n, [&](size_t i) {
