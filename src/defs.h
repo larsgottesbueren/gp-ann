@@ -24,10 +24,6 @@ using Duration = std::chrono::duration<double>;
 using Timepoint = decltype(std::chrono::high_resolution_clock::now());
 
 struct Timer {
-    static Timer& GlobalTimer() {
-        static Timer GLOBAL_TIMER;
-        return GLOBAL_TIMER;
-    }
     bool running = false;
     Timepoint start;
     Duration total_duration = Duration(0.0);

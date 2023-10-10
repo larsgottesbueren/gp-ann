@@ -20,7 +20,6 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
             in.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
             offset += sizeof(uint32_t);
         } else {
-            offset += sizeof(uint32_t);     // TODO this is for testing currently
             n = size;
         }
         in.read(reinterpret_cast<char*>(&d), sizeof(uint32_t));

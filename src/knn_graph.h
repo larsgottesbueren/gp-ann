@@ -34,18 +34,7 @@ AdjGraph BuildKNNGraph(PointSet& P, int k) {
 struct ApproximateKNNGraphBuilder {
     using Bucket = std::vector<uint32_t>;
 
-    static TopN AsymmetricTopNeighbors(PointSet& points, PointSet& queries, uint32_t my_id, int k) {
-        TopN top_k(k);
-        float* Q = queries.GetPoint(my_id);
-        for (uint32_t j = 0; j < points.n; ++j) {
-            float* P = points.GetPoint(j);
-            float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(dist, j));
-        }
-        return top_k;
-    }
-
-    static TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
+    TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
         TopN top_k(k);
         float* Q = points.GetPoint(my_id);
         for (uint32_t j = 0; j < leader_points.n; ++j) {
@@ -62,7 +51,7 @@ struct ApproximateKNNGraphBuilder {
         bucket_points.n = ids.size();
         for (auto id : ids) {
             float* P = points.GetPoint(id);
-            for (int d = 0; d < points.d; ++d) {
+            for (size_t d = 0; d < points.d; ++d) {
                 bucket_points.coordinates.push_back(P[d]);
             }
         }
@@ -93,8 +82,7 @@ struct ApproximateKNNGraphBuilder {
             auto point_id = ids[i];
             auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
 
-            for (auto & closest_leader : closest_leaders) {
-                const auto leader = closest_leader.second;
+            for (const auto& [_, leader] : closest_leaders) {
                 cluster_locks[leader].lock();
                 clusters[leader].push_back(point_id);
                 cluster_locks[leader].unlock();
