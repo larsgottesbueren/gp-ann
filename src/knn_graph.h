@@ -130,9 +130,11 @@ struct ApproximateKNNGraphBuilder {
         std::iota(all_ids.begin(), all_ids.end(), 0);
         std::vector<Bucket> buckets;
         for (int rep = 0; rep < REPETITIONS; ++rep) {
-            std::cout << "Graph building rep " << rep << std::endl;
+            std::cout << "Sketching rep " << rep << std::endl;
+            Timer timer2;
+            timer2.Start();
             std::vector<Bucket> new_buckets = RecursivelySketch(points, all_ids, 0, FANOUT);
-            std::cout << "Finished sketching" << std::endl;
+            std::cout << "Finished sketching rep. It took " << timer2.Stop() << " seconds."  << std::endl;
             buckets.insert(buckets.end(), new_buckets.begin(), new_buckets.end());
         }
         std::cout << "Start bucket brute force" << std::endl;
@@ -203,8 +205,8 @@ struct ApproximateKNNGraphBuilder {
 
 
     int seed = 555;
-    static constexpr double FRACTION_LEADERS = 0.005;
-    static constexpr size_t TOP_LEVEL_NUM_LEADERS = 950;
+    static constexpr double FRACTION_LEADERS = 0.02;
+    static constexpr size_t TOP_LEVEL_NUM_LEADERS = 500;
     static constexpr size_t MAX_NUM_LEADERS = 2000;
     static constexpr size_t MAX_CLUSTER_SIZE = 3500;
     static constexpr int REPETITIONS = 3;
