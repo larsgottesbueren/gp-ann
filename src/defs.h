@@ -38,22 +38,22 @@ struct Timer {
         return start;
     }
 
-    Duration Stop() {
+    double Stop() {
         if (!running) throw std::runtime_error("Timer not running but called Stop()");
         auto finish = std::chrono::high_resolution_clock::now();
         Duration duration = finish - start;
         total_duration += duration;
         running = false;
-        return duration;
+        return duration.count();
     }
 
-    Duration Restart() {
+    double Restart() {
         if (!running) throw std::runtime_error("Timer not running but called Restart()");
         auto finish = std::chrono::high_resolution_clock::now();
         Duration duration = finish - start;
         total_duration += duration;
         start = finish;
-        return duration;
+        return duration.count();
     }
 
 };
