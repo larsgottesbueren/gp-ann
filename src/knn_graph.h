@@ -78,18 +78,11 @@ struct ApproximateKNNGraphBuilder {
             auto point_id = ids[i];
             auto closest_leaders = ClosestLeaders(points, leaders, point_id, fanout).Take();
 
-            while (!closest_leaders.empty()) {
-                for (size_t j = 0; j < closest_leaders.size(); ++j) {
-                    const auto leader = closest_leaders[j].second;
-                    if (cluster_locks[leader].tryLock()) {
-                        clusters[leader].push_back(point_id);
-                        cluster_locks[leader].unlock();
-
-                        closest_leaders[j] = closest_leaders.back();
-                        closest_leaders.pop_back();
-                        --j;
-                    }
-                }
+            for (auto & closest_leader : closest_leaders) {
+                const auto leader = closest_leader.second;
+                cluster_locks[leader].lock();
+                clusters[leader].push_back(point_id);
+                cluster_locks[leader].unlock();
             }
         });
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
@@ -165,9 +158,18 @@ struct ApproximateKNNGraphBuilder {
     AdjGraph BruteForceBuckets(PointSet& points, std::vector<Bucket>& buckets, int num_neighbors) {
         std::vector<SpinLock> locks(points.n);
         std::vector<NNVec> top_neighbors(points.n);
+
+        std::cout << "Number of buckets to crunch " << buckets.size() << std::endl;
+
+        size_t num_buckets_finished = 0;
+        size_t output_time_every_x_buckets = buckets.size() / 50;
+
+        timer.Start();
+
         parlay::parallel_for(0, buckets.size(), [&](size_t bucket_id) {
             auto& bucket = buckets[bucket_id];
             auto bucket_neighbors = CrunchBucket(points, bucket, num_neighbors);
+            #if false
             while (!bucket.empty()) {
                 for (size_t j = 0; j < bucket.size(); ++j) {
                     auto point_id = bucket[j];
@@ -190,7 +192,11 @@ struct ApproximateKNNGraphBuilder {
                     }
                 }
             }
+            #endif
         }, 1);
+
+        std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
+        std::exit(0);
 
         AdjGraph graph(points.n);
         parlay::parallel_for(0, points.n, [&](size_t i) {
