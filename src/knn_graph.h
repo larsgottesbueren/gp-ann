@@ -65,7 +65,7 @@ struct ApproximateKNNGraphBuilder {
 
         // sample leaders
         size_t num_leaders = depth == 0 ? TOP_LEVEL_NUM_LEADERS : ids.size() * FRACTION_LEADERS;
-        num_leaders = std::min<size_t>(num_leaders, 5000);
+        num_leaders = std::min<size_t>(num_leaders, MAX_NUM_LEADERS);
         num_leaders = std::max<size_t>(num_leaders, 3);
         Bucket leaders(num_leaders);
         std::mt19937 prng(seed);
@@ -198,8 +198,9 @@ struct ApproximateKNNGraphBuilder {
 
 
     int seed = 555;
-    static constexpr double FRACTION_LEADERS = 0.01;
+    static constexpr double FRACTION_LEADERS = 0.005;
     static constexpr size_t TOP_LEVEL_NUM_LEADERS = 950;
+    static constexpr size_t MAX_NUM_LEADERS = 2000;
     static constexpr size_t MAX_CLUSTER_SIZE = 3500;
     static constexpr int REPETITIONS = 3;
     static constexpr int FANOUT = 3;
