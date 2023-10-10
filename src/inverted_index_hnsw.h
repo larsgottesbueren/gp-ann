@@ -8,7 +8,12 @@
 #include <parlay/parallel.h>
 
 struct InvertedIndexHNSW {
-    hnswlib::L2Space space;     // TODO also support cosine similarity
+    #ifdef MIPS_DISTANCE
+    hnswlib::InnerProductSpace space;
+    #else
+    hnswlib::L2Space space;
+    #endif
+
     std::vector<hnswlib::HierarchicalNSW<float>* > bucket_hnsws;
 
 

@@ -16,9 +16,9 @@ int main(int argc, const char* argv[]) {
     std::string k_string = argv[3];
     int k = std::stoi(k_string);
     PointSet points = ReadPoints(input_file);
-    if (false) {
+    #ifdef MIPS_DISTANCE
         Normalize(points);
-    }
+    #endif
     AdjGraph knn_graph = BuildKNNGraph(points, k);
     Symmetrize(knn_graph);
     WriteMetisGraph(output_file, knn_graph);

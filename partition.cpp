@@ -16,9 +16,9 @@ int main(int argc, const char* argv[]) {
     std::string k_string = argv[3];
     int k = std::stoi(k_string);
     PointSet points = ReadPoints(input_file);
-    if (false) {
-        Normalize(points);
-    }
+    #ifdef MIPS_DISTANCE
+    Normalize(points);
+    #endif
 
     std::vector<int> partition = GraphPartitioning(points, k, 0.05);
     std::cout << "Finished partitioning" << std::endl;

@@ -31,10 +31,10 @@ int main(int argc, const char* argv[]) {
     }
 
 
-    if (true) {
-        Normalize(points);
-        Normalize(queries);
-    }
+    #ifdef MIPS_DISTANCE
+    Normalize(points);
+    Normalize(queries);
+    #endif
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
