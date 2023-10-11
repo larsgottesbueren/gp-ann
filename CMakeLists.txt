@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(GP-ANNS)
 
+option(KAMINPAR_64BIT_WEIGHTS "Enable 64 bit weights in KaMinPar" ON)
+option(KAMINPAR_64BIT_IDS "Enable 64 bit weights in KaMinPar" ON)
+
 set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Wunused")
@@ -22,7 +25,7 @@ add_executable(Partition partition.cpp)
 
 target_link_libraries(BuildKNNGraph PUBLIC parlay)
 target_link_libraries(RunQueries PUBLIC parlay)
-target_link_libraries(Partition PUBLIC parlay KaMinPar::KaMinPar)
+target_link_libraries(Partition PUBLIC parlay kaminpar_shm)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)
