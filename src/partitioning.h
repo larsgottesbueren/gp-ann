@@ -95,6 +95,7 @@ std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector
         for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
         results.emplace_back(std::move(partition));
     }
+    return results;
 }
 
 std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon) {
