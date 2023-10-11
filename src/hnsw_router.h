@@ -35,7 +35,7 @@ struct HNSWRouter {
 
         num_shards = partition_offsets.size() - 1;
 
-        hnsw = std::make_unique(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
+        hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
     }
 
     std::vector<int> Query(float* Q, int num_voting_neighbors) {
