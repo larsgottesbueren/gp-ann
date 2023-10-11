@@ -75,24 +75,12 @@ struct ApproximateKNNGraphBuilder {
 
         PointSet leader_points = ExtractPoints(points, leaders);
 
-        PointSet bucket_points;
-        const bool use_bucket_points = depth > 0;
-        if (use_bucket_points) {
-            bucket_points = ExtractPoints(points, ids);
-        }
-
         // find closest leaders and build clusters around leaders
         std::vector<Bucket> clusters(leaders.size());
         std::vector<SpinLock> cluster_locks(leaders.size());
         parlay::parallel_for(0, ids.size(), [&](size_t i) {
             auto point_id = ids[i];
-            auto closest_leaders = [&] {
-                if (use_bucket_points) {
-                    return ClosestLeaders(bucket_points, leader_points, i, fanout).Take();
-                } else {
-                    return ClosestLeaders(points, leader_points, point_id, fanout).Take();
-                }
-            }();
+            auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
 
             for (const auto& [_, leader] : closest_leaders) {
                 cluster_locks[leader].lock();
@@ -103,7 +91,6 @@ struct ApproximateKNNGraphBuilder {
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
         leaders.clear(); leaders.shrink_to_fit();
         leader_points.Drop();
-        bucket_points.Drop();
 
         if (depth == 0) {
             std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
