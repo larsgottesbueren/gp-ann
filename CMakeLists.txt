@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(GP-ANNS)
 
 option(KAMINPAR_64BIT_WEIGHTS "Enable 64 bit weights in KaMinPar" ON)
-option(KAMINPAR_64BIT_IDS "Enable 64 bit weights in KaMinPar" ON)
+option(KAMINPAR_64BIT_IDS "Enable 64 bit node and edge IDs in KaMinPar" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 
