@@ -239,9 +239,9 @@ struct ApproximateKNNGraphBuilder {
     static constexpr size_t MAX_CLUSTER_SIZE = 3500;
     static constexpr int REPETITIONS = 3;
     static constexpr int FANOUT = 3;
-    static constexpr int MAX_DEPTH = 20;
-    static constexpr int CONCERNING_DEPTH = 12;
-    static constexpr double TOO_SMALL_SHRINKAGE_FRACTION = 0.9;
+    static constexpr int MAX_DEPTH = 14;
+    static constexpr int CONCERNING_DEPTH = 10;
+    static constexpr double TOO_SMALL_SHRINKAGE_FRACTION = 0.8;
 
     Timer timer;
 };
