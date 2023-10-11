@@ -4,6 +4,7 @@
 #include "metis_io.h"
 #include "recall.h"
 #include "kmeans_tree_router.h"
+#include "hnsw_router.h"
 #include "inverted_index.h"
 #include "inverted_index_hnsw.h"
 
