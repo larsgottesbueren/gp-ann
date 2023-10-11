@@ -37,7 +37,7 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
 
     std::cout << "alloc + touch done. Took " << timer.Restart() << std::endl;
 
-    size_t num_chunks = 256;
+    size_t num_chunks = parlay::num_workers();
     size_t chunk_size = ComputeChunkSize(points.coordinates.size(), num_chunks);
     parlay::parallel_for(0, num_chunks, [&](size_t i) {
         std::ifstream in(path, std::ios::binary);
