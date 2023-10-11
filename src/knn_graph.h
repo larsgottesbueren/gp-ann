@@ -168,7 +168,22 @@ struct ApproximateKNNGraphBuilder {
         std::vector<SpinLock> locks(points.n);
         std::vector<NNVec> top_neighbors(points.n);
 
-        std::cout << "Number of buckets to crunch " << buckets.size() << std::endl;
+
+        {
+            std::cout << "Number of buckets to crunch " << buckets.size() << std::endl;
+            std::vector<size_t> bucket_sizes(buckets.size());
+            for (size_t i = 0; i < buckets.size(); ++i) bucket_sizes[i] = buckets[i].size();
+            double avg_size = 0.0; for (const auto& b : bucket_sizes) avg_size += b; avg_size /= buckets.size();
+            std::cout << "avg bucket size : " << avg_size << std::endl;
+            std::sort(bucket_sizes.begin(), bucket_sizes.end());
+            std::vector<double> quantiles = { 0.0, 0.01, 0.05, 0.1, 0.15, 0.5, 0.85, 0.9, 0.95, 0.99, 1.0 };
+            for (double quantile : quantiles) {
+                size_t pos = quantile * buckets.size();
+                pos = std::clamp<size_t>(pos, 0, buckets.size() - 1);
+                std::cout << "quant " << quantile << " size :  " << bucket_sizes[pos] << std::endl;
+            }
+        }
+
 
         timer.Start();
 
