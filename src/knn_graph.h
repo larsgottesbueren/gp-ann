@@ -222,8 +222,8 @@ struct ApproximateKNNGraphBuilder {
     int seed = 555;
     static constexpr double FRACTION_LEADERS = 0.005;
     static constexpr size_t TOP_LEVEL_NUM_LEADERS = 950;
-    static constexpr size_t MAX_NUM_LEADERS = 2000;
-    static constexpr size_t MAX_CLUSTER_SIZE = 3500;
+    static constexpr size_t MAX_NUM_LEADERS = 1500;
+    static constexpr size_t MAX_CLUSTER_SIZE = 5000;
     static constexpr int REPETITIONS = 3;
     static constexpr int FANOUT = 3;
     static constexpr int MAX_DEPTH = 14;
