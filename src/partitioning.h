@@ -100,6 +100,7 @@ std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector
 std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon) {
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    points.Drop();
     std::cout << "Built KNN graph" << std::endl;
     Symmetrize(knn_graph);
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
