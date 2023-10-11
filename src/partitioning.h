@@ -3,7 +3,7 @@
 #include "kmeans.h"
 #include "knn_graph.h"
 
-#include <kaminpar/kaminpar.h>
+#include <kaminpar-shm/kaminpar.h>
 
 std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int num_clusters = -1) {
     if (num_clusters < 0) {
