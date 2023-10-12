@@ -2,6 +2,7 @@
 
 #include "kmeans.h"
 #include "knn_graph.h"
+#include "metis_io.h"
 
 #include <kaminpar-shm/kaminpar.h>
 
@@ -98,12 +99,16 @@ std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector
     return results;
 }
 
-std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon) {
+std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     points.Drop();
     std::cout << "Built KNN graph" << std::endl;
     Symmetrize(knn_graph);
+    if (!graph_output_path.empty()) {
+        std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
+        WriteMetisGraph(graph_output_path, knn_graph);
+    }
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
     std::cout << "Symmetrized and converted graph" << std::endl;
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);

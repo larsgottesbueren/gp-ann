@@ -22,7 +22,7 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> ks= { 10, 20, 40 };
 
-    auto partitions = GraphPartitioning(points, ks, 0.05);
+    auto partitions = GraphPartitioning(points, ks, 0.05, input_file + ".knn_graph.metis");
     std::cout << "Finished partitioning" << std::endl;
     for (size_t i = 0; i < ks.size(); ++i) {
         WriteMetisPartition(partitions[i], output_file + ".k=" + std::to_string(ks[i]));
