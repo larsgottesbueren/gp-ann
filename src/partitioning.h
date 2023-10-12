@@ -87,7 +87,7 @@ std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector
     std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
     auto context = kaminpar::shm::create_default_context();
     context.partition.epsilon = epsilon;
-    kaminpar::KaMinPar shm(std::thread::hardware_concurrency(), context);
+    kaminpar::KaMinPar shm(std::min<size_t>(64, std::thread::hardware_concurrency()), context);
     shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
     std::vector<std::vector<int>> results;
     for (int k : ks) {
