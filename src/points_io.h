@@ -63,3 +63,28 @@ void WritePoints(PointSet& points, const std::string& path) {
     out.write(reinterpret_cast<const char*>(&d), sizeof(uint32_t));
     out.write(reinterpret_cast<const char*>(&points.coordinates[0]), points.coordinates.size()*sizeof(float));
 }
+
+
+std::vector<NNVec> ReadGroundTruth(const std::string& path) {
+    uint32_t num_queries = 0;
+    uint32_t num_neighbors = 0;
+    std::ifstream in(path, std::ios::binary);
+    in.read(reinterpret_cast<char*>(&num_queries), sizeof(uint32_t));
+    in.read(reinterpret_cast<char*>(&num_neighbors), sizeof(uint32_t));
+
+    std::vector<NNVec> gt(num_queries, NNVec(num_neighbors));
+
+    for (uint32_t i = 0; i < num_queries; ++i) {
+        for (uint32_t j = 0; j < num_neighbors; ++j) {
+            in.read(reinterpret_cast<char*>(&gt[i][j].second), sizeof(uint32_t));
+        }
+    }
+
+    for (uint32_t i = 0; i < num_queries; ++i) {
+        for (uint32_t j = 0; j < num_neighbors; ++j) {
+            in.read(reinterpret_cast<char*>(&gt[i][j].first), sizeof(float));
+        }
+    }
+
+    return gt;
+}
