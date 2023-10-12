@@ -16,7 +16,7 @@ using AdjGraph = std::vector<std::vector<int>>;
 using NNVec = std::vector<std::pair<float, uint32_t>>;
 
 struct HNSWParameters {
-    size_t M = 16;
+    size_t M = 32;
     size_t ef_construction = 200;
 };
 

@@ -40,14 +40,15 @@ int main(int argc, const char* argv[]) {
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
-    if (false) {
+    queries.n = 500; queries.coordinates.resize(queries.n * queries.d);
+
+    if (true) {
         std::cout << "start computing ground truth" << std::endl;
         auto ground_truth = GetGroundTruth(points, queries, k);
         std::cout << "computed ground truth" << std::endl;
         double oracle_recall = OracleRecall(ground_truth, partition);
         std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
     }
-
 
     std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
 
@@ -65,29 +66,32 @@ int main(int argc, const char* argv[]) {
     std::cout << "Training the router took " << time_training << " ms" << std::endl;
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    //parlay::parallel_for(0, queries.n, [&](size_t i) {
-    for (size_t i = 0; i < queries.n; ++i) {
+    parlay::parallel_for(0, queries.n, [&](size_t i) {
+    //for (size_t i = 0; i < queries.n; ++i) {
         buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), options.search_budget);
     }
-    //);
+    );
     auto t2 = std::chrono::high_resolution_clock::now();
     double time_routing = (t2-t1).count() / 1e6;
     std::cout << "Routing took " << time_routing << " ms overall, and " << time_routing / queries.n << " per query" << std::endl;
 
+
     std::vector<double> time_per_num_probes(num_shards, 0.0);
     std::vector<double> recall_per_num_probes(num_shards, 0.0);
 
-    InvertedIndex inverted_index(points, partition);
+    InvertedIndexHNSW inverted_index(points, partition);
+
+    std::cout << "Finished building inverted index" << std::endl;
 
     for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
 
         auto t3 = std::chrono::high_resolution_clock::now();
-        parlay::parallel_for(0, queries.n, [&](size_t i) {
-        // for (size_t i = 0; i < queries.n; ++i) {
+        //parlay::parallel_for(0, queries.n, [&](size_t i) {
+         for (size_t i = 0; i < queries.n; ++i) {
             float* Q = queries.GetPoint(i);
             neighbors_by_query[i] = inverted_index.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
         }
-        );
+        //);
         auto t4 = std::chrono::high_resolution_clock::now();
         std::cout << "finished query. now compute recall" << std::endl;
         double recall = Recall(neighbors_by_query, distance_to_kth_neighbor, k);

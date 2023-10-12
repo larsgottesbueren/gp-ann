@@ -31,11 +31,22 @@ struct InvertedIndexHNSW {
                     &space, bucket_size[b],
                     hnsw_parameters.M, hnsw_parameters.ef_construction,
                     /* random_seed = */ 555 + b);
+
+            bucket_hnsws[b]->setEf(250);
         }
+
+        std::cout << "start HNSW insertions" << std::endl;
+
+        size_t x = 0;
 
         parlay::parallel_for(0, points.n, [&](size_t i) {
             float* p = points.GetPoint(i);
             bucket_hnsws[partition[i]]->addPoint(p, i);
+            size_t x1 = __atomic_fetch_add(&x, 1, __ATOMIC_RELAXED);
+            if (x1 % 50000 == 0) {
+                std::cout << "finished " << x1 << " / " << points.n << " HNSW insertions" << std::endl;
+            }
+
         });
     }
 
@@ -45,9 +56,10 @@ struct InvertedIndexHNSW {
         }
     }
 
-    NNVec Query(float* Q, int num_neighbors, const std::vector<int>& buckets_to_probe) const {
+    NNVec Query(float* Q, int num_neighbors, const std::vector<int>& buckets_to_probe, int num_probes) const {
         TopN top_k(num_neighbors);
-        for (int bucket : buckets_to_probe) {
+        for (int i = 0; i < num_probes; ++i) {
+            const int bucket = buckets_to_probe[i];
             auto result = bucket_hnsws[bucket]->searchKnn(Q, num_neighbors);
             while (!result.empty()) {
                 const auto [dist, label] = result.top();
