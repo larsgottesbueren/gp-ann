@@ -111,6 +111,8 @@ std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<in
     }
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
     std::cout << "Symmetrized and converted graph" << std::endl;
+    knn_graph.clear();
+    knn_graph.shrink_to_fit();
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
 }
 
