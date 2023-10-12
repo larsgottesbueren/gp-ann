@@ -84,13 +84,13 @@ CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
 
 std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector<int>& ks, double epsilon) {
     size_t num_nodes = graph.xadj.size() - 1;
-    std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
-    auto context = kaminpar::shm::create_default_context();
-    context.partition.epsilon = epsilon;
-    kaminpar::KaMinPar shm(std::min<size_t>(64, std::thread::hardware_concurrency()), context);
-    shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
     std::vector<std::vector<int>> results;
     for (int k : ks) {
+        std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
+        auto context = kaminpar::shm::create_default_context();
+        context.partition.epsilon = epsilon;
+        kaminpar::KaMinPar shm(std::min<size_t>(32, std::thread::hardware_concurrency()), context);
+        shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
         shm.compute_partition(555, k, kaminpar_partition.data());
         std::vector<int> partition(num_nodes);
         for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
