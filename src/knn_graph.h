@@ -96,8 +96,23 @@ struct ApproximateKNNGraphBuilder {
             std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
         }
 
-        // recurse on clusters
         std::vector<Bucket> buckets;
+        std::sort(clusters.begin(), clusters.end(), [&](const auto& b1, const auto& b2) { return b1.size() > b2.size(); });
+        while (!clusters.empty() && clusters.back().size() < MIN_CLUSTER_SIZE) {
+            if (buckets.empty() || clusters.back().size() + buckets.back().size() > MAX_MERGED_CLUSTER_SIZE) {
+                buckets.emplace_back();
+            }
+            // merge small clusters together -- and already store them in the return buckets
+            // this will add some stupid long range edges. but hopefully this is better than having some isolated nodes.
+            // another fix could be to do a brute-force comparison with all points in the bucket one recursion level higher
+            // Caveat --> we have to hold the data structures for the graph already
+            for (const auto id : clusters.back()) {
+                buckets.back().push_back(id);
+            }
+            clusters.pop_back();
+        }
+
+        // recurse on clusters
         SpinLock bucket_lock;
         parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
             std::vector<Bucket> recursive_buckets;
@@ -224,6 +239,8 @@ struct ApproximateKNNGraphBuilder {
     static constexpr size_t TOP_LEVEL_NUM_LEADERS = 950;
     static constexpr size_t MAX_NUM_LEADERS = 1500;
     static constexpr size_t MAX_CLUSTER_SIZE = 5000;
+    static constexpr size_t MIN_CLUSTER_SIZE = 50;
+    static constexpr size_t MAX_MERGED_CLUSTER_SIZE = 2500;
     static constexpr int REPETITIONS = 3;
     static constexpr int FANOUT = 3;
     static constexpr int MAX_DEPTH = 14;
