@@ -62,9 +62,44 @@ double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<in
 /**
  * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the candidates.
  */
-std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(const std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
+std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
+    if (ground_truth.size() != queries.n) { throw std::runtime_error("Ground truth size and number of queries don't match."); }
     std::vector<float> distance_to_kth_neighbor(ground_truth.size());
-    // TODO implement
+    size_t distance_mismatches = 0;
+    size_t wrong_sorts = 0;
+    size_t wrong_sorts_before_before_recalc = 0;
+
+    parlay::parallel_for(0, queries.n, [&](size_t q) {
+        bool is_sorted_before_recalc = std::is_sorted(ground_truth[q].begin(), ground_truth[q].end());
+        if (!is_sorted_before_recalc) {
+            __atomic_fetch_add(&wrong_sorts_before_before_recalc, 1, __ATOMIC_RELAXED);
+        }
+
+        float* Q = queries.GetPoint(q);
+        size_t local_distance_mismatches = 0;
+        for (auto& [dist, point_id] : ground_truth[q]) {
+            float true_dist = distance(points.GetPoint(point_id), Q, points.d);
+            if (std::abs(dist - true_dist) > 1e-8) {
+                local_distance_mismatches++;
+            }
+            dist = true_dist;
+        }
+
+        bool is_sorted = std::is_sorted(ground_truth[q].begin(), ground_truth[q].end());
+        if (!is_sorted) {
+            std::sort(ground_truth.begin(), ground_truth.end());
+            __atomic_fetch_add(&wrong_sorts, 1, __ATOMIC_RELAXED);
+        }
+        distance_to_kth_neighbor[q] = ground_truth[q][k-1].first;
+
+        if (local_distance_mismatches > 0) {
+            __atomic_fetch_add(&distance_mismatches, local_distance_mismatches, __ATOMIC_RELAXED);
+        }
+    });
+
+
+    std::cout << distance_mismatches << " out of " << ground_truth.size() * ground_truth[0].size() << " distances were wrong" << std::endl;
+    std::cout << wrong_sorts_before_before_recalc << " out of " << ground_truth.size() << " neighbors lists were ordered incorrectly before recomputing distances. And " << wrong_sorts << " were ordered incorrectly after recomputing" << std::endl;
     return distance_to_kth_neighbor;
 }
 
