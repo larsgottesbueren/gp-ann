@@ -22,7 +22,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
     return d;
 }
 
-std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
+std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
     std::vector<NNVec> res(queries.n);
     parlay::parallel_for(0, queries.n, [&](size_t i) {
         TopN top_k(k);
@@ -33,6 +33,7 @@ std::vector<NNVec> GetGroundTruth(PointSet& points, PointSet& queries, int k) {
             top_k.Add(std::make_pair(dist, j));
         }
         res[i] = top_k.Take();
+        std::sort(res[i].begin(), res[i].end());    // should be = std::reverse
     }, 1);
     return res;
 }
@@ -55,6 +56,16 @@ double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<in
     recall /= (10.0 * ground_truth.size());
     std::cout << "Oracle first shard recall " << recall << std::endl;
     return recall;
+}
+
+
+/**
+ * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the candidates.
+ */
+std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(const std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
+    std::vector<float> distance_to_kth_neighbor(ground_truth.size());
+    // TODO implement
+    return distance_to_kth_neighbor;
 }
 
 double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {

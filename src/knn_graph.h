@@ -212,8 +212,11 @@ struct ApproximateKNNGraphBuilder {
                 // insert new neighbors. due to possible duplicate neighbors, we can't insert directly into the top-k data structure, and instead have to do this
                 auto& n = top_neighbors[point_id];
                 n.insert(n.end(), bucket_neighbors[j].begin(), bucket_neighbors[j].end());
+                // remove duplicates
                 std::sort(n.begin(), n.end(), [](const auto& l, const auto& r) {return std::tie(l.second, l.first) < std::tie(r.second, r.first);});
                 n.erase(std::unique(n.begin(), n.end(), [&](const auto& l, const auto& r) { return l.second == r.second; }), n.end());
+
+                // keep top k
                 std::sort(n.begin(), n.end());
                 n.resize(std::min<size_t>(n.size(), num_neighbors));
 

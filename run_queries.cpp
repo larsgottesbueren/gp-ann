@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 
 #include "points_io.h"
 #include "metis_io.h"
@@ -10,49 +11,46 @@
 
 int main(int argc, const char* argv[]) {
     // TODO parse parameters
-    if (argc != 5 && argc != 9) {
-        std::cerr << "Usage ./RunQueries input-points queries k partition [centroids min-cluster-size tree-budget search-budget]" << std::endl;
+    if (argc != 6 && argc != 10) {
+        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition [centroids min-cluster-size tree-budget search-budget]" << std::endl;
         std::abort();
     }
 
     std::string point_file = argv[1];
     std::string query_file = argv[2];
-    std::string k_string = argv[3];
+    std::string ground_truth_file = argv[3];
+    std::string k_string = argv[4];
     int k = std::stoi(k_string);
-    std::string partition_file = argv[4];
+    std::string partition_file = argv[5];
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
-    Options options;
-    if (argc != 5) {
-        options.num_centroids = std::stoi(argv[5]);
-        options.min_cluster_size = std::stoi(argv[6]);
-        options.budget = std::stoi(argv[7]);
-        options.search_budget = std::stoi(argv[8]);
+    KMeansTreeRouterOptions options;
+    if (argc != 6) {
+        options.num_centroids = std::stoi(argv[6]);
+        options.min_cluster_size = std::stoi(argv[7]);
+        options.budget = std::stoi(argv[8]);
+        options.search_budget = std::stoi(argv[9]);
     }
-
 
     #ifdef MIPS_DISTANCE
     Normalize(points);
     Normalize(queries);
     #endif
 
-    std::vector<int> partition = ReadMetisPartition(partition_file);
-    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
-
-    queries.n = 500; queries.coordinates.resize(queries.n * queries.d);
-
-    if (true) {
+    std::vector<NNVec> ground_truth;
+    if (std::filesystem::exists(ground_truth_file)) {
+        ground_truth = ReadGroundTruth(ground_truth_file);
+    } else {
         std::cout << "start computing ground truth" << std::endl;
-        auto ground_truth = GetGroundTruth(points, queries, k);
+        ground_truth = ComputeGroundTruth(points, queries, k);
         std::cout << "computed ground truth" << std::endl;
-        double oracle_recall = OracleRecall(ground_truth, partition);
-        std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
     }
 
-    std::vector<float> distance_to_kth_neighbor = ComputeDistanceToKthNeighbor(points, queries, k);
-
-    std::cout << "Computed distance to kth neighbor" << std::endl;
+    std::vector<int> partition = ReadMetisPartition(partition_file);
+    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+    double oracle_recall = OracleRecall(ground_truth, partition);
+    std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
 
 
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
@@ -86,12 +84,12 @@ int main(int argc, const char* argv[]) {
     for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
 
         auto t3 = std::chrono::high_resolution_clock::now();
-        //parlay::parallel_for(0, queries.n, [&](size_t i) {
-         for (size_t i = 0; i < queries.n; ++i) {
+        parlay::parallel_for(0, queries.n, [&](size_t i) {
+        // for (size_t i = 0; i < queries.n; ++i) {
             float* Q = queries.GetPoint(i);
             neighbors_by_query[i] = inverted_index.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
         }
-        //);
+        );
         auto t4 = std::chrono::high_resolution_clock::now();
         std::cout << "finished query. now compute recall" << std::endl;
         double recall = Recall(neighbors_by_query, distance_to_kth_neighbor, k);

@@ -8,7 +8,7 @@ struct TreeNode {
 	PointSet centroids;
 };
 
-struct Options {
+struct KMeansTreeRouterOptions {
     size_t num_centroids = 64;
     size_t min_cluster_size = 250;
     int64_t budget = 50000;
@@ -19,7 +19,7 @@ struct KMeansTreeRouter {
     std::vector<TreeNode> roots;
     int num_shards;
 
-    void Train(PointSet& points, const std::vector<int>& partition, Options options) {
+    void Train(PointSet& points, const std::vector<int>& partition, KMeansTreeRouterOptions options) {
         auto buckets = ConvertPartitionToBuckets(partition);
         num_shards = buckets.size();
         roots.resize(num_shards);
@@ -27,15 +27,15 @@ struct KMeansTreeRouter {
         dim = points.d;
         double split = static_cast<double> (options.budget) / static_cast<double> (partition.size());
 
-        parlay::parallel_for(0, num_shards, [&](size_t b) {
+        parlay::parallel_for(0, num_shards, [&](int b) {
             PointSet ps = ExtractPointsInBucket(buckets[b], points);
-            Options recursive_options = options;
+            KMeansTreeRouterOptions recursive_options = options;
             recursive_options.budget = split * options.budget;
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
         }, 1);
     }
 
-    void TrainRecursive(PointSet& points, Options options, TreeNode& tree_node, int seed) {
+    void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
         PointSet centroids = RandomSample(points, options.num_centroids, seed);
         auto partition = KMeans(points, centroids);
         auto buckets = ConvertPartitionToBuckets(partition);
@@ -67,9 +67,9 @@ struct KMeansTreeRouter {
         size_t total_size = 0; for (size_t i = 0; i < num_buckets_in_recursion; ++i) total_size += bucket_size_and_ids[i].first;
         double split = static_cast<double> (options.budget) / static_cast<double> (total_size);
 
-        parlay::parallel_for(0, num_buckets_in_recursion, [&](size_t i) {
+        parlay::parallel_for(0, num_buckets_in_recursion, [&](int i) {
             PointSet ps = ExtractPointsInBucket(buckets[bucket_size_and_ids[i].second], points);
-            Options recursive_options = options;
+            KMeansTreeRouterOptions recursive_options = options;
             recursive_options.budget = split * bucket_size_and_ids[i].first;
             TrainRecursive(ps, recursive_options, tree_node.children[i], seed + i);
         }, 1);
@@ -134,7 +134,7 @@ struct KMeansTreeRouter {
         std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
         std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
-        for (size_t u = 0; u < roots.size(); ++u) {
+        for (int u = 0; u < int(roots.size()); ++u) {
             float dist = std::numeric_limits<float>::lowest();
             if (centroids_in_roots) {
                 dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
@@ -142,8 +142,6 @@ struct KMeansTreeRouter {
             }
             pq.push(PQEntry{dist, u, &roots[u]});
         }
-
-        size_t iter = 0;
 
         while (!pq.empty() && budget > 0) {
             PQEntry top = pq.top(); pq.pop();

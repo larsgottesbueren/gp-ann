@@ -32,7 +32,7 @@ struct InvertedIndexHNSW {
                     hnsw_parameters.M, hnsw_parameters.ef_construction,
                     /* random_seed = */ 555 + b);
 
-            bucket_hnsws[b]->setEf(250);
+            bucket_hnsws[b]->setEf(hnsw_parameters.ef_search);
         }
 
         std::cout << "start HNSW insertions" << std::endl;

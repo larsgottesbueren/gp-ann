@@ -20,15 +20,15 @@ struct HNSWRouter {
     std::unique_ptr<hnswlib::HierarchicalNSW<float>> hnsw;
     HNSWParameters hnsw_parameters;
 
-    HNSWRouter(PointSet routing_points, std::vector<int> partition_offsets, HNSWParameters parameters) :
-        routing_points(std::move(routing_points)),
-        partition_offsets(std::move(partition_offsets)),
+    HNSWRouter(PointSet routing_points_, std::vector<int> partition_offsets_, HNSWParameters parameters) :
+        routing_points(std::move(routing_points_)),
+        partition_offsets(std::move(partition_offsets_)),
         space(routing_points.d),
         hnsw_parameters(parameters)
     {
         // build partition array
         for (size_t i = 1; i < partition_offsets.size(); ++i) {
-            for (size_t j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
+            for (int j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
                 partition.push_back(i-1);
             }
         }
@@ -36,6 +36,14 @@ struct HNSWRouter {
         num_shards = partition_offsets.size() - 1;
 
         hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
+        hnsw->setEf(hnsw_parameters.ef_search);
+
+        std::cout << "num routing points " << routing_points.n << std::endl;
+
+        // insert points...
+        parlay::parallel_for(0, routing_points.n, [&](size_t i) {
+            hnsw->addPoint(routing_points.GetPoint(i), i);
+        });
     }
 
     std::vector<int> Query(float* Q, int num_voting_neighbors) {
