@@ -87,7 +87,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
         double time_routing = routing_timer.Stop();
         std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
-        auto new_route = routes.emplace_back();
+        auto& new_route = routes.emplace_back();
         new_route.routing_algorithm = "KMeansTree";
         new_route.hnsw_num_voting_neighbors = 0;
         new_route.routing_time = time_routing;
@@ -118,7 +118,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
         double time_routing = routing_timer.Stop();
         std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
-        auto new_route = routes.emplace_back();
+        auto& new_route = routes.emplace_back();
         new_route.routing_algorithm = "HNSW";
         new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
         new_route.routing_time = time_routing;
@@ -138,7 +138,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
         double time_routing = routing_timer.Stop();
         std::cout << "Pyramid routing took " << time_routing << " s" << std::endl;
-        auto new_route = routes.emplace_back();
+        auto& new_route = routes.emplace_back();
         new_route.routing_algorithm = "Pyramid";
         new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
         new_route.routing_time = time_routing;
@@ -157,7 +157,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
         double time_routing = routing_timer.Stop();
         std::cout << "SPANN routing took " << time_routing << " s" << std::endl;
-        auto new_route = routes.emplace_back();
+        auto& new_route = routes.emplace_back();
         new_route.routing_algorithm = "SPANN";
         new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
         new_route.routing_time = time_routing;
