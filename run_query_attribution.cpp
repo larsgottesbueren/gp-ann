@@ -72,8 +72,9 @@ struct RoutingConfig {
     std::vector<std::vector<int>> buckets_to_probe;
 };
 
-void IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards, KMeansTreeRouterOptions routing_index_options, std::vector<RoutingConfig>& routes) {
+std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards, KMeansTreeRouterOptions routing_index_options) {
     KMeansTreeRouter router;
+    std::vector<RoutingConfig> routes;
     Timer routing_timer; routing_timer.Start();
     router.Train(points, partition, routing_index_options);
     std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
@@ -164,6 +165,8 @@ void IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>
         new_route.try_increasing_num_shards = false;
         new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
     }
+
+    return routes;
 }
 
 struct ShardSearch {
@@ -227,10 +230,10 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     std::cout << std::endl;
 }
 
-void RunInShardSearches(
+std::vector<ShardSearch> RunInShardSearches(
         PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-        const std::vector<std::vector<int>>& clusters, int num_shards,
-        const std::vector<RoutingConfig>& routes, const std::vector<float>& distance_to_kth_neighbor) {
+        const std::vector<std::vector<uint32_t>>& clusters, int num_shards,
+        const std::vector<float>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
     std::vector<ShardSearch> shard_searches(ef_search_param_values.size());
@@ -294,15 +297,7 @@ void RunInShardSearches(
         UnpinThread();
     }
 
-    for (const auto& route : routes) {
-        for (const auto& search : shard_searches) {
-            if (route.try_increasing_num_shards) {
-                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors);
-            } else {
-                AttributeRecallAndQueryTimeVariableNumProbes(route, search, queries.n, num_shards, num_neighbors);
-            }
-        }
-    }
+    return shard_searches;
 }
 
 
@@ -321,7 +316,7 @@ int main(int argc, const char* argv[]) {
     std::string query_file = argv[2];
     std::string ground_truth_file = argv[3];
     std::string k_string = argv[4];
-    int k = std::stoi(k_string);
+    int num_neighbors = std::stoi(k_string);
     std::string partition_file = argv[5];
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
@@ -335,17 +330,31 @@ int main(int argc, const char* argv[]) {
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
-
     std::vector<std::vector<uint32_t>> clusters(num_shards);
     for (uint32_t i = 0; i < partition.size(); ++i) {
         clusters[partition[i]].push_back(i);
     }
 
-   auto ground_truth = ComputeGroundTruth(points, queries, k);
+    auto ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
     std::vector<float> distance_to_kth_neighbor(queries.n);
     for (size_t i = 0; i < queries.n; ++i) {
         distance_to_kth_neighbor[i] = ground_truth[i].back().first;
     }
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, KMeansTreeRouterOptions());
+    std::cout << "Finished routing configs" << std::endl;
+
+    std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
+    std::cout << "Finished shard searches" << std::endl;
+
+    for (const auto& route : routes) {
+        for (const auto& search : shard_searches) {
+            if (route.try_increasing_num_shards) {
+                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors);
+            } else {
+                AttributeRecallAndQueryTimeVariableNumProbes(route, search, queries.n, num_shards, num_neighbors);
+            }
+        }
+    }
 }
