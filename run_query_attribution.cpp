@@ -329,11 +329,17 @@ int main(int argc, const char* argv[]) {
         clusters[partition[i]].push_back(i);
     }
 
-    auto ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
-    std::vector<float> distance_to_kth_neighbor(queries.n);
-    for (size_t i = 0; i < queries.n; ++i) {
-        distance_to_kth_neighbor[i] = ground_truth[i].back().first;
+
+    std::vector<NNVec> ground_truth;
+    if (std::filesystem::exists(ground_truth_file)) {
+        ground_truth = ReadGroundTruth(ground_truth_file);
+        std::cout << "Read ground truth file" << std::endl;
+    } else {
+        std::cout << "start computing ground truth" << std::endl;
+        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
+        std::cout << "computed ground truth" << std::endl;
     }
+    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, KMeansTreeRouterOptions());
