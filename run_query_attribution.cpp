@@ -178,7 +178,7 @@ struct ShardSearch {
     std::vector<std::vector<double>> time_query_in_shard;
 };
 
-void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors) {
+void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(double,double)>& emit) {
     size_t total_hits = 0;
     std::vector<int> hits_per_query(num_queries, 0);
     std::vector<double> local_work(num_shards, 0.0);
@@ -194,7 +194,8 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         double recall = static_cast<double>(total_hits) / (num_neighbors * num_queries);
         double max_latency = *std::max_element(local_work.begin(), local_work.end());
         double total_time = max_latency + (route.routing_time / num_shards);
-
+        double QPS = num_queries / total_time;
+        emit(recall, QPS);
         std::cout   << "NProbes = " << n_probes << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
         std::cout << "local work\t";
         for (double t : local_work) std::cout << t << " ";
@@ -202,7 +203,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     }
 }
 
-void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors) {
+void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(double,double)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
     for (size_t q = 0; q < num_queries; ++q) {
@@ -218,6 +219,8 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     double recall = static_cast<double>(total_hits) / (num_queries * num_neighbors);
     double max_latency = *std::max_element(local_work.begin(), local_work.end());
     double total_time = max_latency + (route.routing_time / num_shards);
+    double QPS = num_queries / total_time;
+    emit(recall, QPS);
 
     std::cout  << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
     std::cout << "local work\t";
@@ -297,8 +300,8 @@ std::vector<ShardSearch> RunInShardSearches(
 
 
 int main(int argc, const char* argv[]) {
-    if (argc != 6) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition output-file" << std::endl;
         std::abort();
     }
 
@@ -312,9 +315,10 @@ int main(int argc, const char* argv[]) {
     std::string k_string = argv[4];
     int num_neighbors = std::stoi(k_string);
     std::string partition_file = argv[5];
+    std::string output_file = argv[6];
+
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
-
 
     #ifdef MIPS_DISTANCE
     Normalize(points);
