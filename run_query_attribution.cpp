@@ -219,7 +219,6 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     double max_latency = *std::max_element(local_work.begin(), local_work.end());
     double total_time = max_latency + (route.routing_time / num_shards);
 
-    // TODO figure out the output format
     std::cout  << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
     std::cout << "local work\t";
     for (double t : local_work) std::cout << t << " ";
@@ -298,7 +297,6 @@ std::vector<ShardSearch> RunInShardSearches(
 
 
 int main(int argc, const char* argv[]) {
-    // TODO parse parameters
     if (argc != 6) {
         std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition" << std::endl;
         std::abort();
