@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <map>
 
 #include "points_io.h"
 #include "metis_io.h"
@@ -346,19 +347,76 @@ int main(int argc, const char* argv[]) {
     std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, KMeansTreeRouterOptions());
+    KMeansTreeRouterOptions router_options;
+    router_options.budget = points.n / num_shards;
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options);
     std::cout << "Finished routing configs" << std::endl;
 
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 
+    std::ofstream out(output_file);
+    // header
+    out << "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,recall,QPS";
+
+    struct Desc {
+        std::string format_string;
+        double recall;
+        double QPS;
+    };
+
+    std::map<std::string, std::vector<Desc>> outputs;
+
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
+            std::function<void(double, double)> format_output = [&](double recall, double QPS) -> void {
+                std::stringstream str;
+                str << "GP,HNSW," << route.routing_algorithm << ",KMeansTree,"
+                    << search.ef_search << "," << route.hnsw_num_voting_neighbors
+                    << "," << recall << "," << QPS;
+                out << str.str() << std::endl;
+                std::cout << str.str() << std::endl;
+                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS = QPS });
+            };
             if (route.try_increasing_num_shards) {
-                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors);
+                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors, format_output);
             } else {
-                AttributeRecallAndQueryTimeVariableNumProbes(route, search, queries.n, num_shards, num_neighbors);
+                AttributeRecallAndQueryTimeVariableNumProbes(route, search, queries.n, num_shards, num_neighbors, format_output);
             }
         }
     }
+
+    std::cout << "Only Pareto" << std::endl;
+
+    std::ofstream pareto_out(output_file + ".pareto");
+    for (auto& [routing_algo, configs] : outputs) {
+        if (configs.empty()) continue;
+
+        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS < r.QPS; };
+
+        std::vector<Desc> pareto;
+        for (const auto& c : configs) {
+            bool insert_new = true;
+            for (int64_t i = 0; i < pareto.size(); ++i) {
+                if (dominates(pareto[i], c)) {  // remove pareto[i]
+                    pareto[i] = std::move(pareto.back());
+                    pareto.pop_back();
+                    --i;
+                } else if (dominates(c, pareto[i])) {
+                    insert_new = false;
+                    break;
+                }
+            }
+            if (insert_new) {
+                pareto.push_back(c);
+            }
+        }
+
+        for (const auto& c : pareto) {
+            pareto_out << c.format_string << std::endl;
+            std::cout << c.format_string << std::endl;
+        }
+    }
+
+
 }
