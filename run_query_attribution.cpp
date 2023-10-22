@@ -203,7 +203,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
 }
 
 void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors) {
-    std::vector<double> local_work(num_queries, 0.0);
+    std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
     for (size_t q = 0; q < num_queries; ++q) {
         int hits = 0;
