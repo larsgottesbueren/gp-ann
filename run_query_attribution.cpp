@@ -95,7 +95,6 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         new_route.try_increasing_num_shards = true;
         new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
     }
-
     routing_timer.Start();
     auto [routing_points, partition_offsets] = router.ExtractPoints();
     std::cout << "Extraction finished" << std::endl;
@@ -127,9 +126,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
     }
 
-    // Try Pyramid routing where you visit the shards touched during the search
-    // TODO Should we also try their routing index training?
-    // well... yeah we can. but we're comparing the partitioning algos
+    // Pyramid routing where you visit the shards touched during the search
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
         routing_timer.Start();
@@ -147,7 +144,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
     }
 
-    // Try SPANN routing where you prune next shards based on how much further they are than the closest shard
+    // SPANN routing where you prune next shards based on how much further they are than the closest shard
     // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
     for (size_t num_voting_neighbors : {200, 400, 500}) {
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
@@ -198,7 +195,6 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         double max_latency = *std::max_element(local_work.begin(), local_work.end());
         double total_time = max_latency + (route.routing_time / num_shards);
 
-        // TODO figure out the output format
         std::cout   << "NProbes = " << n_probes << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
         std::cout << "local work\t";
         for (double t : local_work) std::cout << t << " ";
