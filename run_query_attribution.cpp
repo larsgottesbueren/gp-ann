@@ -288,7 +288,7 @@ std::vector<ShardSearch> RunInShardSearches(
             }
 
             std::cout   << "Finished bucket " << b << " of size " << cluster.size() << " [" << 100.0 * cluster.size() / points.n << "%]"
-                        << " in total query time " << timer.total_duration << " total build time " << build_timer.total_duration << " rep " << std::endl;
+                        << " in total query time " << timer.total_duration.count() << " total build time " << build_timer.total_duration.count() << " rep " << std::endl;
 
             ef_search_param_id++;
         }
