@@ -128,9 +128,6 @@ struct KMeansTreeRouter {
     #define PRINT false
 
     std::vector<int> Query(float* Q, int budget) {
-        // TODO optimize
-        // a) avoid re-allocs of PQ and probes vector
-        //
         std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
         std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
