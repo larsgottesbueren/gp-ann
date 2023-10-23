@@ -143,6 +143,7 @@ namespace efanna2e {
                 diff0 = *a++ - *b++;
                 result += diff0 * diff0;
             }
+            return result;
         }
     };
 
