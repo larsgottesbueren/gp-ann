@@ -268,8 +268,8 @@ std::vector<ShardSearch> RunInShardSearches(
             float* p = points.GetPoint(cluster[i]);
             hnsw.addPoint(p, i);
         });
-        build_timer.Stop();
 
+        std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
 
         // PinThread(0);
 
@@ -292,11 +292,12 @@ std::vector<ShardSearch> RunInShardSearches(
                 }
             }
 
-            std::cout   << "Finished bucket " << b << " of size " << cluster.size() << " [" << 100.0 * cluster.size() / points.n << "%]"
-                        << " in total query time " << timer.total_duration.count() << " total build time " << build_timer.total_duration.count() << " rep " << std::endl;
+            std::cout << "Shard search with ef-search = " << ef_search << " took " << timer.total_duration.count() << std::endl;
 
             ef_search_param_id++;
         }
+
+        std::cout << "Finished searches in bucket " << b << std::endl;
 
         // UnpinThread();
     }
