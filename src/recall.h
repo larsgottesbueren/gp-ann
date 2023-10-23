@@ -63,7 +63,11 @@ double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<in
  * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the candidates.
  */
 std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
-    if (ground_truth.size() != queries.n) { throw std::runtime_error("Ground truth size and number of queries don't match."); }
+    if (ground_truth.size() != queries.n) {
+        std::cout << "Ground truth size and number of queries don't match." << std::endl;
+        std::exit(0);
+    }
+    std::cout << "Convert ground truth. k = " << k << std::endl;
     std::vector<float> distance_to_kth_neighbor(ground_truth.size());
     size_t distance_mismatches = 0;
     size_t wrong_sorts = 0;
