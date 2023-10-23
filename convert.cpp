@@ -1,9 +1,23 @@
 #include <iostream>
-
+#include "defs.h"
+#include "dist.h"
 #include "points_io.h"
 
 
 int main(int argc, const char* argv[]) {
+    std::vector<float> P;
+    int dim = 241;
+    for (int i = 0; i < dim; ++i) {
+        P.push_back(i);
+    }
+    std::vector<float> Q = P;
+    for (float& q : Q) q = q - 2.3f;
+    float dist = distance(&P[0], &Q[0], dim);
+
+    std::cout << "Dist = " << dist << std::endl;
+    std::cout << "expected = " << dim * (2.3f * 2.3f) << std::endl;
+    std::exit(0);
+
     std::string gtf = argv[1];
     auto ground_truth = ReadGroundTruth(gtf);
 
