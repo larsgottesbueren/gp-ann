@@ -30,8 +30,7 @@ struct KMeansTreeRouter {
         parlay::parallel_for(0, num_shards, [&](int b) {
             PointSet ps = ExtractPointsInBucket(buckets[b], points);
             KMeansTreeRouterOptions recursive_options = options;
-            double split = static_cast<double>(buckets[b].size()) / static_cast<double>(partition.size());
-            recursive_options.budget = split * options.budget;
+            recursive_options.budget = double(buckets[b].size() * options.budget) / double(points.n);
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
         }, 1);
     }
@@ -66,12 +65,11 @@ struct KMeansTreeRouter {
 
         // split budget equally
         size_t total_size = 0; for (size_t i = 0; i < num_buckets_in_recursion; ++i) total_size += bucket_size_and_ids[i].first;
-        double split = static_cast<double> (options.budget) / static_cast<double> (total_size);
 
         parlay::parallel_for(0, num_buckets_in_recursion, [&](int i) {
             PointSet ps = ExtractPointsInBucket(buckets[bucket_size_and_ids[i].second], points);
             KMeansTreeRouterOptions recursive_options = options;
-            recursive_options.budget = split * bucket_size_and_ids[i].first;
+            recursive_options.budget = double(bucket_size_and_ids[i].first * options.budget) / double(total_size);
             TrainRecursive(ps, recursive_options, tree_node.children[i], seed + i);
         }, 1);
     }
