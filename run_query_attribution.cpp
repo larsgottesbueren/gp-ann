@@ -62,6 +62,7 @@ void UnpinThread() {
         CPU_SET(cpu, &mask);
     }
     PinThread(mask);
+    PrintAffinityMask();
 }
 
 struct RoutingConfig {
@@ -235,13 +236,17 @@ std::vector<ShardSearch> RunInShardSearches(
         const std::vector<float>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
+    Timer init_timer; init_timer.Start();
     std::vector<ShardSearch> shard_searches(ef_search_param_values.size());
     for (size_t i = 0; i < ef_search_param_values.size(); ++i) {
         shard_searches[i].Init(ef_search_param_values[i], num_shards, queries.n);
     }
+    std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
     for (int b = 0; b < num_shards; ++b) {
         const auto& cluster = clusters[b];
+
+        std::cout << "Start building HNSW for shard " << b << " of size " << cluster.size() << std::endl;
 
         #ifdef MIPS_DISTANCE
         using SpaceType = hnswlib::InnerProductSpace;
@@ -250,14 +255,14 @@ std::vector<ShardSearch> RunInShardSearches(
         #endif
 
 
-        PinThread(0);
+        // PinThread(0);
 
         SpaceType space(points.d);
 
         Timer build_timer; build_timer.Start();
         hnswlib::HierarchicalNSW<float> hnsw(&space, cluster.size(), hnsw_parameters.M, hnsw_parameters.ef_construction, 555 + b);
 
-        UnpinThread();
+        // UnpinThread();
 
         parlay::parallel_for(0, cluster.size(), [&](size_t i) {
             float* p = points.GetPoint(cluster[i]);
@@ -266,7 +271,7 @@ std::vector<ShardSearch> RunInShardSearches(
         build_timer.Stop();
 
 
-        PinThread(0);
+        // PinThread(0);
 
         size_t ef_search_param_id = 0;
         for (size_t ef_search : ef_search_param_values) {
@@ -293,7 +298,7 @@ std::vector<ShardSearch> RunInShardSearches(
             ef_search_param_id++;
         }
 
-        UnpinThread();
+        // UnpinThread();
     }
 
     return shard_searches;
@@ -347,10 +352,13 @@ int main(int argc, const char* argv[]) {
     std::cout << "Finished routing configs" << std::endl;
 
 
+    Timer timer;
+    timer.Start();
     std::vector<std::vector<uint32_t>> clusters(num_shards);
     for (uint32_t i = 0; i < partition.size(); ++i) {
         clusters[partition[i]].push_back(i);
     }
+    std::cout << "Convert partition to clusters took " << timer.Stop() << std::endl;
 
     std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
