@@ -74,27 +74,30 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     size_t wrong_sorts_before_before_recalc = 0;
 
     parlay::parallel_for(0, queries.n, [&](size_t q) {
-        bool is_sorted_before_recalc = std::is_sorted(ground_truth[q].begin(), ground_truth[q].end());
+        auto& neighs = ground_truth[q];
+        bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k);
         if (!is_sorted_before_recalc) {
             __atomic_fetch_add(&wrong_sorts_before_before_recalc, 1, __ATOMIC_RELAXED);
         }
 
         float* Q = queries.GetPoint(q);
         size_t local_distance_mismatches = 0;
-        for (auto& [dist, point_id] : ground_truth[q]) {
+        for (size_t j = 0; j < k; ++j) {
+            uint32_t point_id = neighs[j].second;
+            float dist = neighs[j].first;
             float true_dist = distance(points.GetPoint(point_id), Q, points.d);
             if (std::abs(dist - true_dist) > 1e-8) {
                 local_distance_mismatches++;
             }
-            dist = true_dist;
+            neighs[j].first = true_dist;
         }
 
-        bool is_sorted = std::is_sorted(ground_truth[q].begin(), ground_truth[q].end());
+        bool is_sorted = std::is_sorted(neighs.begin(), neighs.begin() + k);
         if (!is_sorted) {
-            std::sort(ground_truth.begin(), ground_truth.end());
+            std::sort(neighs.begin(), neighs.begin() + k);
             __atomic_fetch_add(&wrong_sorts, 1, __ATOMIC_RELAXED);
         }
-        distance_to_kth_neighbor[q] = ground_truth[q][k-1].first;
+        distance_to_kth_neighbor[q] = neighs[k-1].first;
 
         if (local_distance_mismatches > 0) {
             __atomic_fetch_add(&distance_mismatches, local_distance_mismatches, __ATOMIC_RELAXED);
