@@ -326,9 +326,6 @@ int main(int argc, const char* argv[]) {
     Normalize(queries);
     #endif
 
-    std::vector<int> partition = ReadMetisPartition(partition_file);
-    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
-
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -340,6 +337,9 @@ int main(int argc, const char* argv[]) {
     }
     std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
+
+    std::vector<int> partition = ReadMetisPartition(partition_file);
+    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / num_shards;
