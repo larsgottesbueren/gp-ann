@@ -27,7 +27,7 @@ namespace efanna2e {
             size_t qty16 = qty >> 4 << 4;
             result = hnswlib::L2SqrSIMD16ExtAVX(a, b, &qty16);
             size_t qty_left = qty - qty16;
-            result += hnswlib::L2Sqr(a + qty_left, b + qty_left, &qty_left);
+            result += hnswlib::L2Sqr(a + qty16, b + qty16, &qty_left);
 #else
             float diff0, diff1, diff2, diff3;
             const float* last = a + size;
