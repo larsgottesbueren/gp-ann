@@ -34,7 +34,6 @@ namespace efanna2e {
             const float* unroll_group = last - 3;
 
             /* Process 4 items with each loop for efficiency. */
-            size_t dim = 0;
             while (a < unroll_group) {
                 diff0 = a[0] - b[0];
                 diff1 = a[1] - b[1];
@@ -43,16 +42,12 @@ namespace efanna2e {
                 result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
                 a += 4;
                 b += 4;
-                dim += 4;
             }
-            std::cout << "dim after " << dim;
             /* Process last 0-3 pixels.  Not needed for standard vector lengths. */
             while (a < last) {
                 diff0 = *a++ - *b++;
                 result += diff0 * diff0;
-                dim++;
             }
-            std::cout << "dim final " << dim;
 #endif
 
             return result;

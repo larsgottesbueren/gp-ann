@@ -6,7 +6,7 @@
 
 int main(int argc, const char* argv[]) {
     std::vector<float> P;
-    int dim = 241;
+    int dim = 100;
     for (int i = 0; i < dim; ++i) {
         P.push_back(i);
     }
