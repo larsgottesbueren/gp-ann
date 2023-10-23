@@ -329,12 +329,6 @@ int main(int argc, const char* argv[]) {
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
 
-    std::vector<std::vector<uint32_t>> clusters(num_shards);
-    for (uint32_t i = 0; i < partition.size(); ++i) {
-        clusters[partition[i]].push_back(i);
-    }
-
-
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -352,6 +346,11 @@ int main(int argc, const char* argv[]) {
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options);
     std::cout << "Finished routing configs" << std::endl;
 
+
+    std::vector<std::vector<uint32_t>> clusters(num_shards);
+    for (uint32_t i = 0; i < partition.size(); ++i) {
+        clusters[partition[i]].push_back(i);
+    }
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 

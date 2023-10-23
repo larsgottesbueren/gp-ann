@@ -73,6 +73,9 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     size_t wrong_sorts = 0;
     size_t wrong_sorts_before_before_recalc = 0;
 
+    std::vector<double> epss = { 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10 };
+    std::vector<size_t> wrongss(epss.size(), 0);
+
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         auto& neighs = ground_truth[q];
         bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k);
@@ -88,6 +91,12 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
             float true_dist = distance(points.GetPoint(point_id), Q, points.d);
             if (std::abs(dist - true_dist) > 1e-8) {
                 local_distance_mismatches++;
+            }
+
+            for (size_t r = 0; r < epss.size(); ++r) {
+                if (std::abs(dist - true_dist) > epss[r]) {
+                    __atomic_fetch_add(&wrongss[r], 1, __ATOMIC_RELAXED);
+                }
             }
             neighs[j].first = true_dist;
         }
@@ -107,6 +116,11 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
 
     std::cout << distance_mismatches << " out of " << ground_truth.size() * ground_truth[0].size() << " distances were wrong" << std::endl;
     std::cout << wrong_sorts_before_before_recalc << " out of " << ground_truth.size() << " neighbors lists were ordered incorrectly before recomputing distances. And " << wrong_sorts << " were ordered incorrectly after recomputing" << std::endl;
+
+    for (size_t r = 0; r < epss.size(); ++r) {
+        std::cout << "For eps = " << epss[r] << " there were " << wrongss[r] << " many distances wrong, i.e., |d1 - d2| > eps" << std::endl;
+    }
+
     return distance_to_kth_neighbor;
 }
 
