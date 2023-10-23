@@ -26,6 +26,7 @@ add_executable(QueryAttribution run_query_attribution.cpp)
 
 target_link_libraries(BuildKNNGraph PUBLIC parlay)
 target_link_libraries(RunQueries PUBLIC parlay)
+target_link_libraries(Convert PUBLIC parlay)
 target_link_libraries(Partition PUBLIC parlay kaminpar_shm)
 target_link_libraries(QueryAttribution PUBLIC parlay)
 

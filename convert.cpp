@@ -4,6 +4,10 @@
 
 
 int main(int argc, const char* argv[]) {
+    std::string gtf = argv[1];
+    auto ground_truth = ReadGroundTruth(gtf);
+
+    #if false
     if (argc != 4) {
         std::cerr << "Usage ./Convert input-points output-points size" << std::endl;
         std::abort();
@@ -16,4 +20,5 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(input_file, n);
     WritePoints(points, output_file);
+    #endif
 }
