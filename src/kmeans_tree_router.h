@@ -66,7 +66,7 @@ struct KMeansTreeRouter {
 
         // split budget equally
         size_t total_size = 0; for (size_t i = 0; i < num_buckets_in_recursion; ++i) total_size += bucket_size_and_ids[i].first;
-        double split = static_cast<double> (options.budget) / static_cast<double> (total_size);     // TODO this cant be right?
+        double split = static_cast<double> (options.budget) / static_cast<double> (total_size);
 
         parlay::parallel_for(0, num_buckets_in_recursion, [&](int i) {
             PointSet ps = ExtractPointsInBucket(buckets[bucket_size_and_ids[i].second], points);
