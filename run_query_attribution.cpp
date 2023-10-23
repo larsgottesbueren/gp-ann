@@ -351,6 +351,8 @@ int main(int argc, const char* argv[]) {
     for (uint32_t i = 0; i < partition.size(); ++i) {
         clusters[partition[i]].push_back(i);
     }
+
+    std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 
