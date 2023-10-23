@@ -73,7 +73,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     size_t wrong_sorts = 0;
     size_t wrong_sorts_before_before_recalc = 0;
 
-    std::vector<double> epss = { 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10 };
+    std::vector<double> epss = { 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10 };
     std::vector<size_t> wrongss(epss.size(), 0);
 
     size_t zero_gt_dist = 0;
