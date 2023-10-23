@@ -71,18 +71,19 @@ std::vector<NNVec> ReadGroundTruth(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
     in.read(reinterpret_cast<char*>(&num_queries), sizeof(uint32_t));
     in.read(reinterpret_cast<char*>(&num_neighbors), sizeof(uint32_t));
+    std::cout << "num queries = " << num_queries << " num neighbors = " << num_neighbors << std::endl;
 
     std::vector<NNVec> gt(num_queries, NNVec(num_neighbors));
 
-    for (uint32_t i = 0; i < num_queries; ++i) {
+    for (uint32_t q = 0; q < num_queries; ++q) {
         for (uint32_t j = 0; j < num_neighbors; ++j) {
-            in.read(reinterpret_cast<char*>(&gt[i][j].second), sizeof(uint32_t));
+            in.read(reinterpret_cast<char*>(&gt[q][j].second), sizeof(uint32_t));
         }
     }
 
-    for (uint32_t i = 0; i < num_queries; ++i) {
+    for (uint32_t q = 0; q < num_queries; ++q) {
         for (uint32_t j = 0; j < num_neighbors; ++j) {
-            in.read(reinterpret_cast<char*>(&gt[i][j].first), sizeof(float));
+            in.read(reinterpret_cast<char*>(&gt[q][j].first), sizeof(float));
         }
     }
 
