@@ -82,24 +82,20 @@ CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
     return csr;
 }
 
-std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector<int>& ks, double epsilon) {
+std::vector<int> PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
     size_t num_nodes = graph.xadj.size() - 1;
-    std::vector<std::vector<int>> results;
-    for (int k : ks) {
-        std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
-        auto context = kaminpar::shm::create_default_context();
-        context.partition.epsilon = epsilon;
-        kaminpar::KaMinPar shm(std::min<size_t>(32, std::thread::hardware_concurrency()), context);
-        shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
-        shm.compute_partition(555, k, kaminpar_partition.data());
-        std::vector<int> partition(num_nodes);
-        for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
-        results.emplace_back(std::move(partition));
-    }
-    return results;
+    std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
+    auto context = kaminpar::shm::create_default_context();
+    context.partition.epsilon = epsilon;
+    kaminpar::KaMinPar shm(std::min<size_t>(32, std::thread::hardware_concurrency()), context);
+    shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
+    shm.compute_partition(555, k, kaminpar_partition.data());
+    std::vector<int> partition(num_nodes);
+    for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
+    return partition;
 }
 
-std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon, const std::string& graph_output_path = "") {
+std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph" << std::endl;
@@ -126,8 +122,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     KMeans(subsample_points, aggregate_points);
 
     // Build kNN graph and partition
-    std::vector<int> num_clusters_vec = { num_clusters };
-    std::vector<int> aggregate_partition = GraphPartitioning(aggregate_points, num_clusters_vec, 0.05)[0];
+    std::vector<int> aggregate_partition = GraphPartitioning(aggregate_points, num_clusters, 0.05);
 
     // Assign points to the partition of the closest point in the aggregate set
     // Fix balance by assigning to the second closest etc. if the first choice is overloaded
