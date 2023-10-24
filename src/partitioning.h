@@ -161,12 +161,23 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     parlay::parallel_for(0, points.n, assign_point);
 
     std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
+    size_t deadzone = (1-epsilon) * points.n / num_clusters;
 
     size_t num_extra_rounds = 0;
     while (!unfinished_points.empty()) {
         num_leaders = 1;    // switch to only picking the top choice
-        // now we have to remove the points in aggregated_points associated with overloaded blocks
 
+        // now we have to remove the points in aggregated_points associated with overloaded blocks
+        std::vector<uint32_t> aggr_points_to_keep;
+        std::vector<int> new_aggr_partition;
+        for (uint32_t i = 0; i < aggregate_partition.size(); ++i) {
+            if (num_points_in_cluster[aggregate_partition[i]] <= deadzone) {
+                aggr_points_to_keep.push_back(i);
+                new_aggr_partition.push_back(aggregate_partition[i]);
+            }
+        }
+        aggregate_points = ExtractPointsInBucket(aggr_points_to_keep, aggregate_points);
+        aggregate_partition = std::move(new_aggr_partition);
 
         std::vector<uint32_t> frontier;
         std::swap(unfinished_points, frontier);

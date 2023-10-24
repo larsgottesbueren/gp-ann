@@ -87,20 +87,6 @@ struct KMeansTreeRouter {
         return re;
     }
 
-	PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
-        PointSet ps;
-        ps.n = bucket.size();
-        ps.d = points.d;
-        ps.coordinates.reserve(ps.n * ps.d);
-        for (auto u : bucket) {
-            float* p = points.GetPoint(u);
-            for (size_t j = 0; j < points.d; ++j) {
-                ps.coordinates.push_back(p[j]);
-            }
-        }
-        return ps;
-    }
-
     std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition) {
         int num_buckets = *std::max_element(partition.begin(), partition.end()) + 1;
         std::vector<std::vector<uint32_t>> buckets(num_buckets);

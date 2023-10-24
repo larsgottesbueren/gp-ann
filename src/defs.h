@@ -11,6 +11,20 @@ struct PointSet {
   void Drop() { coordinates.clear(); coordinates.shrink_to_fit(); }
 };
 
+PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
+    PointSet ps;
+    ps.n = bucket.size();
+    ps.d = points.d;
+    ps.coordinates.reserve(ps.n * ps.d);
+    for (auto u : bucket) {
+        float* p = points.GetPoint(u);
+        for (size_t j = 0; j < points.d; ++j) {
+            ps.coordinates.push_back(p[j]);
+        }
+    }
+    return ps;
+}
+
 using AdjGraph = std::vector<std::vector<int>>;
 
 using NNVec = std::vector<std::pair<float, uint32_t>>;
