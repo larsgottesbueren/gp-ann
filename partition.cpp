@@ -6,7 +6,7 @@
 #include "partitioning.h"
 
 int main(int argc, const char* argv[]) {
-    if (argc != 3) {
+    if (argc != 5) {
         std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method" << std::endl;
         std::abort();
     }
