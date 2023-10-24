@@ -117,11 +117,11 @@ std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<in
 
 std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon) {
     // Subsample points
-    size_t num_subsample_points = 1000000;
+    size_t num_subsample_points = 10000000;          // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
 
     // Aggregate via k-means
-    size_t num_aggregate_points = 10000;
+    const size_t num_aggregate_points = 10000;      // from the paper
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
     KMeans(subsample_points, aggregate_points);
 
