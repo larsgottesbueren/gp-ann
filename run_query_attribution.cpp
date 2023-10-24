@@ -8,6 +8,8 @@
 #include "kmeans_tree_router.h"
 #include "hnsw_router.h"
 
+void PrintAffinityMask();
+
 void PinThread(int cpu_id) {
     cpu_set_t mask;
     CPU_ZERO(&mask);
@@ -17,6 +19,7 @@ void PinThread(int cpu_id) {
         std::cerr << "Thread pinning failed" << std::endl;
         std::abort();
     }
+    PrintAffinityMask();
 }
 
 void PrintAffinityMask() {
