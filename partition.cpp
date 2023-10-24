@@ -7,12 +7,15 @@
 
 int main(int argc, const char* argv[]) {
     if (argc != 3) {
-        std::cerr << "Usage ./Partition input-points output-path" << std::endl;
+        std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method" << std::endl;
         std::abort();
     }
 
     std::string input_file = argv[1];
     std::string output_file = argv[2];
+    std::string k_string = argv[3];
+    std::string part_method = argv[4];
+
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
     #ifdef MIPS_DISTANCE
@@ -20,11 +23,19 @@ int main(int argc, const char* argv[]) {
     std::cout << "MIPS distance set --> Finished normalizing points" << std::endl;
     #endif
 
-    std::vector<int> ks= { 10, 20, 40 };
-
-    auto partitions = GraphPartitioning(points, ks, 0.05, input_file + ".knn_graph.metis");
-    std::cout << "Finished partitioning" << std::endl;
-    for (size_t i = 0; i < ks.size(); ++i) {
-        WriteMetisPartition(partitions[i], output_file + ".k=" + std::to_string(ks[i]));
+    int k = std::stoi(k_string);
+    const double eps = 0.05;
+    std::vector<int> partition;
+    if (part_method == "GP") {
+        partition = GraphPartitioning(points, k, eps);
+    } else if (part_method == "Pyramid") {
+        partition = PyramidPartitioning(points, k, eps);
+    } else if (part_method == "KMeans") {
+        partition = RecursiveKMeansPartitioning(points, k, eps);
+    } else {
+        std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
+        std::abort();
     }
+    std::cout << "Finished partitioning" << std::endl;
+    WriteMetisPartition(partition, output_file + ".k=" + std::to_string(k) + "." + part_method);
 }
