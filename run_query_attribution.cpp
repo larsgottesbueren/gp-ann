@@ -233,7 +233,7 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
 
 std::vector<ShardSearch> RunInShardSearches(
         PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-        const std::vector<std::vector<uint32_t>>& clusters, int num_shards,
+        std::vector<std::vector<uint32_t>>& clusters, int num_shards,
         const std::vector<float>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
