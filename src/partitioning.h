@@ -102,7 +102,6 @@ std::vector<std::vector<int>> PartitionGraphWithKaMinPar(CSR& graph, std::vector
 std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<int>& num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-    points.Drop();
     std::cout << "Built KNN graph" << std::endl;
     Symmetrize(knn_graph);
     if (!graph_output_path.empty()) {
@@ -118,13 +117,62 @@ std::vector<std::vector<int>> GraphPartitioning(PointSet& points, std::vector<in
 
 std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon) {
     // Subsample points
+    size_t num_subsample_points = 1000000;
+    PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
 
     // Aggregate via k-means
+    size_t num_aggregate_points = 10000;
+    PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
+    KMeans(subsample_points, aggregate_points);
 
     // Build kNN graph and partition
+    std::vector<int> num_clusters_vec = { num_clusters };
+    std::vector<int> aggregate_partition = GraphPartitioning(aggregate_points, num_clusters_vec, 0.05)[0];
 
     // Assign points to the partition of the closest point in the aggregate set
-    // Fix balance by assigning to the second closest etc.
+    // Fix balance by assigning to the second closest etc. if the first choice is overloaded
+    size_t max_points_in_cluster = points.n * (1+epsilon) / num_clusters;
+    std::vector<size_t> num_points_in_cluster(num_clusters, 0);
+    std::vector<int> partition(points.n);
 
-    return { };
+    SpinLock unfinished_points_lock;
+    std::vector<uint32_t> unfinished_points;
+
+    size_t num_leaders = 5;
+    auto assign_point = [&](size_t i) {
+        auto closest_leaders_top_k = ClosestLeaders(points, aggregate_points, i, num_leaders);
+        auto closest_leaders = ConvertTopKToNNVec(closest_leaders_top_k);
+
+        for (const auto& [dist, leader_id] : closest_leaders) {
+            const int part = aggregate_partition[leader_id];
+            if (num_points_in_cluster[part] < max_points_in_cluster) {
+                __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
+                partition[i] = part;
+                return; // from lambda
+            }
+        }
+
+        // haven't found a candidate here --> go again in another round
+        unfinished_points_lock.lock();
+        unfinished_points.push_back(i);
+        unfinished_points_lock.unlock();
+    };
+
+    parlay::parallel_for(0, points.n, assign_point);
+
+    std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
+
+    size_t num_extra_rounds = 0;
+    while (!unfinished_points.empty()) {
+        num_leaders = 1;    // switch to only picking the top choice
+        // now we have to remove the points in aggregated_points associated with overloaded blocks
+
+
+        std::vector<uint32_t> frontier;
+        std::swap(unfinished_points, frontier);
+        parlay::parallel_for(0, frontier.size(), [&](size_t i) { assign_point(frontier[i]); });
+        std::cout << "Extra Pyramid assignment round " << ++num_extra_rounds << " finished. " << unfinished_points.size() << " still unassigned" << std::endl;
+    }
+
+    return partition;
 }

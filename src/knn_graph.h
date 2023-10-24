@@ -30,20 +30,25 @@ AdjGraph BuildKNNGraph(PointSet& P, int k) {
 	return graph;
 }
 
+TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
+    TopN top_k(k);
+    float* Q = points.GetPoint(my_id);
+    for (uint32_t j = 0; j < leader_points.n; ++j) {
+        float* P = leader_points.GetPoint(j);
+        float dist = distance(P, Q, points.d);
+        top_k.Add(std::make_pair(dist, j));
+    }
+    return top_k;
+}
+
+NNVec ConvertTopKToNNVec(TopN& top_k) {
+    NNVec res = top_k.Take();
+    std::reverse(res.begin(), res.end());
+    return res;
+}
 
 struct ApproximateKNNGraphBuilder {
     using Bucket = std::vector<uint32_t>;
-
-    TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
-        TopN top_k(k);
-        float* Q = points.GetPoint(my_id);
-        for (uint32_t j = 0; j < leader_points.n; ++j) {
-            float* P = leader_points.GetPoint(j);
-            float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(dist, j));
-        }
-        return top_k;
-    }
 
     PointSet ExtractPoints(PointSet& points, const Bucket& ids) {
         PointSet bucket_points;
