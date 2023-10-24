@@ -68,6 +68,7 @@ void UnpinThread() {
 struct RoutingConfig {
     std::string routing_algorithm = "";
     size_t hnsw_num_voting_neighbors = 0;
+    size_t hnsw_ef_search = 250;
     double routing_time = 0.0;
     bool try_increasing_num_shards = false;
     KMeansTreeRouterOptions routing_index_options;
@@ -244,7 +245,7 @@ std::vector<ShardSearch> RunInShardSearches(
     std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
     for (int b = 0; b < num_shards; ++b) {
-        const auto& cluster = clusters[b];
+        auto& cluster = clusters[b];
 
         std::cout << "Start building HNSW for shard " << b << " of size " << cluster.size() << std::endl;
 
@@ -255,23 +256,30 @@ std::vector<ShardSearch> RunInShardSearches(
         #endif
 
 
-        // PinThread(0);
+        PinThread(0);
 
         SpaceType space(points.d);
 
         Timer build_timer; build_timer.Start();
         hnswlib::HierarchicalNSW<float> hnsw(&space, cluster.size(), hnsw_parameters.M, hnsw_parameters.ef_construction, 555 + b);
 
-        // UnpinThread();
+        UnpinThread();
 
-        parlay::parallel_for(0, cluster.size(), [&](size_t i) {
-            float* p = points.GetPoint(cluster[i]);
-            hnsw.addPoint(p, i);
-        });
+        std::mt19937 prng(555 + b);
+        std::shuffle(cluster.begin(), cluster.end(), prng);
+
+        // do some insertion sequentially
+        size_t seq_insertion = std::min(1UL << 11, cluster.size());
+        for (size_t i = 0; i < seq_insertion; ++i) {
+            hnsw.addPoint(points.GetPoint(cluster[i]), i);
+        }
+        parlay::parallel_for(seq_insertion, cluster.size(), [&](size_t i) {
+            hnsw.addPoint(points.GetPoint(cluster[i]), i);
+        }, 512);
 
         std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
 
-        // PinThread(0);
+        PinThread(0);
 
         size_t ef_search_param_id = 0;
         for (size_t ef_search : ef_search_param_values) {
@@ -299,7 +307,7 @@ std::vector<ShardSearch> RunInShardSearches(
 
         std::cout << "Finished searches in bucket " << b << std::endl;
 
-        // UnpinThread();
+        UnpinThread();
     }
 
     return shard_searches;
