@@ -45,6 +45,8 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
 
             // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
+            std::cout << "Cluster " << part_id << " / " << num_clusters << " at depth " << depth << " was overloaded " << cluster_sizes[part_id] << " / " << max_cluster_size
+                      << " and got split into " << max_sub_part_id + 1 << " sub-clusters" << std::endl;
             for (uint32_t sub_point_id = 0; sub_point_id < cluster.size(); ++sub_point_id) {
                 uint32_t point_id = cluster[sub_point_id];
                 partition[point_id] = next_part_id + sub_partition[sub_point_id];
