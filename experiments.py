@@ -27,6 +27,7 @@ def create_builds():
 			arglist.append('-DMIPS_DISTANCE=ON')
 		print(arglist)
 		subprocess.call(arglist)
+		subprocess.call(['make', '-j'])
 		os.chdir('../')
 		print('cwd=', os.getcwd())
 
