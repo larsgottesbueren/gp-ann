@@ -24,6 +24,15 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     std::vector<size_t> cluster_sizes(num_clusters, 0);
     for (int part_id : partition) cluster_sizes[part_id]++;
 
+    int num_overloaded_clusters = 0;
+    for (int part_id = 0; part_id < num_clusters; ++part_id) {
+        if (cluster_sizes[part_id] > max_cluster_size) num_overloaded_clusters++;
+    }
+
+    if (num_overloaded_clusters > 0) {
+        std::cout << "At depth " << depth << " there are " << num_overloaded_clusters << " / " << num_clusters << " too heavy clusters. Refine them" << std::endl;
+    }
+
     int next_part_id = num_clusters;
     for (int part_id = 0; part_id < int(cluster_sizes.size()); ++part_id) {
         if (cluster_sizes[part_id] > max_cluster_size) {
@@ -61,7 +70,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
 
 std::vector<int> RecursiveKMeansPartitioning(PointSet& points, int num_clusters, double epsilon) {
     size_t max_cluster_size = points.n * (1+epsilon) / num_clusters;
-    return RecursiveKMeansPartitioning(points, max_cluster_size, num_clusters);
+    return RecursiveKMeansPartitioning(points, max_cluster_size, 0, num_clusters);
 }
 
 struct CSR {
