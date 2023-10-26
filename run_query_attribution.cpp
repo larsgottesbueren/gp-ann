@@ -170,6 +170,15 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
     }
 
+    // TODO if partitioning method is Pyramid --> run the routing on their meta HNSW as well.
+    // --> store aggregate points + partition on disk --> deduce filename from the parameters
+    // --> here: load points and partition --> build mini HNSW router
+
+
+    // can we use that for our own routing? you have to preserve the external partition in the aggregation
+    // --> this goes right back to our own routing index trainer. except we do hierarchical k-means, they do sample + flat k-means
+    // This is good news. It means we don't have to scrap results so far, and only have to do Pyramid routing with Pyramid partitioning
+
     return routes;
 }
 
