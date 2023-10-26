@@ -70,6 +70,7 @@ void UnpinThread() {
 
 struct RoutingConfig {
     std::string routing_algorithm = "";
+    std::string index_trainer = "KMeansTree";
     size_t hnsw_num_voting_neighbors = 0;
     size_t hnsw_ef_search = 250;
     double routing_time = 0.0;
@@ -184,7 +185,14 @@ struct ShardSearch {
     std::vector<std::vector<double>> time_query_in_shard;
 };
 
-void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(double,double)>& emit) {
+struct EmitResult {
+    double recall;
+    double QPS;
+    double n_probes;
+    double max_latency, min_latency, avg_latency;
+};
+
+void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(EmitResult)>& emit) {
     size_t total_hits = 0;
     std::vector<int> hits_per_query(num_queries, 0);
     std::vector<double> local_work(num_shards, 0.0);
@@ -201,7 +209,12 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         double max_latency = *std::max_element(local_work.begin(), local_work.end());
         double total_time = max_latency + (route.routing_time / num_shards);
         double QPS = num_queries / total_time;
-        emit(recall, QPS);
+        emit(EmitResult{
+            .recall=recall, .QPS=QPS, .n_probes=double(n_probes),
+            .max_latency = max_latency,
+            .min_latency = *std::min_element(local_work.begin(), local_work.end()),
+            .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
+        });
         std::cout   << "NProbes = " << n_probes << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
         std::cout << "local work\t";
         for (double t : local_work) std::cout << t << " ";
@@ -209,10 +222,12 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     }
 }
 
-void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(double,double)>& emit) {
+void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(EmitResult)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
+    size_t total_num_probes = 0;
     for (size_t q = 0; q < num_queries; ++q) {
+        total_num_probes += route.buckets_to_probe[q].size();
         int hits = 0;
         for (int b : route.buckets_to_probe[q]) {
             hits += search.query_hits_in_shard[b][q];
@@ -226,7 +241,13 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     double max_latency = *std::max_element(local_work.begin(), local_work.end());
     double total_time = max_latency + (route.routing_time / num_shards);
     double QPS = num_queries / total_time;
-    emit(recall, QPS);
+    double avg_n_probes = double(total_num_probes) / num_queries;
+    emit(EmitResult{
+            .recall=recall, .QPS=QPS, .n_probes=avg_n_probes,
+            .max_latency = max_latency,
+            .min_latency = *std::min_element(local_work.begin(), local_work.end()),
+            .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
+    });
 
     std::cout  << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
     std::cout << "local work\t";
@@ -318,8 +339,9 @@ std::vector<ShardSearch> RunInShardSearches(
 
 
 int main(int argc, const char* argv[]) {
+    // TODO add parameter for partitioning method (to print to the output)
     if (argc != 7) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition output-file" << std::endl;
+        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition-file output-file" << std::endl;
         std::abort();
     }
 
@@ -378,7 +400,7 @@ int main(int argc, const char* argv[]) {
 
     std::ofstream out(output_file);
     // header
-    out << "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,recall,QPS";
+    out << "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS";
 
     struct Desc {
         std::string format_string;
@@ -390,11 +412,12 @@ int main(int argc, const char* argv[]) {
 
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
-            std::function<void(double, double)> format_output = [&](double recall, double QPS) -> void {
+            std::function<void(double, double,double)> format_output = [&](double recall, double QPS, double n_probes) -> void {
                 std::stringstream str;
-                str << "GP,HNSW," << route.routing_algorithm << ",KMeansTree,"
+                str << "GP,HNSW," << route.routing_algorithm << "," << route.index_trainer << ","
                     << search.ef_search << "," << route.hnsw_num_voting_neighbors
-                    << "," << recall << "," << QPS;
+                    << "," << route.routing_time / queries.n
+                    << "," << n_probes << "," << recall << "," << QPS;
                 out << str.str() << std::endl;
                 std::cout << str.str() << std::endl;
                 outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS = QPS });
