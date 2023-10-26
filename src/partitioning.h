@@ -6,15 +6,20 @@
 
 #include <kaminpar-shm/kaminpar.h>
 
-std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int num_clusters = -1) {
+std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1) {
     if (num_clusters < 0) {
-        num_clusters = static_cast<int>(points.n / max_cluster_size);
+        num_clusters = static_cast<int>(ceil(double(points.n) / max_cluster_size));
     }
     if (num_clusters == 0) {
         return std::vector<int>(points.n, 0);
     }
     PointSet centroids = RandomSample(points, num_clusters, 555);
+
+    Timer timer; timer.Start();
     std::vector<int> partition = KMeans(points, centroids);
+    std::cout << "k-means at depth " << depth << " took " << timer.Stop() << " s" << std::endl;
+
+    num_clusters = *std::max_element(partition.begin(), partition.end()) + 1;
 
     std::vector<size_t> cluster_sizes(num_clusters, 0);
     for (int part_id : partition) cluster_sizes[part_id]++;
@@ -22,6 +27,8 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     int next_part_id = num_clusters;
     for (int part_id = 0; part_id < int(cluster_sizes.size()); ++part_id) {
         if (cluster_sizes[part_id] > max_cluster_size) {
+            std::cout << "Cluster " << part_id << " / " << num_clusters << " at depth " << depth << " is overloaded " << cluster_sizes[part_id] << " / " << max_cluster_size << std::endl;
+
             // Determine nodes in the cluster (could do it for all clusters at once, be we assume that this happens for 1-2 clusters --> this is faster and uses less memory)
             std::vector<uint32_t> cluster;
             for (uint32_t point_id = 0; point_id < partition.size(); ++point_id) {
@@ -31,18 +38,10 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
             }
 
             // Set up the point subset of the cluster
-            PointSet cluster_point_set;
-            cluster_point_set.d = points.d;
-            cluster_point_set.n = cluster.size();
-            for (uint32_t point_id : cluster) {
-                float* P = points.GetPoint(point_id);
-                for (size_t d = 0; d < points.d; ++d) {
-                    cluster_point_set.coordinates.push_back(P[d]);
-                }
-            }
+            PointSet cluster_point_set = ExtractPointsInBucket(cluster, points);
 
             // Partition recursively
-            std::vector<int> sub_partition = RecursiveKMeansPartitioning(cluster_point_set, max_cluster_size);
+            std::vector<int> sub_partition = RecursiveKMeansPartitioning(cluster_point_set, max_cluster_size, depth + 1);
 
             // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
