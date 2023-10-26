@@ -1,9 +1,4 @@
-cd ..
-mkdir release && cd release
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
-cd ../exp_scripts
-
+./build.sh
 ./download_datasets.sh
 ./compute_partitions.sh
 ./bench.sh
