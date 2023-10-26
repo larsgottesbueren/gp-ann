@@ -77,6 +77,7 @@ struct CSR {
     CSR() : xadj(1, 0) {}
     std::vector<kaminpar::shm::EdgeID> xadj;
     std::vector<kaminpar::shm::NodeID> adjncy;
+    std::vector<kaminpar::shm::NodeWeight> node_weights;
 };
 
 CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
@@ -98,7 +99,9 @@ std::vector<int> PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
     auto context = kaminpar::shm::create_default_context();
     context.partition.epsilon = epsilon;
     kaminpar::KaMinPar shm(std::min<size_t>(32, std::thread::hardware_concurrency()), context);
-    shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(), /* vwgt = */ nullptr, /* adjwgt = */ nullptr);
+    shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
+                   /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
+                   /* adjwgt = */ nullptr);
     shm.compute_partition(555, k, kaminpar_partition.data());
     std::vector<int> partition(num_nodes);
     for (size_t i = 0; i < partition.size(); ++i) partition[i] = kaminpar_partition[i];     // convert unsigned int partition ID to signed int partition ID
@@ -129,10 +132,20 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     // Aggregate via k-means
     const size_t num_aggregate_points = 10000;      // from the paper
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
-    KMeans(subsample_points, aggregate_points);
+    std::vector<int> subsample_partition = KMeans(subsample_points, aggregate_points);
 
-    // Build kNN graph and partition
-    std::vector<int> aggregate_partition = GraphPartitioning(aggregate_points, num_clusters, 0.05);
+    // Build kNN graph
+    ApproximateKNNGraphBuilder graph_builder;
+    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    Symmetrize(knn_graph);
+    CSR csr = ConvertAdjGraphToCSR(knn_graph);
+
+    // assign node weights
+    csr.node_weights.resize(num_aggregate_points, 0);
+    for (int subsample_part_id : subsample_partition) csr.node_weights[subsample_part_id]++;
+
+    // partition
+    std::vector<int> aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
 
     // Assign points to the partition of the closest point in the aggregate set
     // Fix balance by assigning to the second closest etc. if the first choice is overloaded
