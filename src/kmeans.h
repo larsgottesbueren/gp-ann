@@ -103,7 +103,7 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
 		AggregateClusters(P, centroids, closest_center);
-		// TODO stop early?
+		// TODO stop early? mini-batch?
 	}
 	return closest_center;
 }
