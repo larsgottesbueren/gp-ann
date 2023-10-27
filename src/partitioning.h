@@ -136,7 +136,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 
     // Build kNN graph
     ApproximateKNNGraphBuilder graph_builder;
-    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(aggregate_points, 10);
     Symmetrize(knn_graph);
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
