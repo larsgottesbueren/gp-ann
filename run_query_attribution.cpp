@@ -421,15 +421,15 @@ int main(int argc, const char* argv[]) {
 
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
-            std::function<void(double, double,double)> format_output = [&](double recall, double QPS, double n_probes) -> void {
+            std::function<void(EmitResult)> format_output = [&](EmitResult r) -> void {
                 std::stringstream str;
                 str << "GP,HNSW," << route.routing_algorithm << "," << route.index_trainer << ","
                     << search.ef_search << "," << route.hnsw_num_voting_neighbors
                     << "," << route.routing_time / queries.n
-                    << "," << n_probes << "," << recall << "," << QPS;
+                    << "," << r.n_probes << "," << r.recall << "," << r.QPS;
                 out << str.str() << std::endl;
                 std::cout << str.str() << std::endl;
-                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS = QPS });
+                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS = r.QPS });
             };
             if (route.try_increasing_num_shards) {
                 AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors, format_output);
