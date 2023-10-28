@@ -196,6 +196,7 @@ struct ShardSearch {
 
 struct EmitResult {
     double recall;
+    double QPS_per_shard;
     double QPS;
     double n_probes;
     double max_latency, min_latency, avg_latency;
@@ -219,7 +220,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         double total_time = max_latency + (route.routing_time / num_shards);
         double QPS = num_queries / total_time;
         emit(EmitResult{
-            .recall=recall, .QPS=QPS, .n_probes=double(n_probes),
+            .recall=recall, .QPS_per_shard=QPS, .QPS=QPS, .n_probes=double(n_probes),
             .max_latency = max_latency,
             .min_latency = *std::min_element(local_work.begin(), local_work.end()),
             .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
@@ -252,7 +253,7 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     double QPS = num_queries / total_time;
     double avg_n_probes = double(total_num_probes) / num_queries;
     emit(EmitResult{
-            .recall=recall, .QPS=QPS, .n_probes=avg_n_probes,
+            .recall=recall, .QPS_per_shard=QPS, .QPS=QPS, .n_probes=avg_n_probes,
             .max_latency = max_latency,
             .min_latency = *std::min_element(local_work.begin(), local_work.end()),
             .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
@@ -414,7 +415,7 @@ int main(int argc, const char* argv[]) {
     struct Desc {
         std::string format_string;
         double recall;
-        double QPS;
+        double QPS_per_shard;
     };
 
     std::map<std::string, std::vector<Desc>> outputs;
@@ -426,10 +427,10 @@ int main(int argc, const char* argv[]) {
                 str << "GP,HNSW," << route.routing_algorithm << "," << route.index_trainer << ","
                     << search.ef_search << "," << route.hnsw_num_voting_neighbors
                     << "," << route.routing_time / queries.n
-                    << "," << r.n_probes << "," << r.recall << "," << r.QPS;
+                    << "," << r.n_probes << "," << r.recall << "," << r.QPS_per_shard;
                 out << str.str() << std::endl;
                 std::cout << str.str() << std::endl;
-                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS = r.QPS });
+                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS_per_shard = r.QPS_per_shard });
             };
             if (route.try_increasing_num_shards) {
                 AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors, format_output);
@@ -445,7 +446,7 @@ int main(int argc, const char* argv[]) {
     for (auto& [routing_algo, configs] : outputs) {
         if (configs.empty()) continue;
 
-        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS < r.QPS; };
+        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS_per_shard < r.QPS_per_shard; };
 
         std::vector<Desc> pareto;
         for (const auto& c : configs) {
