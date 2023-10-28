@@ -114,14 +114,16 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
     points.Drop();
+    std::cout << "Dealloc took " << timer.Restart() << std::endl;
     Symmetrize(knn_graph);
+    std::cout << "symmetrize took " << timer.Restart() << std::endl;
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
         WriteMetisGraph(graph_output_path, knn_graph);
+        std::cout << "Writing graph file took " << timer.Restart() << std::endl;
     }
-    std::cout << "Dealloc + symmetrize took " << timer.Restart();
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
-    std::cout << "Symmetrized and converted graph. Took " << timer.Restart() << std::endl;
+    std::cout << "Converting graph to CSR took " << timer.Restart() << std::endl;
     knn_graph.clear();
     knn_graph.shrink_to_fit();
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
