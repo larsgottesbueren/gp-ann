@@ -69,7 +69,7 @@ void UnpinThread() {
 }
 
 struct RoutingConfig {
-    std::string routing_algorithm = "";
+    std::string routing_algorithm = "None";
     std::string index_trainer = "KMeansTree";
     size_t hnsw_num_voting_neighbors = 0;
     size_t hnsw_ef_search = 250;
@@ -90,12 +90,15 @@ struct RoutingConfig {
         return sb.str();
     }
 
-    RoutingConfig Deserialize(std::ifstream& in) const {
+    static RoutingConfig Deserialize(std::ifstream& in) {
         RoutingConfig r;
         int num_queries = 0;
-        in >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha >> num_queries;
+        std::string line;
+        std::getline(in, line);
+        std::istringstream iss(line);
+        iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha >> num_queries;
+        std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << " " << r.try_increasing_num_shards << " " << std::noboolalpha << num_queries << std::endl;
         for (int i = 0; i < num_queries; ++i) {
-            std::string line;
             std::getline(in, line);
             std::istringstream line_stream(line);
             int b = 0;
@@ -235,12 +238,14 @@ struct ShardSearch {
         return out.str();
     }
 
-    ShardSearch Deserialize(std::ifstream& in) const {
+    static ShardSearch Deserialize(std::ifstream& in) {
         ShardSearch s;
         int num_shards, num_queries;
-        in >> s.ef_search >> num_shards >> num_queries;
+        std::string line;
+        std::getline(in, line);
+        std::istringstream iss(line);
+        iss >> s.ef_search >> num_shards >> num_queries;
         for (int i = 0; i < num_shards; ++i) {
-            std::string line;
             std::getline(in, line);
             std::istringstream line_stream(line);
             s.query_hits_in_shard.emplace_back();
@@ -252,7 +257,6 @@ struct ShardSearch {
         }
 
         for (int i = 0; i < num_shards; ++i) {
-            std::string line;
             std::getline(in, line);
             std::istringstream line_stream(line);
             s.time_query_in_shard.emplace_back();
@@ -419,7 +423,7 @@ std::vector<ShardSearch> RunInShardSearches(
 }
 
 void Serialize(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
-    std::ofstream out(output_file+ ".routes_and_searches.txt");
+    std::ofstream out(output_file);
     out << routes.size() << " " << shard_searches.size() << std::endl;
     for (const RoutingConfig& r : routes) {
         out << "R" << std::endl;
@@ -431,8 +435,65 @@ void Serialize(const std::vector<RoutingConfig>& routes, const std::vector<Shard
     }
 }
 
+void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& shard_searches, const std::string& input_file) {
+    std::ifstream in(input_file);
+    size_t num_routes, num_searches;
+    std::string header;
+    std::getline(in, header);
+    std::istringstream iss(header);
+    iss >> num_routes >> num_searches;
+    std::cout << "nr=" << num_routes << " ns=" << num_searches << std::endl;
+    for (size_t i = 0; i < num_routes; ++i) {
+        std::getline(in, header);
+        std::cout << "i = " << i << " for routes " << std::endl;
+        if (header != "R") std::cout << "routing config doesn't start with marker R. Instead: " << header << std::endl;
+        RoutingConfig r = RoutingConfig::Deserialize(in);
+        routes.push_back(std::move(r));
+    }
+    for (size_t i = 0; i < num_searches; ++i) {
+        std::getline(in, header);
+        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
+        ShardSearch s = ShardSearch::Deserialize(in);
+        shard_searches.push_back(std::move(s));
+    }
+}
+
 
 int main(int argc, const char* argv[]) {
+
+    // Test Serialize and Deserialize
+    std::string file_name = "test.txt";
+    {
+        std::vector<RoutingConfig> routes;
+        routes.emplace_back();
+        auto& r = routes.back();
+        r.routing_time = 420;
+        for (int i = 0; i < 555; ++i) {
+            r.buckets_to_probe.emplace_back();
+            auto& v = r.buckets_to_probe.back();
+            for (int j = 0; j < 24; ++j) {
+                v.push_back(26 + i - j);
+            }
+        }
+
+        routes.push_back(r);
+        routes.back().routing_time = 1;
+        routes.back().buckets_to_probe[0][0] = -1;
+        routes.back().hnsw_num_voting_neighbors = 333;
+
+
+        std::vector<ShardSearch> searches;
+        Serialize(routes, searches, file_name);
+    }
+    {
+        std::vector<RoutingConfig> routes;
+        std::vector<ShardSearch> searches;
+        Deserialize(routes, searches, file_name);
+        std::cout << "len(routes)=" << routes.size() << " len(searches)=" << searches.size() << std::endl;
+        std::cout << routes[0].buckets_to_probe[0][0] << " " << routes[1].buckets_to_probe[0][0] << std::endl;
+    }
+    std::exit(0);
+
     // TODO add parameter for partitioning method (to print to the output)
     if (argc != 7) {
         std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition-file output-file" << std::endl;
