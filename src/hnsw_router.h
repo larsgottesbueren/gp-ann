@@ -20,20 +20,23 @@ struct HNSWRouter {
     std::unique_ptr<hnswlib::HierarchicalNSW<float>> hnsw;
     HNSWParameters hnsw_parameters;
 
-    HNSWRouter(PointSet routing_points_, std::vector<int> partition_offsets_, HNSWParameters parameters) :
-        routing_points(std::move(routing_points_)),
-        partition_offsets(std::move(partition_offsets_)),
-        space(routing_points.d),
-        hnsw_parameters(parameters)
-    {
+    void InitPart() {
         // build partition array
         for (size_t i = 1; i < partition_offsets.size(); ++i) {
             for (int j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
                 partition.push_back(i-1);
             }
         }
-
         num_shards = partition_offsets.size() - 1;
+    }
+
+    HNSWRouter(PointSet routing_points_, std::vector<int> partition_offsets_, HNSWParameters parameters) :
+        routing_points(std::move(routing_points_)),
+        partition_offsets(std::move(partition_offsets_)),
+        space(routing_points.d),
+        hnsw_parameters(parameters)
+    {
+        InitPart();
 
         hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
 
@@ -44,6 +47,19 @@ struct HNSWRouter {
             hnsw->addPoint(routing_points.GetPoint(i), i);
         });
 
+        hnsw->setEf(hnsw_parameters.ef_search);
+    }
+
+    void Serialize(const std::string& file) {
+        hnsw->saveIndex(file);
+    }
+
+    HNSWRouter(const std::string& file, int dim, std::vector<int> partition_offsets_) :
+        space(dim),
+        partition_offsets(std::move(partition_offsets_)),
+        hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
+    {
+        InitPart();
         hnsw->setEf(hnsw_parameters.ef_search);
     }
 

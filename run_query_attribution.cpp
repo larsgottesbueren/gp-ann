@@ -111,7 +111,8 @@ struct RoutingConfig {
     }
 };
 
-std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards, KMeansTreeRouterOptions routing_index_options) {
+std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards,
+                                                 KMeansTreeRouterOptions routing_index_options, const std::string& routing_index_file) {
     KMeansTreeRouter router;
     std::vector<RoutingConfig> routes;
     Timer routing_timer; routing_timer.Start();
@@ -143,7 +144,9 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                                    .ef_construction = 200,
                                    .ef_search = 250 }
     );
-    std::cout << "Training HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+    std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
+    hnsw_router.Serialize(routing_index_file);
+    std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
 
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
@@ -518,7 +521,7 @@ int main(int argc, const char* argv[]) {
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 
-    Serialize(routes, shard_searches, output_file);
+    Serialize(routes, shard_searches, output_file + ".routes_and_searches.txt");
 
     std::ofstream out(output_file);
     // header
