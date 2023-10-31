@@ -243,7 +243,7 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     HNSWParameters hnsw_parameters;
     hnswlib::HierarchicalNSW<float> hnsw(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
     parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw.addPoint(routing_points.GetPoint(i), i); });
-    std::cout << "Building HNSW took " << timer.Restart();
+    std::cout << "Building HNSW took " << timer.Restart() << std::endl;
     hnsw.saveIndex(routing_index_path);
 
     AdjGraph hnsw_graph(routing_points.n);
@@ -255,14 +255,14 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     }
     Symmetrize(hnsw_graph);
     CSR hnsw_csr = ConvertAdjGraphToCSR(hnsw_graph);
-    std::cout << "Converting HNSW to AdjGraph + Symmetrize + AdjGraphToCsr took " << timer.Restart();
+    std::cout << "Converting HNSW to AdjGraph + Symmetrize + AdjGraphToCsr took " << timer.Restart() << std::endl;
 
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(routing_points, 20);
-    std::cout << "Build KNN graph took " << timer.Restart();
+    std::cout << "Build KNN graph took " << timer.Restart() << std::endl;
     Symmetrize(knn_graph);
     CSR knn_csr = ConvertAdjGraphToCSR(knn_graph);
-    std::cout << "Symmetrize + Convert to CSR took " << timer.Restart();
+    std::cout << "Symmetrize + Convert to CSR took " << timer.Restart() << std::endl;
 
     knn_csr.node_weights.resize(routing_points.n, 0);
     for (int cluster_id : routing_clusters) knn_csr.node_weights[cluster_id]++;
