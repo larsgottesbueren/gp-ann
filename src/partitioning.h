@@ -6,6 +6,9 @@
 
 #include <kaminpar-shm/kaminpar.h>
 
+#include "../external/hnswlib/hnswlib/hnswlib.h"
+#include "hnsw_router.h"
+
 std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1) {
     if (num_clusters < 0) {
         num_clusters = static_cast<int>(ceil(double(points.n) / max_cluster_size));
@@ -129,7 +132,7 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
 }
 
-std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon) {
+std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path="") {
     // Subsample points
     size_t num_subsample_points = 10000000;          // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
@@ -138,6 +141,19 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     const size_t num_aggregate_points = 10000;      // from the paper
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
     std::vector<int> subsample_partition = KMeans(subsample_points, aggregate_points);
+
+    if (!routing_index_path.empty()) {
+        #ifdef MIPS_DISTANCE
+        using SpaceType = hnswlib::InnerProductSpace;
+        #else
+        using SpaceType = hnswlib::L2Space;
+        #endif
+        SpaceType space(points.d);
+        HNSWParameters hnsw_parameters;
+        hnswlib::HierarchicalNSW<float> hnsw(&space, aggregate_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, 555);
+        parlay::parallel_for(0, aggregate_points.n, [&](size_t i) { hnsw.addPoint(aggregate_points.GetPoint(i), i); }, 512);
+        hnsw.saveIndex(routing_index_path);
+    }
 
     // Build kNN graph
     ApproximateKNNGraphBuilder graph_builder;
