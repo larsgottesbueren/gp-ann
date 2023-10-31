@@ -6,7 +6,6 @@
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 
 struct HNSWRouter {
-    PointSet routing_points;
     std::vector<int> partition_offsets;
     std::vector<int> partition;
     int num_shards;
@@ -30,29 +29,28 @@ struct HNSWRouter {
         num_shards = partition_offsets.size() - 1;
     }
 
-    HNSWRouter(PointSet routing_points_, std::vector<int> partition_offsets_, HNSWParameters parameters) :
-        routing_points(std::move(routing_points_)),
+    HNSWRouter(PointSet& routing_points, std::vector<int> partition_offsets_, HNSWParameters parameters) :
         partition_offsets(std::move(partition_offsets_)),
         space(routing_points.d),
         hnsw_parameters(parameters)
     {
         InitPart();
-
         hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
-
-        std::cout << "num routing points " << routing_points.n << std::endl;
-
-        // insert points...
-        parlay::parallel_for(0, routing_points.n, [&](size_t i) {
-            hnsw->addPoint(routing_points.GetPoint(i), i);
-        });
-
+        parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw->addPoint(routing_points.GetPoint(i), i); });
         hnsw->setEf(hnsw_parameters.ef_search);
     }
 
-    void Serialize(const std::string& file) {
-        hnsw->saveIndex(file);
+    HNSWRouter(PointSet& routing_points, int num_shards_, const std::vector<int>& partition_, HNSWParameters parameters) :
+        partition(partition_),
+        num_shards(num_shards_),
+        space(routing_points.d),
+        hnsw_parameters(parameters)
+    {
+        hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
+        parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw->addPoint(routing_points.GetPoint(i), i); });
+        hnsw->setEf(hnsw_parameters.ef_search);
     }
+
 
     HNSWRouter(const std::string& file, int dim, std::vector<int> partition_offsets_) :
         space(dim),
@@ -61,6 +59,10 @@ struct HNSWRouter {
     {
         InitPart();
         hnsw->setEf(hnsw_parameters.ef_search);
+    }
+
+    void Serialize(const std::string& file) {
+        hnsw->saveIndex(file);
     }
 
     std::vector<int> Query(float* Q, int num_voting_neighbors) {
