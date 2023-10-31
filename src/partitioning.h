@@ -233,6 +233,7 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     PointSet routing_points = RandomSample(points, num_routing_points, 555);
     Timer timer; timer.Start();
     std::vector<int> routing_clusters = KMeansAccelerated(points, routing_points);
+    num_routing_points = routing_points.n;  // k-means might have decided to leave out some points
     std::cout << "KMeans-Accelerated took " << timer.Restart() << std::endl;
 
     #ifdef MIPS_DISTANCE
