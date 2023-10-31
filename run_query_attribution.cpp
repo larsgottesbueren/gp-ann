@@ -138,15 +138,17 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     routing_timer.Start();
     auto [routing_points, partition_offsets] = router.ExtractPoints();
     std::cout << "Extraction finished" << std::endl;
-    HNSWRouter hnsw_router(std::move(routing_points), std::move(partition_offsets),
+    HNSWRouter hnsw_router(routing_points, partition_offsets,
                            HNSWParameters {
                                    .M = 32,
                                    .ef_construction = 200,
-                                   .ef_search = 250 }
+                                   .ef_search = 200 }
     );
     std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
     hnsw_router.Serialize(routing_index_file);
     std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+
+    std::cout << "num distance computations = " <<  hnsw_router.hnsw->metric_distance_computations << std::endl;
 
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
@@ -159,6 +161,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
         double time_routing = routing_timer.Stop();
         std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
+        std::cout << "num distance computations = " <<  hnsw_router.hnsw->metric_distance_computations << std::endl;
         auto& new_route = routes.emplace_back();
         new_route.routing_algorithm = "HNSW";
         new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
@@ -464,7 +467,7 @@ void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& s
 
 int main(int argc, const char* argv[]) {
     if (argc != 7) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition-file output-file" << std::endl;
+        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file" << std::endl;
         std::abort();
     }
 
@@ -488,6 +491,14 @@ int main(int argc, const char* argv[]) {
     Normalize(queries);
     #endif
 
+    std::vector<int> partition = ReadMetisPartition(partition_file);
+    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+
+    KMeansTreeRouterOptions router_options;
+    router_options.budget = points.n / num_shards;
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options, partition_file + ".routing_index");
+    std::cout << "Finished routing configs" << std::endl;
+
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -499,15 +510,6 @@ int main(int argc, const char* argv[]) {
     }
     std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
-
-    std::vector<int> partition = ReadMetisPartition(partition_file);
-    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
-
-    KMeansTreeRouterOptions router_options;
-    router_options.budget = points.n / num_shards;
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options, partition_file + ".routing_index");
-    std::cout << "Finished routing configs" << std::endl;
-
 
     Timer timer;
     timer.Start();
