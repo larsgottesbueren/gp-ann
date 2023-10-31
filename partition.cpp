@@ -23,19 +23,25 @@ int main(int argc, const char* argv[]) {
     std::cout << "MIPS distance set --> Finished normalizing points" << std::endl;
     #endif
 
+
     int k = std::stoi(k_string);
     const double eps = 0.05;
+    std::string part_file = output_file + ".k=" + std::to_string(k) + "." + part_method;
     std::vector<int> partition;
     if (part_method == "GP") {
         partition = GraphPartitioning(points, k, eps);
     } else if (part_method == "Pyramid") {
-        partition = PyramidPartitioning(points, k, eps);
+        partition = PyramidPartitioning(points, k, eps, part_file + ".pyramid_routing_index");
     } else if (part_method == "KMeans") {
         partition = RecursiveKMeansPartitioning(points, k, eps);
+    } else if (part_method == "OurPyramid") {
+        std::vector<int> second_partition;
+        partition = OurPyramidPartitioning(points, k, eps, second_partition, part_file + ".our_pyramid_routing_index");
+        WriteMetisPartition(second_partition, part_file + ".hnsw_graph_part");
     } else {
         std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
         std::abort();
     }
     std::cout << "Finished partitioning" << std::endl;
-    WriteMetisPartition(partition, output_file + ".k=" + std::to_string(k) + "." + part_method);
+    WriteMetisPartition(partition, part_file);
 }
