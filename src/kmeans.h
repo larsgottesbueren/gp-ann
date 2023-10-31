@@ -134,7 +134,7 @@ std::vector<int> KMeansAccelerated(PointSet& P, PointSet& centroids) {
     std::vector<int> closest_center(P.n, -1);
     static constexpr size_t NUM_ROUNDS = 11;
     for (size_t r = 0; r < NUM_ROUNDS; ++r) {
-        NearestCenters(P, centroids, closest_center);
+        NearestCentersAccelerated(P, centroids, closest_center);
         AggregateClusters(P, centroids, closest_center);
         // TODO stop early? mini-batch?
     }
