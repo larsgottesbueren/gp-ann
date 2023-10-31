@@ -53,8 +53,8 @@ struct HNSWRouter {
 
 
     HNSWRouter(const std::string& file, int dim, std::vector<int> partition_offsets_) :
-        space(dim),
         partition_offsets(std::move(partition_offsets_)),
+        space(dim),
         hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
     {
         InitPart();

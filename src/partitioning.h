@@ -229,7 +229,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 
 
 std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition, const std::string& routing_index_path) {
-    size_t num_routing_points = 10000000;
+    size_t num_routing_points = points.n * 0.01;
     PointSet routing_points = RandomSample(points, num_routing_points, 555);
     Timer timer; timer.Start();
     std::vector<int> routing_clusters = KMeansAccelerated(points, routing_points);
