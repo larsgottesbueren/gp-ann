@@ -107,3 +107,33 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	}
 	return closest_center;
 }
+
+void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
+    #ifdef MIPS_DISTANCE
+    using SpaceType = hnswlib::InnerProductSpace;
+    #else
+    using SpaceType = hnswlib::L2Space;
+    #endif
+    SpaceType space(P.d);
+    HNSWParameters hnsw_parameters;
+    hnswlib::HierarchicalNSW<float> hnsw(&space, centroids.n, hnsw_parameters.M, hnsw_parameters.ef_construction, 555);
+    parlay::parallel_for(0, centroids.n, [&](size_t i) {
+        hnsw.addPoint(centroids.GetPoint(i), i);
+    }, 512);
+
+    parlay::parallel_for(0, P.n, [&](size_t i) {
+        auto res = hnsw.searchKnn(P.GetPoint(i), 1);
+        closest_center[i] = res.top().second;
+    });
+}
+
+std::vector<int> KMeansAccelerated(PointSet& P, PointSet& centroids) {
+    std::vector<int> closest_center(P.n, -1);
+    static constexpr size_t NUM_ROUNDS = 11;
+    for (size_t r = 0; r < NUM_ROUNDS; ++r) {
+        NearestCenters(P, centroids, closest_center);
+        AggregateClusters(P, centroids, closest_center);
+        // TODO stop early? mini-batch?
+    }
+    return closest_center;
+}
