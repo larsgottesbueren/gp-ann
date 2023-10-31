@@ -505,7 +505,7 @@ int main(int argc, const char* argv[]) {
 
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / num_shards;
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options);
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options, partition_file + ".routing_index");
     std::cout << "Finished routing configs" << std::endl;
 
 
