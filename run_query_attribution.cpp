@@ -460,41 +460,6 @@ void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& s
 
 
 int main(int argc, const char* argv[]) {
-
-    // Test Serialize and Deserialize
-    std::string file_name = "test.txt";
-    {
-        std::vector<RoutingConfig> routes;
-        routes.emplace_back();
-        auto& r = routes.back();
-        r.routing_time = 420;
-        for (int i = 0; i < 555; ++i) {
-            r.buckets_to_probe.emplace_back();
-            auto& v = r.buckets_to_probe.back();
-            for (int j = 0; j < 24; ++j) {
-                v.push_back(26 + i - j);
-            }
-        }
-
-        routes.push_back(r);
-        routes.back().routing_time = 1;
-        routes.back().buckets_to_probe[0][0] = -1;
-        routes.back().hnsw_num_voting_neighbors = 333;
-
-
-        std::vector<ShardSearch> searches;
-        Serialize(routes, searches, file_name);
-    }
-    {
-        std::vector<RoutingConfig> routes;
-        std::vector<ShardSearch> searches;
-        Deserialize(routes, searches, file_name);
-        std::cout << "len(routes)=" << routes.size() << " len(searches)=" << searches.size() << std::endl;
-        std::cout << routes[0].buckets_to_probe[0][0] << " " << routes[1].buckets_to_probe[0][0] << std::endl;
-    }
-    std::exit(0);
-
-    // TODO add parameter for partitioning method (to print to the output)
     if (argc != 7) {
         std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file k partition-file output-file" << std::endl;
         std::abort();
