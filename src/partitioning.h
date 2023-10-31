@@ -226,3 +226,49 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 
     return partition;
 }
+
+
+std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition, const std::string& routing_index_path) {
+    size_t num_routing_points = 10000000;
+    PointSet routing_points = RandomSample(points, num_routing_points, 555);
+    Timer timer; timer.Start();
+    std::vector<int> routing_clusters = KMeansAccelerated(points, routing_points);
+    std::cout << "KMeans-Accelerated took " << timer.Restart() << std::endl;
+
+    #ifdef MIPS_DISTANCE
+    hnswlib::InnerProductSpace space(points.d);
+    #else
+    hnswlib::L2Space space(points.d);
+    #endif
+    HNSWParameters hnsw_parameters;
+    hnswlib::HierarchicalNSW<float> hnsw(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
+    parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw.addPoint(routing_points.GetPoint(i), i); });
+    std::cout << "Building HNSW took " << timer.Restart();
+    hnsw.saveIndex(routing_index_path);
+
+    AdjGraph hnsw_graph(routing_points.n);
+    for (uint32_t i = 0; i < routing_points.n; ++i) {
+        auto neighbors = hnsw.getConnectionsWithLock(i, 0);
+        for (auto v : neighbors) {
+            hnsw_graph[i].push_back(v);
+        }
+    }
+    Symmetrize(hnsw_graph);
+    CSR hnsw_csr = ConvertAdjGraphToCSR(hnsw_graph);
+    std::cout << "Converting HNSW to AdjGraph + Symmetrize + AdjGraphToCsr took " << timer.Restart();
+
+    ApproximateKNNGraphBuilder graph_builder;
+    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(routing_points, 20);
+    std::cout << "Build KNN graph took " << timer.Restart();
+    Symmetrize(knn_graph);
+    CSR knn_csr = ConvertAdjGraphToCSR(knn_graph);
+    std::cout << "Symmetrize + Convert to CSR took " << timer.Restart();
+
+    knn_csr.node_weights.resize(routing_points.n, 0);
+    for (int cluster_id : routing_clusters) knn_csr.node_weights[cluster_id]++;
+    hnsw_csr.node_weights = knn_csr.node_weights;
+
+    std::vector<int> knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
+    second_partition = PartitionGraphWithKaMinPar(hnsw_csr, num_clusters, epsilon);
+    return knn_partition;
+}
