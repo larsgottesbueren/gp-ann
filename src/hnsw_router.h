@@ -1,12 +1,13 @@
 #pragma once
 
+#include <utility>
+
 #include "defs.h"
 #include "dist.h"
 
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 
 struct HNSWRouter {
-    std::vector<int> partition_offsets;
     std::vector<int> partition;
     int num_shards;
 
@@ -19,29 +20,8 @@ struct HNSWRouter {
     std::unique_ptr<hnswlib::HierarchicalNSW<float>> hnsw;
     HNSWParameters hnsw_parameters;
 
-    void InitPart() {
-        // build partition array
-        for (size_t i = 1; i < partition_offsets.size(); ++i) {
-            for (int j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
-                partition.push_back(i-1);
-            }
-        }
-        num_shards = partition_offsets.size() - 1;
-    }
-
-    HNSWRouter(PointSet& routing_points, std::vector<int> partition_offsets_, HNSWParameters parameters) :
-        partition_offsets(std::move(partition_offsets_)),
-        space(routing_points.d),
-        hnsw_parameters(parameters)
-    {
-        InitPart();
-        hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
-        parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw->addPoint(routing_points.GetPoint(i), i); });
-        hnsw->setEf(hnsw_parameters.ef_search);
-    }
-
-    HNSWRouter(PointSet& routing_points, int num_shards_, const std::vector<int>& partition_, HNSWParameters parameters) :
-        partition(partition_),
+    HNSWRouter(PointSet& routing_points, int num_shards_, std::vector<int> partition_, HNSWParameters parameters) :
+        partition(std::move(partition_)),
         num_shards(num_shards_),
         space(routing_points.d),
         hnsw_parameters(parameters)
@@ -52,12 +32,11 @@ struct HNSWRouter {
     }
 
 
-    HNSWRouter(const std::string& file, int dim, std::vector<int> partition_offsets_) :
-        partition_offsets(std::move(partition_offsets_)),
+    HNSWRouter(const std::string& file, int dim, std::vector<int> partition_) :
+        partition(std::move(partition_)),
         space(dim),
         hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
     {
-        InitPart();
         hnsw->setEf(hnsw_parameters.ef_search);
     }
 
