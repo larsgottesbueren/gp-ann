@@ -74,6 +74,7 @@ struct RoutingConfig {
     size_t hnsw_num_voting_neighbors = 0;
     size_t hnsw_ef_search = 250;
     double routing_time = 0.0;
+    size_t routing_distance_calcs = 0;
     bool try_increasing_num_shards = false;
     KMeansTreeRouterOptions routing_index_options;
     std::vector<std::vector<int>> buckets_to_probe;
@@ -112,110 +113,120 @@ struct RoutingConfig {
 };
 
 std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards,
-                                                 KMeansTreeRouterOptions routing_index_options, const std::string& routing_index_file) {
-    KMeansTreeRouter router;
+                                                 KMeansTreeRouterOptions routing_index_options, const std::string& routing_index_file,
+                                                 const std::string& pyramid_index_file, const std::string& our_pyramid_index_file) {
     std::vector<RoutingConfig> routes;
-    Timer routing_timer; routing_timer.Start();
-    router.Train(points, partition, routing_index_options);
-    std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
-    {   // Standard tree-search routing
-        std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
-        }
-        double time_routing = routing_timer.Stop();
-        std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
-        auto& new_route = routes.emplace_back();
-        new_route.routing_algorithm = "KMeansTree";
-        new_route.hnsw_num_voting_neighbors = 0;
-        new_route.routing_time = time_routing;
-        new_route.routing_index_options = routing_index_options;
-        new_route.try_increasing_num_shards = true;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
-    }
-    routing_timer.Start();
-    auto [routing_points, partition_offsets] = router.ExtractPoints();
-    std::cout << "Extraction finished" << std::endl;
-    HNSWRouter hnsw_router(routing_points, partition_offsets,
-                           HNSWParameters {
-                                   .M = 32,
-                                   .ef_construction = 200,
-                                   .ef_search = 200 }
-    );
-    std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
-    hnsw_router.Serialize(routing_index_file);
-    std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+    {
+        KMeansTreeRouter router;
+        Timer routing_timer; routing_timer.Start();
+        router.Train(points, partition, routing_index_options);
+        std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
-    std::cout << "num distance computations = " <<  hnsw_router.hnsw->metric_distance_computations << std::endl;
-
-    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
-            if (buckets_to_probe_by_query_hnsw[i].size() != num_shards) {
-                std::cerr << "What's going on" << std::endl;
+        {   // Standard tree-search routing
+            std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
+            routing_timer.Start();
+            for (size_t i = 0; i < queries.n; ++i) {
+                buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
             }
+            double time_routing = routing_timer.Stop();
+            std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
+            auto& new_route = routes.emplace_back();
+            new_route.routing_algorithm = "KMeansTree";
+            new_route.hnsw_num_voting_neighbors = 0;
+            new_route.routing_time = time_routing;
+            new_route.routing_index_options = routing_index_options;
+            new_route.routing_distance_calcs = routing_index_options.search_budget;
+            new_route.try_increasing_num_shards = true;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
         }
-        double time_routing = routing_timer.Stop();
-        std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
+        routing_timer.Start();
+        auto [routing_points, partition_offsets] = router.ExtractPoints();
+        std::cout << "Extraction finished" << std::endl;
+        HNSWRouter hnsw_router(routing_points, partition_offsets,
+                               HNSWParameters {
+                                       .M = 32,
+                                       .ef_construction = 200,
+                                       .ef_search = 200 }
+        );
+        std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
+        hnsw_router.Serialize(routing_index_file);
+        std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+
         std::cout << "num distance computations = " <<  hnsw_router.hnsw->metric_distance_computations << std::endl;
-        auto& new_route = routes.emplace_back();
-        new_route.routing_algorithm = "HNSW";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
-        new_route.routing_index_options = routing_index_options;
-        new_route.try_increasing_num_shards = true;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
-    }
 
-    // Pyramid routing where you visit the shards touched during the search
-    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.PyramidRoutingQuery(queries.GetPoint(i), num_voting_neighbors);
+        for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            routing_timer.Start();
+            for (size_t i = 0; i < queries.n; ++i) {
+                buckets_to_probe_by_query_hnsw[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
+            }
+            double time_routing = routing_timer.Stop();
+            std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
+            auto& new_route = routes.emplace_back();
+            new_route.routing_algorithm = "HNSW";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.routing_index_options = routing_index_options;
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            new_route.try_increasing_num_shards = true;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+
+            hnsw_router.hnsw->metric_distance_computations = 0;
         }
-        double time_routing = routing_timer.Stop();
-        std::cout << "Pyramid routing took " << time_routing << " s" << std::endl;
-        auto& new_route = routes.emplace_back();
-        new_route.routing_algorithm = "Pyramid";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
-        new_route.routing_index_options = routing_index_options;
-        new_route.try_increasing_num_shards = false;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
-    }
 
-    // SPANN routing where you prune next shards based on how much further they are than the closest shard
-    // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
-    for (size_t num_voting_neighbors : {200, 400, 500}) {
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.SPANNRoutingQuery(queries.GetPoint(i), num_voting_neighbors, 0.6);
+        // Pyramid routing where you visit the shards touched during the search
+        for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            routing_timer.Start();
+            for (size_t i = 0; i < queries.n; ++i) {
+                buckets_to_probe_by_query_hnsw[i] = hnsw_router.PyramidRoutingQuery(queries.GetPoint(i), num_voting_neighbors);
+            }
+            double time_routing = routing_timer.Stop();
+            std::cout << "Pyramid routing took " << time_routing << " s" << std::endl;
+            auto& new_route = routes.emplace_back();
+            new_route.routing_algorithm = "Pyramid";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.routing_index_options = routing_index_options;
+            new_route.try_increasing_num_shards = false;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            hnsw_router.hnsw->metric_distance_computations = 0;
         }
-        double time_routing = routing_timer.Stop();
-        std::cout << "SPANN routing took " << time_routing << " s" << std::endl;
-        auto& new_route = routes.emplace_back();
-        new_route.routing_algorithm = "SPANN";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
-        new_route.routing_index_options = routing_index_options;
-        new_route.try_increasing_num_shards = false;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+
+        // SPANN routing where you prune next shards based on how much further they are than the closest shard
+        // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
+        for (size_t num_voting_neighbors : {200, 400, 500}) {
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            routing_timer.Start();
+            for (size_t i = 0; i < queries.n; ++i) {
+                buckets_to_probe_by_query_hnsw[i] = hnsw_router.SPANNRoutingQuery(queries.GetPoint(i), num_voting_neighbors, 0.6);
+            }
+            double time_routing = routing_timer.Stop();
+            std::cout << "SPANN routing took " << time_routing << " s" << std::endl;
+            auto& new_route = routes.emplace_back();
+            new_route.routing_algorithm = "SPANN";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.routing_index_options = routing_index_options;
+            new_route.try_increasing_num_shards = false;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            hnsw_router.hnsw->metric_distance_computations = 0;
+        }
     }
 
-    // TODO if partitioning method is Pyramid --> run the routing on their meta HNSW as well.
-    // --> store aggregate points + partition on disk --> deduce filename from the parameters
-    // --> here: load points and partition --> build mini HNSW router
+    if (!pyramid_index_file.empty()) {
+        HNSWRouter hnsw_router(pyramid_index_file, points.d, partition);
 
+    }
 
-    // can we use that for our own routing? you have to preserve the external partition in the aggregation
-    // --> this goes right back to our own routing index trainer. except we do hierarchical k-means, they do sample + flat k-means
-    // This is good news. It means we don't have to scrap results so far, and only have to do Pyramid routing with Pyramid partitioning
+    if (!our_pyramid_index_file.empty()) {
+
+    }
 
     return routes;
 }
@@ -466,8 +477,8 @@ void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& s
 
 
 int main(int argc, const char* argv[]) {
-    if (argc != 7) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file" << std::endl;
+    if (argc != 8) {
+        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method" << std::endl;
         std::abort();
     }
 
@@ -482,6 +493,7 @@ int main(int argc, const char* argv[]) {
     int num_neighbors = std::stoi(k_string);
     std::string partition_file = argv[5];
     std::string output_file = argv[6];
+    std::string part_method = argv[7];
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
@@ -496,7 +508,15 @@ int main(int argc, const char* argv[]) {
 
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / num_shards;
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options, partition_file + ".routing_index");
+    std::string pyramid_index_file, our_pyramid_index_file;
+    if (part_method == "Pyramid") {
+        pyramid_index_file = partition_file + ".pyramid_routing_index";
+    }
+    if (part_method == "OurPyramid") {
+        our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
+    }
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
+                                                              partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
 
     std::vector<NNVec> ground_truth;
