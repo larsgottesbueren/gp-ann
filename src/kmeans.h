@@ -116,12 +116,16 @@ void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int
     #endif
     SpaceType space(P.d);
     HNSWParameters hnsw_parameters;
+    std::cout << "Num centroids " << centroids.n << std::endl;
     Timer timer; timer.Start();
     hnswlib::HierarchicalNSW<float> hnsw(&space, centroids.n, hnsw_parameters.M, hnsw_parameters.ef_construction, 555);
-    parlay::parallel_for(0, centroids.n, [&](size_t i) {
-        hnsw.addPoint(centroids.GetPoint(i), i);
-    }, 512);
+
+    size_t seq_insertion = std::min(1UL << 11, centroids.n);
+    for (size_t i = 0; i < seq_insertion; ++i) { hnsw.addPoint(centroids.GetPoint(i), i); }
+    parlay::parallel_for(seq_insertion, centroids.n, [&](size_t i) { hnsw.addPoint(centroids.GetPoint(i), i); }, 512);
     std::cout << "Build centroid HNSW took " << timer.Restart() << std::endl;
+
+    hnsw.setEf(200);
 
     parlay::parallel_for(0, P.n, [&](size_t i) {
         auto res = hnsw.searchKnn(P.GetPoint(i), 1);
