@@ -68,4 +68,11 @@ struct Timer {
         return duration.count();
     }
 
+    double ElapsedRunning() {
+        if (!running) throw std::runtime_error("Timer not running but called Restart()");
+        auto finish = std::chrono::high_resolution_clock::now();
+        Duration duration = finish - start;
+        return duration.count();
+    }
+
 };
