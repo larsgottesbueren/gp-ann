@@ -202,7 +202,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     parlay::parallel_for(0, points.n, assign_point);
 
     std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
-    size_t deadzone = (1-epsilon) * points.n / num_clusters;
+    size_t deadzone = (1 + epsilon/2) * points.n / num_clusters;
 
     size_t num_extra_rounds = 0;
     while (!unfinished_points.empty()) {
