@@ -168,6 +168,8 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     // partition
     std::vector<int> aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
 
+    WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
+
     // Assign points to the partition of the closest point in the aggregate set
     // Fix balance by assigning to the second closest etc. if the first choice is overloaded
     size_t max_points_in_cluster = points.n * (1+epsilon) / num_clusters;
@@ -270,6 +272,20 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     hnsw_csr.node_weights = knn_csr.node_weights;
 
     std::vector<int> knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
-    second_partition = PartitionGraphWithKaMinPar(hnsw_csr, num_clusters, epsilon);
+    std::vector<int> hnsw_partition = PartitionGraphWithKaMinPar(hnsw_csr, num_clusters, epsilon);
+
+    WriteMetisPartition(knn_partition, routing_index_path + ".knn.routing_index_partition");
+    WriteMetisPartition(hnsw_partition, routing_index_path + ".hnsw.routing_index_partition");
+
+    // Project from coarse partition
+    std::vector<int> full_knn_partition(points.n);
+    std::vector<int> full_hnsw_partition(points.n);
+    for (uint32_t i = 0; i < points.n; ++i) {
+        full_knn_partition[i] = knn_partition[routing_clusters[i]];
+        full_hnsw_partition[i] = hnsw_partition[routing_clusters[i]];
+    }
+
+    second_partition = std::move(full_hnsw_partition);
+
     return knn_partition;
 }
