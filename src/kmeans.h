@@ -74,6 +74,10 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
             cluster_id = remapped_cluster_ids[cluster_id];
 	    }
 	}
+
+    #ifdef MIPS_DISTANCE
+	Normalize(centroids);
+    #endif
 }
 
 PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {

@@ -202,7 +202,6 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     parlay::parallel_for(0, points.n, assign_point);
 
     std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
-    size_t deadzone = (1 + epsilon/2) * points.n / num_clusters;
 
     size_t num_extra_rounds = 0;
     while (!unfinished_points.empty()) {
@@ -212,7 +211,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
         std::vector<uint32_t> aggr_points_to_keep;
         std::vector<int> new_aggr_partition;
         for (uint32_t i = 0; i < aggregate_partition.size(); ++i) {
-            if (num_points_in_cluster[aggregate_partition[i]] <= deadzone) {
+            if (num_points_in_cluster[aggregate_partition[i]] < max_points_in_cluster) {
                 aggr_points_to_keep.push_back(i);
                 new_aggr_partition.push_back(aggregate_partition[i]);
             }
@@ -228,7 +227,6 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 
     return partition;
 }
-
 
 std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition, const std::string& routing_index_path) {
     size_t num_routing_points = points.n * 0.002;

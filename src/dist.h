@@ -163,5 +163,4 @@ void Normalize(PointSet& points) {
             std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
         }
     }
-    std::cout << "finished normalizing" << std::endl;
 }
