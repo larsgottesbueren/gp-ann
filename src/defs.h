@@ -27,16 +27,16 @@ PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& po
     return ps;
 }
 
+int NumPartsInPartition(const std::vector<int>& partition) { return *std::max_element(partition.begin(), partition.end()) + 1; }
+
 std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition) {
-    int num_buckets = *std::max_element(partition.begin(), partition.end()) + 1;
+    int num_buckets = NumPartsInPartition(partition);
     std::vector<std::vector<uint32_t>> buckets(num_buckets);
     for (uint32_t u = 0; u < partition.size(); ++u) {
         buckets[partition[u]].push_back(u);
     }
     return buckets;
 }
-
-int NumPartsInPartition(const std::vector<int>& partition) { return std::ranges::max(partition) + 1; }
 
 using AdjGraph = std::vector<std::vector<int>>;
 
