@@ -3,12 +3,14 @@
 #include <vector>
 #include <cstdint>
 #include <chrono>
+#include <algorithm>
 
 struct PointSet {
   std::vector<float> coordinates;   // potentially empty
   size_t d = 0, n = 0;
   float* GetPoint(size_t i) { return &coordinates[i*d]; }
   void Drop() { coordinates.clear(); coordinates.shrink_to_fit(); }
+  void Alloc() { coordinates.resize(n*d); }
 };
 
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
@@ -24,6 +26,17 @@ PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& po
     }
     return ps;
 }
+
+std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition) {
+    int num_buckets = *std::max_element(partition.begin(), partition.end()) + 1;
+    std::vector<std::vector<uint32_t>> buckets(num_buckets);
+    for (uint32_t u = 0; u < partition.size(); ++u) {
+        buckets[partition[u]].push_back(u);
+    }
+    return buckets;
+}
+
+int NumPartsInPartition(const std::vector<int>& partition) { return std::ranges::max(partition) + 1; }
 
 using AdjGraph = std::vector<std::vector<int>>;
 

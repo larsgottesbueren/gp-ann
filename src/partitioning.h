@@ -9,6 +9,8 @@
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 #include "hnsw_router.h"
 
+#include <parlay/primitives.h>
+
 std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1) {
     if (num_clusters < 0) {
         num_clusters = static_cast<int>(ceil(double(points.n) / max_cluster_size));
@@ -228,13 +230,77 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     return partition;
 }
 
-std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition, const std::string& routing_index_path) {
-    size_t num_routing_points = points.n * 0.002;
-    PointSet routing_points = RandomSample(points, num_routing_points, 555);
+// want to extract only the leaf-level points here
+// and the mapping of top-level points to leaf-level points
+std::pair<std::vector<int>, PointSet>
+HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
+    int num_level_centroids = points.n * coarsening_ratio;
+    constexpr int MAX_LEVEL_CENTROIDS = 128;
+    bool finished = true;
+    if (num_level_centroids > MAX_LEVEL_CENTROIDS) {
+        num_level_centroids = MAX_LEVEL_CENTROIDS;
+        finished = false;
+    }
+
     Timer timer; timer.Start();
-    std::vector<int> routing_clusters = KMeansAccelerated(points, routing_points);
-    num_routing_points = routing_points.n;  // k-means might have decided to leave out some points
-    std::cout << "KMeans-Accelerated took " << timer.Restart() << std::endl;
+    PointSet level_centroids = RandomSample(points, num_level_centroids, 555);
+    std::vector<int> level_partition = KMeans(points, level_centroids);
+    double t = timer.Stop();
+    if (depth < 2) { std::cout << "KMeans on " << points.n << " points at depth " << depth << " with " << num_level_centroids << " centroids took " << t << " s." << std::endl; }
+
+    if (finished) {     // this is weird. it will always aggregate something, even if points is small...
+        return std::make_pair(level_partition, level_centroids);
+    }
+
+    auto clusters = ConvertPartitionToBuckets(level_partition);
+
+    auto recursion_results = parlay::map(clusters, [&](const auto& cluster) {
+        PointSet cluster_points = ExtractPointsInBucket(cluster, points);
+        return HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
+    }, 1);
+
+    auto part_id_offsets = parlay::map(recursion_results, [&](const auto& r) { return NumPartsInPartition(r.first); });
+    size_t num_recursive_clusters = parlay::scan_inplace(part_id_offsets);
+
+    PointSet centroids_from_recursion;
+    centroids_from_recursion.d = points.d;
+    auto point_offsets = parlay::map(recursion_results, [&](const auto& r) { return r.second.n; });
+    centroids_from_recursion.n = parlay::scan_inplace(point_offsets);
+    centroids_from_recursion.Alloc();
+
+    if (centroids_from_recursion.n != num_recursive_clusters) {
+        throw std::runtime_error("Num centroids from recursion != num recursive clusters");
+    }
+
+    parlay::for_each(
+            parlay::zip(clusters, recursion_results, point_offsets, part_id_offsets),
+            [&](const auto& z1) {
+                const auto& [cluster, recursive_partition_and_points, point_offset, part_id_offset] = z1;
+
+                // remap part IDs
+                const auto& recursive_partition = recursive_partition_and_points.first;
+                parlay::for_each(
+                        parlay::zip(recursive_partition, cluster),
+                        [&](const auto& z2) {
+                            const auto& [rec_part_id, global_point_id] = z2;
+                            level_partition[global_point_id] = rec_part_id + part_id_offset;
+                        }
+                );
+
+                // merge points
+                const auto& rec_points = recursive_partition_and_points.second;
+                std::memcpy(centroids_from_recursion.GetPoint(point_offset), rec_points.coordinates.data(), rec_points.coordinates.size() * sizeof(float));
+            }
+    );
+
+    return std::make_pair(level_partition, centroids_from_recursion);
+}
+
+std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition, const std::string& routing_index_path) {
+    Timer timer; timer.Start();
+    const double coarsening_rate = 0.002;
+    auto [routing_clusters, routing_points] = HierarchicalKMeans(points, coarsening_rate);
+    std::cout << "HierKMeans took " << timer.Restart() << std::endl;
 
     #ifdef MIPS_DISTANCE
     hnswlib::InnerProductSpace space(points.d);

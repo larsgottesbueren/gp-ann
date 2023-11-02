@@ -87,16 +87,6 @@ struct KMeansTreeRouter {
         return re;
     }
 
-    std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition) {
-        int num_buckets = *std::max_element(partition.begin(), partition.end()) + 1;
-        std::vector<std::vector<uint32_t>> buckets(num_buckets);
-        for (uint32_t u = 0; u < partition.size(); ++u) {
-            buckets[partition[u]].push_back(u);
-        }
-        return buckets;
-    }
-
-
     struct PQEntry {
         float dist = 0.f;
         int shard_id = -1;
