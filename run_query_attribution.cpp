@@ -159,7 +159,7 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
 
     // SPANN routing where you prune next shards based on how much further they are than the closest shard
     // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
-    for (size_t num_voting_neighbors : {200, 400, 500}) {
+    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
         routing_timer.Start();
         for (size_t i = 0; i < queries.n; ++i) {
