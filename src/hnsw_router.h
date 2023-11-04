@@ -8,7 +8,7 @@
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 
 struct HNSWRouter {
-    std::vector<int> partition;
+    const std::vector<int>& partition;
     int num_shards;
 
     #ifdef MIPS_DISTANCE
@@ -20,8 +20,8 @@ struct HNSWRouter {
     std::unique_ptr<hnswlib::HierarchicalNSW<float>> hnsw;
     HNSWParameters hnsw_parameters;
 
-    HNSWRouter(PointSet& routing_points, int num_shards_, std::vector<int> partition_, HNSWParameters parameters) :
-        partition(std::move(partition_)),
+    HNSWRouter(PointSet& routing_points, int num_shards_, const std::vector<int>& partition_, HNSWParameters parameters) :
+        partition(partition_),
         num_shards(num_shards_),
         space(routing_points.d),
         hnsw_parameters(parameters)
@@ -32,8 +32,8 @@ struct HNSWRouter {
     }
 
 
-    HNSWRouter(const std::string& file, int dim, std::vector<int> partition_) :
-        partition(std::move(partition_)),
+    HNSWRouter(const std::string& file, int dim, const std::vector<int>& partition_) :
+        partition(partition_),
         space(dim),
         hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
     {

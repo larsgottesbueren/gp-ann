@@ -220,7 +220,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             }
         }
 
-        HNSWRouter hnsw_router(routing_points, num_shards, std::move(routing_index_partition),
+        HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition,
                                HNSWParameters {
                                        .M = 32,
                                        .ef_construction = 200,
@@ -344,6 +344,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         std::cout << "NProbes = " << n_probes << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
         std::cout << "local work\t";
         for (double t : local_work) std::cout << t << " ";
+        // TODO serialize local_work to the output as well + a format for replica hosts to shard assignment
         std::cout << std::endl;
     }
 }
