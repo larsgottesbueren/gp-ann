@@ -102,6 +102,7 @@ PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
 }
 
 std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
+    if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
 	std::vector<int> closest_center(P.n, -1);
 	static constexpr size_t NUM_ROUNDS = 11;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {

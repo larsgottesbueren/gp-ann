@@ -235,8 +235,11 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 std::pair<std::vector<int>, PointSet>
 HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     int num_level_centroids = points.n * coarsening_ratio;
-    constexpr int MAX_LEVEL_CENTROIDS = 256;
+    if (num_level_centroids < 1) {
+        num_level_centroids = 1;
+    }
     bool finished = true;
+    constexpr int MAX_LEVEL_CENTROIDS = 64;
     if (num_level_centroids > MAX_LEVEL_CENTROIDS) {
         num_level_centroids = MAX_LEVEL_CENTROIDS;
         finished = false;
