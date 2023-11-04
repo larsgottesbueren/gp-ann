@@ -27,12 +27,14 @@ struct KMeansTreeRouter {
 
         std::cout << "Train. num-shards = " << num_shards << " dim = " << dim << " budget = " << options.budget << std::endl;
 
-        parlay::parallel_for(0, num_shards, [&](int b) {
+        // parlay::parallel_for(0, num_shards, [&](int b) {
+        for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
             PointSet ps = ExtractPointsInBucket(buckets[b], points);
             KMeansTreeRouterOptions recursive_options = options;
             recursive_options.budget = double(buckets[b].size() * options.budget) / double(points.n);
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
-        }, 1);
+        }
+        //    }, 1);
     }
 
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
