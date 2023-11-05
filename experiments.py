@@ -17,6 +17,8 @@ partitioning_methods = [
 
 num_shards_vals = [40, 20, 10]
 
+num_neighbors = 10
+
 build_folders = {
 	'L2'   : 'release_l2',
 	'mips' : 'release_mips'
@@ -52,13 +54,12 @@ def compute_all_partitions():
 			for num_shards in num_shards_vals:
 				compute_partition(dataset, metric, part_method, num_shards)
 
-compute_all_partitions()
-
 def run_query_set(dataset, metric, part_method, num_shards):
 	pfx = os.path.join(data_path, dataset)
 	arglist = [build_folders[metric] + '/QueryAttribution',
 	           pfx + '_base1B.fbin', pfx + '_query.fbin', pfx + '_ground-truth.bin',
-	           str(num_shards), pfx + '.partition.k=' + str(num_shards) + '.' + part_method, part_method
+	           str(num_neighbors), pfx + '.partition.k=' + str(num_shards) + '.' + part_method, part_method,
+			   str(num_shards)
 	]
 	print(arglist)
 	subprocess.call(arglist)
@@ -69,4 +70,7 @@ def run_queries_on_all_datasets():
 			for num_shards in num_shards_vals:
 				run_query_set(dataset, metric, part_method, num_shards)
 
+
+
+compute_all_partitions()
 run_queries_on_all_datasets()
