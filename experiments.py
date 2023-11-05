@@ -58,7 +58,10 @@ def run_query_set(dataset, metric, part_method, num_shards):
 	pfx = os.path.join(data_path, dataset)
 	arglist = [build_folders[metric] + '/QueryAttribution',
 	           pfx + '_base1B.fbin', pfx + '_query.fbin', pfx + '_ground-truth.bin',
-	           str(num_neighbors), pfx + '.partition.k=' + str(num_shards) + '.' + part_method, part_method,
+	           str(num_neighbors),
+			   pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
+			   "output." + dataset + "." + part_method + ".k=" + str(num_shards) + ".csv",
+			   part_method,
 			   str(num_shards)
 	]
 	print(arglist)
