@@ -311,11 +311,9 @@ struct ShardSearch {
 };
 
 struct EmitResult {
-    double recall;
-    double QPS_per_shard;
-    double QPS;
+    std::vector<double> local_work;
+    size_t total_hits;
     double n_probes;
-    double max_latency, min_latency, avg_latency;
 };
 
 void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(EmitResult)>& emit) {
@@ -330,22 +328,11 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
             total_hits += diff;
             local_work[b] += search.time_query_in_shard[b][q];
         }
-
-        double recall = static_cast<double>(total_hits) / (num_neighbors * num_queries);
-        double max_latency = *std::max_element(local_work.begin(), local_work.end());
-        double total_time = max_latency + (route.routing_time / num_shards);
-        double QPS = num_queries / total_time;
         emit(EmitResult{
-            .recall=recall, .QPS_per_shard=QPS, .QPS=QPS, .n_probes=double(n_probes),
-            .max_latency = max_latency,
-            .min_latency = *std::min_element(local_work.begin(), local_work.end()),
-            .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
+            .local_work = local_work,
+            .total_hits = total_hits,
+            .n_probes = static_cast<double>(n_probes),
         });
-        std::cout << "NProbes = " << n_probes << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
-        std::cout << "local work\t";
-        for (double t : local_work) std::cout << t << " ";
-        // TODO serialize local_work to the output as well + a format for replica hosts to shard assignment
-        std::cout << std::endl;
     }
 }
 
@@ -363,23 +350,11 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
         hits = std::min(hits, num_neighbors);
         total_hits += hits;
     }
-
-    double recall = static_cast<double>(total_hits) / (num_queries * num_neighbors);
-    double max_latency = *std::max_element(local_work.begin(), local_work.end());
-    double total_time = max_latency + (route.routing_time / num_shards);
-    double QPS = num_queries / total_time;
-    double avg_n_probes = double(total_num_probes) / num_queries;
     emit(EmitResult{
-            .recall=recall, .QPS_per_shard=QPS, .QPS=QPS, .n_probes=avg_n_probes,
-            .max_latency = max_latency,
-            .min_latency = *std::min_element(local_work.begin(), local_work.end()),
-            .avg_latency = std::accumulate(local_work.begin(), local_work.end(), 0.0) / local_work.size()
+            .local_work = local_work,
+            .total_hits = total_hits,
+            .n_probes = double(total_num_probes) / num_queries,
     });
-
-    std::cout  << " recall@k = " << recall << " total time " << total_time << " QPS = " << num_queries / total_time << std::endl;
-    std::cout << "local work\t";
-    for (double t : local_work) std::cout << t << " ";
-    std::cout << std::endl;
 }
 
 std::vector<ShardSearch> RunInShardSearches(
@@ -577,27 +552,58 @@ int main(int argc, const char* argv[]) {
 
     std::ofstream out(output_file);
     // header
-    out << "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS";
+    std::string header =  "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
+                        + "QPS without routing, QPS without routing per host,num hosts,num shards\n";
+    out << header;
 
     struct Desc {
         std::string format_string;
         double recall;
-        double QPS_per_shard;
+        double QPS_per_host;
     };
 
     std::map<std::string, std::vector<Desc>> outputs;
 
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
-            std::function<void(EmitResult)> format_output = [&](EmitResult r) -> void {
-                std::stringstream str;
-                str << "GP,HNSW," << route.routing_algorithm << "," << route.index_trainer << ","
-                    << search.ef_search << "," << route.hnsw_num_voting_neighbors
-                    << "," << route.routing_time / queries.n
-                    << "," << r.n_probes << "," << r.recall << "," << r.QPS_per_shard;
-                out << str.str() << std::endl;
-                std::cout << str.str() << std::endl;
-                outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS_per_shard = r.QPS_per_shard });
+            std::function<void(EmitResult)> format_output = [&](const EmitResult& r) -> void {
+                double recall = static_cast<double>(r.total_hits) / static_cast<double>(num_neighbors * queries.n);
+
+                auto lwr = r.local_work;
+                std::vector<size_t> assigned_hosts(num_shards, 1);
+                const size_t num_queries = queries.n;
+                size_t num_hosts = num_shards;
+
+                for (size_t extra_hosts = 0; extra_hosts < 21; ++extra_hosts, ++num_hosts) {
+                    double mini = *std::ranges::min_element(lwr);
+                    auto maxiter = std::ranges::max_element(lwr);
+                    double max_latency = *maxiter;
+                    size_t max_shard = std::distance(lwr.begin(), maxiter);
+
+                    {   // output and formatting bits
+                        double QPS_without_routing = num_queries / max_latency;
+                        double QPS_without_routing_per_host = QPS_without_routing / num_hosts;
+
+                        double total_time = max_latency + (route.routing_time / num_hosts);
+                        double QPS = num_queries / total_time;
+                        double QPS_per_host = QPS / num_hosts;
+
+                        std::stringstream str;
+                        str << part_method << ",HNSW," << route.routing_algorithm << "," << route.index_trainer << ","
+                            << search.ef_search << "," << route.hnsw_num_voting_neighbors
+                            << "," << route.routing_time / queries.n
+                            << "," << r.n_probes << "," << recall << "," << QPS << "," << QPS_per_host
+                            << "," << QPS_without_routing << "," << QPS_without_routing_per_host
+                            << "," << num_hosts << "," << num_shards << "\n";
+                        out << str.str() << std::flush;
+                        std::cout << str.str() << std::flush;
+                        outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS_per_shard = r.QPS_per_shard });
+                    }
+
+                    // assign one more replica to the slowest shard
+                    assigned_hosts[max_shard]++;
+                    lwr[max_shard] = r.local_work[max_shard] / assigned_hosts[max_shard];
+                }
             };
             if (route.try_increasing_num_shards) {
                 AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, queries.n, num_shards, num_neighbors, format_output);
@@ -610,10 +616,11 @@ int main(int argc, const char* argv[]) {
     std::cout << "Only Pareto" << std::endl;
 
     std::ofstream pareto_out(output_file + ".pareto");
+    pareto_out << header;
     for (auto& [routing_algo, configs] : outputs) {
         if (configs.empty()) continue;
 
-        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS_per_shard < r.QPS_per_shard; };
+        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS_per_host < r.QPS_per_host; };
 
         std::vector<Desc> pareto;
         for (const auto& c : configs) {
