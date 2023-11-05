@@ -79,7 +79,8 @@ struct RoutingConfig {
 
     std::string Serialize() const {
         std::stringstream sb;
-        sb << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " " << routing_time << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << "\n";
+        sb  << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " "
+            << routing_time << " " << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << "\n";
         for (const auto& visit_order : buckets_to_probe) {
             for (const int b : visit_order) {
                 sb << b << " ";
@@ -477,8 +478,8 @@ void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& s
 
 
 int main(int argc, const char* argv[]) {
-    if (argc != 8) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method" << std::endl;
+    if (argc != 9) {
+        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method requested-num-shards" << std::endl;
         std::abort();
     }
 
@@ -494,6 +495,8 @@ int main(int argc, const char* argv[]) {
     std::string partition_file = argv[5];
     std::string output_file = argv[6];
     std::string part_method = argv[7];
+    std::string requested_num_shards_str = argv[8];
+    int requested_num_shards = std::stoi(requested_num_shards_str);
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
@@ -553,7 +556,7 @@ int main(int argc, const char* argv[]) {
     std::ofstream out(output_file);
     // header
     std::string header = "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
-                         "QPS without routing, QPS without routing per host,num hosts,num shards\n";
+                         "QPS without routing, QPS without routing per host,num hosts,num shards,requested num shards\n";
     out << header;
 
     struct Desc {
@@ -592,7 +595,7 @@ int main(int argc, const char* argv[]) {
                             << "," << route.routing_time / queries.n
                             << "," << r.n_probes << "," << recall << "," << QPS << "," << QPS_per_host
                             << "," << QPS_without_routing << "," << QPS_without_routing_per_host
-                            << "," << num_hosts << "," << num_shards << "\n";
+                            << "," << num_hosts << "," << num_shards << "," << requested_num_shards << "\n";
                         out << str.str() << std::flush;
                         std::cout << str.str() << std::flush;
                         outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
