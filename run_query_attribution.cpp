@@ -507,7 +507,7 @@ int main(int argc, const char* argv[]) {
     #endif
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
-    int num_shards = std::ranges::max(partition) + 1;
+    int num_shards = NumPartsInPartition(partition);
 
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / num_shards;
@@ -578,7 +578,7 @@ int main(int argc, const char* argv[]) {
                 size_t num_hosts = num_shards;
 
                 for (size_t extra_hosts = 0; extra_hosts < 21; ++extra_hosts, ++num_hosts) {
-                    const size_t max_shard = std::distance(lwr.begin(), std::ranges::max_element(lwr));
+                    const size_t max_shard = std::distance(lwr.begin(), std::max_element(lwr.begin(), lwr.end()));
                     const double max_latency = lwr[max_shard];
 
                     {   // output and formatting bits
