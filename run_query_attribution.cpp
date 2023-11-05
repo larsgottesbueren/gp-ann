@@ -187,30 +187,34 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     std::vector<RoutingConfig> routes;
 
     {
-        KMeansTreeRouter router;
+        PointSet routing_points;
+        std::vector<int> partition_offsets;
         Timer routing_timer; routing_timer.Start();
-        router.Train(points, partition, routing_index_options);
-        std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
-        {   // Standard tree-search routing
-            std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
-            routing_timer.Start();
-            for (size_t i = 0; i < queries.n; ++i) {
-                buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
+        {
+            KMeansTreeRouter router;
+
+            router.Train(points, partition, routing_index_options);
+            std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
+            {   // Standard tree-search routing
+                std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
+                routing_timer.Start();
+                for (size_t i = 0; i < queries.n; ++i) {
+                    buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
+                }
+                double time_routing = routing_timer.Stop();
+                std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
+                auto& new_route = routes.emplace_back();
+                new_route.routing_algorithm = "KMeansTree";
+                new_route.hnsw_num_voting_neighbors = 0;
+                new_route.routing_time = time_routing;
+                new_route.routing_index_options = routing_index_options;
+                new_route.routing_distance_calcs = routing_index_options.search_budget;
+                new_route.try_increasing_num_shards = true;
+                new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
             }
-            double time_routing = routing_timer.Stop();
-            std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
-            auto& new_route = routes.emplace_back();
-            new_route.routing_algorithm = "KMeansTree";
-            new_route.hnsw_num_voting_neighbors = 0;
-            new_route.routing_time = time_routing;
-            new_route.routing_index_options = routing_index_options;
-            new_route.routing_distance_calcs = routing_index_options.search_budget;
-            new_route.try_increasing_num_shards = true;
-            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
+            std::tie(routing_points, partition_offsets) = router.ExtractPoints();
+            std::cout << "Extraction finished" << std::endl;
         }
-        routing_timer.Start();
-        auto [routing_points, partition_offsets] = router.ExtractPoints();
-        std::cout << "Extraction finished" << std::endl;
 
         std::vector<int> routing_index_partition;
         for (size_t i = 1; i < partition_offsets.size(); ++i) {
@@ -219,19 +223,22 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             }
         }
 
-        HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition,
-                               HNSWParameters {
-                                       .M = 32,
-                                       .ef_construction = 200,
-                                       .ef_search = 200 }
-        );
-        std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
-        hnsw_router.Serialize(routing_index_file);
-        std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+        {
+            routing_timer.Start();
+            HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition,
+                                   HNSWParameters {
+                                           .M = 32,
+                                           .ef_construction = 200,
+                                           .ef_search = 200 }
+            );
+            std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
+            hnsw_router.Serialize(routing_index_file);
+            std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
 
-        RoutingConfig blueprint;
-        blueprint.index_trainer = "HierKMeans";
-        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+            RoutingConfig blueprint;
+            blueprint.index_trainer = "HierKMeans";
+            IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+        }
     }
 
     if (!pyramid_index_file.empty()) {
