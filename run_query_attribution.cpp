@@ -19,7 +19,6 @@ void PinThread(int cpu_id) {
         std::cerr << "Thread pinning failed" << std::endl;
         std::abort();
     }
-    PrintAffinityMask();
 }
 
 void PrintAffinityMask() {
@@ -65,7 +64,6 @@ void UnpinThread() {
         CPU_SET(cpu, &mask);
     }
     PinThread(mask);
-    PrintAffinityMask();
 }
 
 struct RoutingConfig {
@@ -116,6 +114,7 @@ struct RoutingConfig {
 void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint) {
     Timer routing_timer;
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
+        std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
         std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
         routing_timer.Start();
         for (size_t i = 0; i < queries.n; ++i) {
@@ -180,7 +179,7 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
     }
 }
 
-std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, std::vector<int>& partition, int num_shards,
+std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
                                                  KMeansTreeRouterOptions routing_index_options, const std::string& routing_index_file,
                                                  const std::string& pyramid_index_file, const std::string& our_pyramid_index_file,
                                                  bool our_pyramid_is_hnsw_partition = false) {
@@ -191,7 +190,6 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         Timer routing_timer; routing_timer.Start();
         router.Train(points, partition, routing_index_options);
         std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
-
         {   // Standard tree-search routing
             std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
             routing_timer.Start();
@@ -216,7 +214,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         std::vector<int> routing_index_partition;
         for (size_t i = 1; i < partition_offsets.size(); ++i) {
             for (int j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
-                partition.push_back(i-1);
+                routing_index_partition.push_back(i-1);
             }
         }
 
@@ -236,6 +234,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     }
 
     if (!pyramid_index_file.empty()) {
+        std::cout << "Run Pyramid routing" << std::endl;
         std::vector<int> routing_index_partition = ReadMetisPartition(pyramid_index_file + ".routing_index_partition");
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
@@ -244,6 +243,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     }
 
     if (!our_pyramid_index_file.empty()) {
+        std::cout << "Run OurPyramid++ routing" << std::endl;
         std::vector<int> routing_index_partition = ReadMetisPartition(
                 pyramid_index_file + (our_pyramid_is_hnsw_partition ? ".hnsw" : ".knn") + ".routing_index_partition");
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);

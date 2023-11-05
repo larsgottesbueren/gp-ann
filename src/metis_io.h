@@ -9,6 +9,22 @@ std::vector<int> ReadMetisPartition(const std::string& path) {
     std::vector<int> partition;
     int part;
     while (in >> part) partition.push_back(part);
+
+    if (!partition.empty()) {
+        int num_shards = NumPartsInPartition(partition);
+        std::vector<size_t> num_points_in_shard(num_shards, 0);
+        for (int x : partition) { num_points_in_shard[x]++; }
+        if (std::ranges::any_of(num_points_in_shard, [](const auto& n) { return n == 0; })) {
+            std::vector<int> remapped(num_shards, 0);
+            int l = 0;
+            for (int r = 0; r < num_shards; ++r) {
+                if (num_points_in_shard[r] > 0) {
+                    remapped[r] = l++;
+                }
+            }
+            for (int& x : partition) { x = remapped[x]; }
+        }
+    }
     return partition;
 }
 
