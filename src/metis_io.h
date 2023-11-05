@@ -14,7 +14,7 @@ std::vector<int> ReadMetisPartition(const std::string& path) {
         int num_shards = NumPartsInPartition(partition);
         std::vector<size_t> num_points_in_shard(num_shards, 0);
         for (int x : partition) { num_points_in_shard[x]++; }
-        if (std::ranges::any_of(num_points_in_shard, [](const auto& n) { return n == 0; })) {
+        if (std::any_of(num_points_in_shard.begin(), num_points_in_shard.end(), [](const auto& n) { return n == 0; })) {
             std::vector<int> remapped(num_shards, 0);
             int l = 0;
             for (int r = 0; r < num_shards; ++r) {
