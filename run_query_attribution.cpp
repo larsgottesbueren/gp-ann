@@ -552,8 +552,8 @@ int main(int argc, const char* argv[]) {
 
     std::ofstream out(output_file);
     // header
-    std::string header =  "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
-                        + "QPS without routing, QPS without routing per host,num hosts,num shards\n";
+    std::string header = "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
+                         "QPS without routing, QPS without routing per host,num hosts,num shards\n";
     out << header;
 
     struct Desc {
@@ -575,10 +575,8 @@ int main(int argc, const char* argv[]) {
                 size_t num_hosts = num_shards;
 
                 for (size_t extra_hosts = 0; extra_hosts < 21; ++extra_hosts, ++num_hosts) {
-                    double mini = *std::ranges::min_element(lwr);
-                    auto maxiter = std::ranges::max_element(lwr);
-                    double max_latency = *maxiter;
-                    size_t max_shard = std::distance(lwr.begin(), maxiter);
+                    const size_t max_shard = std::distance(lwr.begin(), std::ranges::max_element(lwr));
+                    const double max_latency = lwr[max_shard];
 
                     {   // output and formatting bits
                         double QPS_without_routing = num_queries / max_latency;
@@ -597,7 +595,7 @@ int main(int argc, const char* argv[]) {
                             << "," << num_hosts << "," << num_shards << "\n";
                         out << str.str() << std::flush;
                         std::cout << str.str() << std::flush;
-                        outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = r.recall, .QPS_per_shard = r.QPS_per_shard });
+                        outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
                     }
 
                     // assign one more replica to the slowest shard
