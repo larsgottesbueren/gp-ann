@@ -188,7 +188,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
     {
         PointSet routing_points;
-        std::vector<int> partition_offsets;
+        std::vector<int> routing_index_partition;
         Timer routing_timer; routing_timer.Start();
         {
             KMeansTreeRouter router;
@@ -212,15 +212,8 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                 new_route.try_increasing_num_shards = true;
                 new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
             }
-            std::tie(routing_points, partition_offsets) = router.ExtractPoints();
+            std::tie(routing_points, routing_index_partition) = router.ExtractPoints();
             std::cout << "Extraction finished" << std::endl;
-        }
-
-        std::vector<int> routing_index_partition;
-        for (size_t i = 1; i < partition_offsets.size(); ++i) {
-            for (int j = partition_offsets[i-1]; j < partition_offsets[i]; ++j) {
-                routing_index_partition.push_back(i-1);
-            }
         }
 
         {
