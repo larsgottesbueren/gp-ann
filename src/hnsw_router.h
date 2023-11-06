@@ -34,6 +34,7 @@ struct HNSWRouter {
 
     HNSWRouter(const std::string& file, int dim, const std::vector<int>& partition_) :
         partition(partition_),
+        num_shards(NumPartsInPartition(partition_)),
         space(dim),
         hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
     {
@@ -42,6 +43,7 @@ struct HNSWRouter {
 
     void Serialize(const std::string& file) {
         hnsw->saveIndex(file);
+        WriteMetisPartition(partition, file + ".routing_index_partition");
     }
 
     std::vector<int> Query(float* Q, int num_voting_neighbors) {
