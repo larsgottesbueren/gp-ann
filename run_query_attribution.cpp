@@ -80,7 +80,8 @@ struct RoutingConfig {
     std::string Serialize() const {
         std::stringstream sb;
         sb  << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " "
-            << routing_time << " " << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << "\n";
+            << routing_time << " " << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size()
+            << routing_index_options.budget << " " << routing_index_options.num_centroids << " " << routing_index_options.min_cluster_size << "\n";
         for (const auto& visit_order : buckets_to_probe) {
             for (const int b : visit_order) {
                 sb << b << " ";
@@ -96,7 +97,8 @@ struct RoutingConfig {
         std::string line;
         std::getline(in, line);
         std::istringstream iss(line);
-        iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha >> num_queries;
+        iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha >> num_queries
+            >> r.routing_index_options.budget >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
         std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << " " << r.try_increasing_num_shards << " " << std::noboolalpha << num_queries << std::endl;
         for (int i = 0; i < num_queries; ++i) {
             std::getline(in, line);
@@ -187,6 +189,34 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     std::vector<RoutingConfig> routes;
 
     // TODO try a couple more routing index parameters. They don't look like they're doing well enough
+    std::vector<KMeansTreeRouterOptions> routing_index_option_vals = {
+            KMeansTreeRouterOptions {
+                .num_centroids = 64,
+                .min_cluster_size = 350,
+                .budget = 50000,
+                .search_budget = 50000
+            },
+            KMeansTreeRouterOptions {
+                    .num_centroids = 128,
+                    .min_cluster_size = 350,
+                    .budget = 50000,
+                    .search_budget = 50000
+            },
+            KMeansTreeRouterOptions {
+                    .num_centroids = 256,
+                    .min_cluster_size = 350,
+                    .budget = 50000,
+                    .search_budget = 50000
+            },
+            KMeansTreeRouterOptions {
+                    .num_centroids = 128,
+                    .min_cluster_size = 250,
+                    .budget = 50000,
+                    .search_budget = 50000
+            },
+
+    };
+
 
     {
         PointSet routing_points;
