@@ -183,7 +183,7 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
 }
 
 std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
-                                                 KMeansTreeRouterOptions routing_index_options, const std::string& routing_index_file,
+                                                 KMeansTreeRouterOptions routing_index_options_blueprint, const std::string& routing_index_file,
                                                  const std::string& pyramid_index_file, const std::string& our_pyramid_index_file,
                                                  bool our_pyramid_is_hnsw_partition = false) {
     std::vector<RoutingConfig> routes;
@@ -192,7 +192,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
     {
         for (double factor : {0.2, 0.4, 0.8, 1.0}) {
-            KMeansTreeRouterOptions ro = routing_index_options;
+            KMeansTreeRouterOptions ro = routing_index_options_blueprint;
             ro.budget *= factor;
             routing_index_option_vals.push_back(ro);
         }
@@ -217,6 +217,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     }
 
 
+    for (const KMeansTreeRouterOptions& routing_index_options : routing_index_option_vals)
     {
         PointSet routing_points;
         std::vector<int> routing_index_partition;
