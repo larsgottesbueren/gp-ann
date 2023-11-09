@@ -38,24 +38,33 @@ std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k
     return res;
 }
 
-double OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition) {
-    int num_shards = *std::max_element(partition.begin(),  partition.end()) + 1;
-    std::vector<int> freq;
-    double recall = 0.0;
+void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition, int num_neighbors) {
+    int num_shards = NumPartsInPartition(partition);
+    std::vector<size_t> hits(num_shards, 0);
+
     for (const auto& neigh : ground_truth) {
-        freq.assign(num_shards, 0);
-        for (const auto& x : neigh) {
-            freq[partition[x.second]]++;
+        std::vector<std::pair<int, int>> freq(num_shards);
+        for (int i = 0; i < num_shards; ++i) {
+            freq[i].first = 0;
+            freq[i].second = i;
+        }
+        for (int i = 0; i < num_neighbors; ++i) {
+            freq[partition[neigh[i].second]].first++;
         }
 
-        int hits = *std::max_element(freq.begin(), freq.end());
-        recall += static_cast<double>(hits);
-        if (neigh.size() != 10) std::cerr << "neigh.size() != 10..." << neigh.size() << std::endl;
+        std::sort(freq.begin(), freq.end(), std::greater<>());
+        for (int i = 0; i < num_shards; ++i) {
+            hits[i] += freq[i].first;
+        }
     }
 
-    recall /= (10.0 * ground_truth.size());
-    std::cout << "Oracle first shard recall " << recall << std::endl;
-    return recall;
+    size_t total = 0;
+    for (int i = 0; i < num_shards && hits[i] > 0; ++i) {
+        total += hits[i];
+        double recall = static_cast<double>(total) / ground_truth.size() / num_neighbors;
+        std::cout << "nprobes = " << i + 1 << " oracle recall = " << recall << std::endl;
+    }
+
 }
 
 

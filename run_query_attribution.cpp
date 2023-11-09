@@ -186,6 +186,8 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                                                  bool our_pyramid_is_hnsw_partition = false) {
     std::vector<RoutingConfig> routes;
 
+    // TODO try a couple more routing index parameters. They don't look like they're doing well enough
+
     {
         PointSet routing_points;
         std::vector<int> routing_index_partition;
