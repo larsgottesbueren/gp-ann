@@ -2,6 +2,8 @@
 #include <filesystem>
 #include <map>
 
+#include "points_io.h"
+
 #include "metis_io.h"
 #include "recall.h"
 
@@ -23,9 +25,11 @@ int main(int argc, const char* argv[]) {
         std::cout << "Read ground truth file" << std::endl;
     } else {
         std::cout << "start computing ground truth" << std::endl;
-        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
+        // ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
         std::cout << "computed ground truth" << std::endl;
     }
+
+    auto partition = ReadMetisPartition(partition_file);
 
     OracleRecall(ground_truth, partition, num_neighbors);
 }
