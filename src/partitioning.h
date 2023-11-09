@@ -251,6 +251,12 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     double t = timer.Stop();
     if (depth < 2) { std::cout << "KMeans on " << points.n << " points at depth " << depth << " with " << num_level_centroids << " centroids took " << t << " s." << std::endl; }
 
+    if (level_centroids.n == 1) {
+        // also stop if we get down to a single centroid. this means we can't split the data any more
+        // (for example near-duplicates)
+        finished = true;
+    }
+
     if (finished) {     // this is weird. it will always aggregate something, even if points is small...
         return std::make_pair(level_partition, level_centroids);
     }
@@ -258,7 +264,6 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     auto clusters = ConvertPartitionToBuckets(level_partition);
 
     auto recursion_results = parlay::map(clusters, [&](const auto& cluster) {
-        // TODO stop inf recursion if you get down to 1 centroid naturally ---> thats just duuupes
         PointSet cluster_points = ExtractPointsInBucket(cluster, points);
         return HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
     }, 1);
