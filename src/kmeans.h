@@ -133,7 +133,7 @@ void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int
 }
 
 
-std::vector<int> KMeans(PointSet& P, PointSet& centroids, double eps = 1e-3) {
+std::vector<int> KMeans(PointSet& P, PointSet& centroids, double eps = 5e-4) {
     if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
 	std::vector<int> closest_center(P.n, -1);
 	static constexpr size_t NUM_ROUNDS = 25;
@@ -142,12 +142,15 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids, double eps = 1e-3) {
 		NearestCenters(P, centroids, closest_center);
 		PointSet new_centroids = AggregateClusters(P, centroids, closest_center);
 		if (new_centroids.n == centroids.n) {
-            double dist = parlay::reduce(
+            finished = parlay::all_of(
                                 parlay::tabulate(centroids.n, [&](size_t i) -> float {
                                     return distance(centroids.GetPoint(i), new_centroids.GetPoint(i), centroids.d);
-                                })
+                                }),
+                                [&](float dist) {
+                                    return dist < eps;
+                                }
                             );
-            if (dist < eps) finished = true;
+
         }
 		centroids = std::move(new_centroids);
 	}
