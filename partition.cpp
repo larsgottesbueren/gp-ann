@@ -18,11 +18,6 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
-    #ifdef MIPS_DISTANCE
-    Normalize(points);
-    std::cout << "MIPS distance set --> Finished normalizing points" << std::endl;
-    #endif
-
 
     int k = std::stoi(k_string);
     const double eps = 0.05;

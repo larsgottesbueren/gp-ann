@@ -533,11 +533,6 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
-    #ifdef MIPS_DISTANCE
-    Normalize(points);
-    Normalize(queries);
-    #endif
-
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = NumPartsInPartition(partition);
 
