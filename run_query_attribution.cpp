@@ -189,33 +189,32 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     std::vector<RoutingConfig> routes;
 
     // TODO try a couple more routing index parameters. They don't look like they're doing well enough
-    std::vector<KMeansTreeRouterOptions> routing_index_option_vals = {
-            KMeansTreeRouterOptions {
-                .num_centroids = 64,
-                .min_cluster_size = 350,
-                .budget = 50000,
-                .search_budget = 50000
-            },
-            KMeansTreeRouterOptions {
-                    .num_centroids = 128,
-                    .min_cluster_size = 350,
-                    .budget = 50000,
-                    .search_budget = 50000
-            },
-            KMeansTreeRouterOptions {
-                    .num_centroids = 256,
-                    .min_cluster_size = 350,
-                    .budget = 50000,
-                    .search_budget = 50000
-            },
-            KMeansTreeRouterOptions {
-                    .num_centroids = 128,
-                    .min_cluster_size = 250,
-                    .budget = 50000,
-                    .search_budget = 50000
-            },
+    std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
+    {
+        for (double factor : {0.2, 0.4, 0.8, 1.0}) {
+            KMeansTreeRouterOptions ro = routing_index_options;
+            ro.budget *= factor;
+            routing_index_option_vals.push_back(ro);
+        }
 
-    };
+        auto copy = routing_index_option_vals;
+        routing_index_option_vals.clear();
+        for (auto ro : copy) {
+            for (int min_cluster_size : {250, 300, 350, 400}) {
+                ro.min_cluster_size = min_cluster_size;
+                routing_index_option_vals.push_back(ro);
+            }
+        }
+
+        copy = routing_index_option_vals;
+        routing_index_option_vals.clear();
+        for (auto ro : copy) {
+            for (int num_centroids : {32,64,128,256}) {
+                ro.num_centroids = num_centroids;
+                routing_index_option_vals.push_back(ro);
+            }
+        }
+    }
 
 
     {
