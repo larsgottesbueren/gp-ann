@@ -10,7 +10,7 @@
 
 int main(int argc, const char* argv[]) {
     if (argc != 4 && argc != 6) {
-        std::cerr << "Usage ./OracleRecall ground-truth-file num_neighbors partition-file" << std::endl;
+        std::cerr << "Usage ./OracleRecall ground-truth-file num_neighbors partition-file [point-file query-file]" << std::endl;
         std::abort();
     }
 
