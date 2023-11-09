@@ -30,6 +30,7 @@ int main(int argc, const char* argv[]) {
     }
 
     auto partition = ReadMetisPartition(partition_file);
+    std::cout << "Finished reading partition file" << std::endl;
 
     OracleRecall(ground_truth, partition, num_neighbors);
 }
