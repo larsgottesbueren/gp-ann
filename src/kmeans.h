@@ -25,14 +25,13 @@ void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_
 	});
 }
 
-PointSet AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
-    PointSet new_centroids = centroids;
-    new_centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
+void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
+    centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
 	std::vector<size_t> cluster_size(centroids.n, 0);
 	for (size_t i = 0; i < closest_center.size(); ++i) {
 		int c = closest_center[i];
 		cluster_size[c]++;
-		float* C = new_centroids.GetPoint(c);
+		float* C = centroids.GetPoint(c);
 		float* Pi = P.GetPoint(i);
 		for (size_t j = 0; j < P.d; ++j) {
 			C[j] += Pi[j];
@@ -40,8 +39,8 @@ PointSet AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& c
 	}
 
 	bool any_zero = false;
-	for (size_t i = 0; i < new_centroids.n; ++i) {
-		float* C = new_centroids.GetPoint(i);
+	for (size_t i = 0; i < centroids.n; ++i) {
+		float* C = centroids.GetPoint(i);
 		if (cluster_size[i] == 0) {
 		    any_zero = true;
 		    continue;
@@ -52,13 +51,13 @@ PointSet AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& c
 	}
 
 	if (any_zero) {
-	    std::vector<int> remapped_cluster_ids(new_centroids.n, -1);
+	    std::vector<int> remapped_cluster_ids(centroids.n, -1);
 	    size_t l = 0;
 	    for (size_t r = 0; r < new_centroids.n; ++r) {
 	        if (cluster_size[r] != 0) {
 	            if (l != r) {       // don't do the copy if not necessary
-                    float* L = new_centroids.GetPoint(l);
-                    float* R = new_centroids.GetPoint(r);
+                    float* L = centroids.GetPoint(l);
+                    float* R = centroids.GetPoint(r);
                     for (size_t j = 0; j < new_centroids.d; ++j) {
                         L[j] = R[j];
                     }
@@ -74,13 +73,14 @@ PointSet AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& c
         new_centroids.n = l;
 	    for (int& cluster_id : closest_center) {
             cluster_id = remapped_cluster_ids[cluster_id];
+            if (cluster_id == -1) throw std::runtime_error("ClusterID -1");
 	    }
 	}
 
     #ifdef MIPS_DISTANCE
-	Normalize(new_centroids);
+	Normalize(centroids);
     #endif
-	return new_centroids;
+	return centroids;
 }
 
 PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
@@ -133,27 +133,13 @@ void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int
 }
 
 
-std::vector<int> KMeans(PointSet& P, PointSet& centroids, double eps = 5e-4) {
+std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
     if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
 	std::vector<int> closest_center(P.n, -1);
-	static constexpr size_t NUM_ROUNDS = 25;
-	bool finished = false;
-    size_t r = 0;
-	for ( ; !finished && r < NUM_ROUNDS; ++r) {
+	static constexpr size_t NUM_ROUNDS = 20;
+	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
-		PointSet new_centroids = AggregateClusters(P, centroids, closest_center);
-		if (new_centroids.n == centroids.n) {
-		    auto distance_to_prev_centroid = parlay::tabulate(centroids.n, [&](size_t i) -> float {
-                return distance(centroids.GetPoint(i), new_centroids.GetPoint(i), centroids.d)
-                #ifdef MIPS_DISTANCE        // mips_distance returns -dot(x,y) --> we want 1 - dot(x,y)
-                    + 1
-                #endif
-                ;
-            });
-            size_t num_stable = parlay::count_if(distance_to_prev_centroid, [&](float dist) { return dist < eps; });
-            finished = num_stable == centroids.n;
-        }
-		centroids = std::move(new_centroids);
+		AggregateClusters(P, centroids, closest_center);
 	}
 	return closest_center;
 }
