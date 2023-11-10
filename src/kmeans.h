@@ -138,19 +138,20 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids, double eps = 5e-4) {
 	std::vector<int> closest_center(P.n, -1);
 	static constexpr size_t NUM_ROUNDS = 25;
 	bool finished = false;
-	for (size_t r = 0; !finished && r < NUM_ROUNDS; ++r) {
+    size_t r = 0;
+	for ( ; !finished && r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
 		PointSet new_centroids = AggregateClusters(P, centroids, closest_center);
 		if (new_centroids.n == centroids.n) {
-            finished = parlay::all_of(
-                                parlay::tabulate(centroids.n, [&](size_t i) -> float {
-                                    return distance(centroids.GetPoint(i), new_centroids.GetPoint(i), centroids.d);
-                                }),
-                                [&](float dist) {
-                                    return dist < eps;
-                                }
-                            );
-
+		    auto distance_to_prev_centroid = parlay::tabulate(centroids.n, [&](size_t i) -> float {
+                return distance(centroids.GetPoint(i), new_centroids.GetPoint(i), centroids.d)
+                #ifdef MIPS_DISTANCE        // mips_distance returns -dot(x,y) --> we want 1 - dot(x,y)
+                    + 1
+                #endif
+                ;
+            });
+            size_t num_stable = parlay::count_if(distance_to_prev_centroid, [&](float dist) { return dist < eps; });
+            finished = num_stable == centroids.n;
         }
 		centroids = std::move(new_centroids);
 	}

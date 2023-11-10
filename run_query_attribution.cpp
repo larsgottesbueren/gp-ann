@@ -642,7 +642,7 @@ int main(int argc, const char* argv[]) {
                             << "," << QPS_without_routing << "," << QPS_without_routing_per_host
                             << "," << num_hosts << "," << num_shards << "," << requested_num_shards << "\n";
                         out << str.str() << std::flush;
-                        std::cout << str.str() << std::flush;
+                        // std::cout << str.str() << std::flush;
                         outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
                     }
 
@@ -688,7 +688,7 @@ int main(int argc, const char* argv[]) {
 
         for (const auto& c : pareto) {
             pareto_out << c.format_string << std::endl;
-            std::cout << c.format_string << std::endl;
+            // std::cout << c.format_string << std::endl;
         }
     }
 
