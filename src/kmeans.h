@@ -66,10 +66,6 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
                 l++;
             }
 	    }
-	    // std::cout << "Removed " << (centroids.n - l) << " empty clusters" << std::endl;
-	    if (l <= 10) {
-	        std::cout << "<= 10 clusters left -.- num clusters left = " << l << " prev num clusters " << centroids.n << std::endl;
-	    }
         centroids.n = l;
 	    for (int& cluster_id : closest_center) {
             cluster_id = remapped_cluster_ids[cluster_id];
