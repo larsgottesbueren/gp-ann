@@ -266,7 +266,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     auto recursion_results = parlay::map(clusters, [&](const auto& cluster) {
         PointSet cluster_points = ExtractPointsInBucket(cluster, points);
         return HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
-    }, 1);
+    }, depth < 2 ? clusters.size() : 1);
 
     auto part_id_offsets = parlay::map(recursion_results, [&](const auto& r) { return NumPartsInPartition(r.first); });
     size_t num_recursive_clusters = parlay::scan_inplace(part_id_offsets);
