@@ -188,7 +188,6 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                                                  bool our_pyramid_is_hnsw_partition = false) {
     std::vector<RoutingConfig> routes;
 
-    // TODO try a couple more routing index parameters. They don't look like they're doing well enough
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
     {
         for (double factor : {0.2, 0.4, 0.8, 1.0}) {
@@ -257,8 +256,8 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                                            .ef_search = 200 }
             );
             std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
-            hnsw_router.Serialize(routing_index_file);
-            std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
+            // hnsw_router.Serialize(routing_index_file);
+            // std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
 
             RoutingConfig blueprint;
             blueprint.index_trainer = "HierKMeans";
@@ -485,6 +484,24 @@ void Serialize(const std::vector<RoutingConfig>& routes, const std::vector<Shard
     }
 }
 
+void Serialize(const std::vector<RoutingConfig>& routes, const std::string& output_file) {
+    std::ofstream out(output_file);
+    out << routes.size() << std::endl;
+    for (const RoutingConfig& r : routes) {
+        out << "R" << std::endl;
+        out << r.Serialize();
+    }
+}
+
+void Serialize(const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
+    std::ofstream out(output_file);
+    out << shard_searches.size() << std::endl;
+    for (const ShardSearch& search : shard_searches) {
+        out << "S" << std::endl;
+        out << search.Serialize();
+    }
+}
+
 void Deserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>& shard_searches, const std::string& input_file) {
     std::ifstream in(input_file);
     size_t num_routes, num_searches;
@@ -553,6 +570,7 @@ int main(int argc, const char* argv[]) {
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file,
                                                               our_pyramid_is_hnsw_partition);
     std::cout << "Finished routing configs" << std::endl;
+    Serialize(routes, output_file + ".routes");
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
@@ -578,7 +596,7 @@ int main(int argc, const char* argv[]) {
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 
-    Serialize(routes, shard_searches, output_file + ".routes_and_searches.txt");
+    Serialize(shard_searches, output_file + ".searches");
 
     std::ofstream out(output_file);
     // header
