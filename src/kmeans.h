@@ -53,12 +53,12 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
 	if (any_zero) {
 	    std::vector<int> remapped_cluster_ids(centroids.n, -1);
 	    size_t l = 0;
-	    for (size_t r = 0; r < new_centroids.n; ++r) {
+	    for (size_t r = 0; r < centroids.n; ++r) {
 	        if (cluster_size[r] != 0) {
 	            if (l != r) {       // don't do the copy if not necessary
                     float* L = centroids.GetPoint(l);
                     float* R = centroids.GetPoint(r);
-                    for (size_t j = 0; j < new_centroids.d; ++j) {
+                    for (size_t j = 0; j < centroids.d; ++j) {
                         L[j] = R[j];
                     }
 	            }
@@ -68,9 +68,9 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
 	    }
 	    // std::cout << "Removed " << (centroids.n - l) << " empty clusters" << std::endl;
 	    if (l <= 10) {
-	        std::cout << "<= 10 clusters left -.- num clusters left = " << l << " prev num clusters " << new_centroids.n << std::endl;
+	        std::cout << "<= 10 clusters left -.- num clusters left = " << l << " prev num clusters " << centroids.n << std::endl;
 	    }
-        new_centroids.n = l;
+        centroids.n = l;
 	    for (int& cluster_id : closest_center) {
             cluster_id = remapped_cluster_ids[cluster_id];
             if (cluster_id == -1) throw std::runtime_error("ClusterID -1");
@@ -80,7 +80,6 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
     #ifdef MIPS_DISTANCE
 	Normalize(centroids);
     #endif
-	return centroids;
 }
 
 PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
