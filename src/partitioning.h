@@ -249,7 +249,10 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     PointSet level_centroids = RandomSample(points, num_level_centroids, 555);
     std::vector<int> level_partition = KMeans(points, level_centroids);
     double t = timer.Stop();
-    if (depth < 2) { std::cout << "KMeans on " << points.n << " points at depth " << depth << " with " << num_level_centroids << " centroids took " << t << " s." << std::endl; }
+    if (depth < 2) {
+        std::cout   << "KMeans on " << points.n << " points at depth " << depth << " with "
+                    << level_centroids.n << " / " << num_level_centroids << " centroids took " << t << " s." << std::endl;
+    }
 
     if (level_centroids.n == 1) {
         // also stop if we get down to a single centroid. this means we can't split the data any more

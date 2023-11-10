@@ -12,7 +12,7 @@ struct KMeansTreeRouterOptions {
     size_t num_centroids = 64;
     size_t min_cluster_size = 250;
     int64_t budget = 50000;
-    int64_t search_budget = 35000;
+    int64_t search_budget = 50000;
 };
 
 struct KMeansTreeRouter {
