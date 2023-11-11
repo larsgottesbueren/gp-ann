@@ -67,6 +67,7 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
             }
 	    }
         centroids.n = l;
+	    centroids.coordinates.resize(centroids.n * centroids.d);
 	    for (int& cluster_id : closest_center) {
             cluster_id = remapped_cluster_ids[cluster_id];
             if (cluster_id == -1) throw std::runtime_error("ClusterID -1");
