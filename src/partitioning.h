@@ -344,8 +344,8 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
 
     std::vector<std::pair<std::vector<int>, PointSet>> recursion_results(clusters.size());
     parlay::parallel_for(0, clusters.size(), [&](size_t i) {
+        if (clusters[i].empty()) throw std::runtime_error("Cluster points empty. KMeans should remove empty cluster IDs");
         PointSet cluster_points = ExtractPointsInBucket(clusters[i], points);
-        if (cluster_points.empty()) throw std::runtime_error("Cluster points empty. KMeans should remove empty cluster IDs");
         recursion_results[i] = HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
     }, depth < 2 ? clusters.size() : 1);
 
@@ -361,7 +361,11 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
             centroids_from_recursion.coordinates.push_back(coord);
         }
         centroids_from_recursion.n += rec_points.n;
-        if (centroids_from_recursion.n * centroids_from_recursion.d != centroids_from_recursion.coordinates.size()) { throw std::runtime_error("Size of rec centroids is wrong"); }
+        if (centroids_from_recursion.n * centroids_from_recursion.d != centroids_from_recursion.coordinates.size()) {
+            std::cout << i << " " << centroids_from_recursion.n << " " << centroids_from_recursion.d << " " << centroids_from_recursion.coordinates.size()
+                        << " " << rec_points.n << " " << num_rec_parts << std::endl;
+            throw std::runtime_error("Size of rec centroids is wrong");
+        }
 
         for (size_t j = 0; j < cluster.size(); ++j) {
             level_partition[cluster[j]] = rec_part[j] + num_rec_parts;
