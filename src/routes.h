@@ -230,6 +230,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
             RoutingConfig blueprint;
             blueprint.index_trainer = "HierKMeans";
+            blueprint.routing_index_options = routing_index_options;
             IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
         }
     }

@@ -233,7 +233,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 // want to extract only the leaf-level points here
 // and the mapping of top-level points to leaf-level points
 std::pair<std::vector<int>, PointSet>
-HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
+HierarchicalKMeansParlayImpl(PointSet& points, double coarsening_ratio, int depth = 0) {
     int num_level_centroids = points.n * coarsening_ratio;
     if (num_level_centroids < 1) {
         num_level_centroids = 1;
@@ -268,7 +268,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
 
     auto recursion_results = parlay::map(clusters, [&](const auto& cluster) {
         PointSet cluster_points = ExtractPointsInBucket(cluster, points);
-        return HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
+        return HierarchicalKMeansParlayImpl(cluster_points, coarsening_ratio, depth+1);
     }, depth < 2 ? clusters.size() : 1);
 
     auto part_id_offsets = parlay::map(recursion_results, [&](const auto& r) { return NumPartsInPartition(r.first); });
@@ -304,6 +304,70 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
                 std::memcpy(centroids_from_recursion.GetPoint(point_offset), rec_points.coordinates.data(), rec_points.coordinates.size() * sizeof(float));
             }
     );
+
+    return std::make_pair(level_partition, centroids_from_recursion);
+}
+
+std::pair<std::vector<int>, PointSet>
+HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
+    int num_level_centroids = points.n * coarsening_ratio;
+    if (num_level_centroids < 1) {
+        num_level_centroids = 1;
+    }
+    bool finished = true;
+    constexpr int MAX_LEVEL_CENTROIDS = 64;
+    if (num_level_centroids > MAX_LEVEL_CENTROIDS) {
+        num_level_centroids = MAX_LEVEL_CENTROIDS;
+        finished = false;
+    }
+
+    Timer timer; timer.Start();
+    PointSet level_centroids = RandomSample(points, num_level_centroids, 555);
+    std::vector<int> level_partition = KMeans(points, level_centroids);
+    double t = timer.Stop();
+    if (depth < 2) {
+        std::cout   << "KMeans on " << points.n << " points at depth " << depth << " with "
+                    << level_centroids.n << " / " << num_level_centroids << " centroids took " << t << " s." << std::endl;
+    }
+
+    if (level_centroids.n == 1) {
+        // also stop if we get down to a single centroid. this means we can't split the data any more
+        // (for example near-duplicates)
+        finished = true;
+    }
+
+    if (finished) {     // this is weird. it will always aggregate something, even if points is small...
+        return std::make_pair(level_partition, level_centroids);
+    }
+
+    auto clusters = ConvertPartitionToBuckets(level_partition);
+
+    std::vector<std::pair<std::vector<int>, PointSet>> recursion_results(clusters.size());
+    parlay::parallel_for(0, clusters.size(), [&](size_t i) {
+        PointSet cluster_points = ExtractPointsInBucket(clusters[i], points);
+        if (cluster_points.empty()) throw std::runtime_error("Cluster points empty. KMeans should remove empty cluster IDs");
+        recursion_results[i] = HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
+    }, depth < 2 ? clusters.size() : 1);
+
+    PointSet centroids_from_recursion;
+    centroids_from_recursion.d = points.d;
+    size_t num_rec_parts = 0;
+    for (size_t i = 0; i < recursion_results.size(); ++i) {
+        const auto& cluster = clusters[i];
+        const auto& rec_part = recursion_results[i].first;
+        auto& rec_points = recursion_results[i].second;
+
+        for (const float coord : rec_points.coordinates) {
+            centroids_from_recursion.coordinates.push_back(coord);
+        }
+        centroids_from_recursion.n += rec_points.n;
+        if (centroids_from_recursion.n * centroids_from_recursion.d != centroids_from_recursion.coordinates.size()) { throw std::runtime_error("Size of rec centroids is wrong"); }
+
+        for (size_t j = 0; j < cluster.size(); ++j) {
+            level_partition[cluster[j]] = rec_part[j] + num_rec_parts;
+        }
+        num_rec_parts += NumPartsInPartition(rec_part);
+    }
 
     return std::make_pair(level_partition, centroids_from_recursion);
 }

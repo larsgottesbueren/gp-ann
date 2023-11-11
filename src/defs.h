@@ -11,6 +11,7 @@ struct PointSet {
   float* GetPoint(size_t i) { return &coordinates[i*d]; }
   void Drop() { coordinates.clear(); coordinates.shrink_to_fit(); }
   void Alloc() { coordinates.resize(n*d); }
+  bool empty() const { return n == 0; }
 };
 
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
