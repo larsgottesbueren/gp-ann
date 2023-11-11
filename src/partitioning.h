@@ -363,7 +363,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
         centroids_from_recursion.n += rec_points.n;
         if (centroids_from_recursion.n * centroids_from_recursion.d != centroids_from_recursion.coordinates.size()) {
             std::cout << i << " " << centroids_from_recursion.n << " " << centroids_from_recursion.d << " " << centroids_from_recursion.coordinates.size()
-                        << " " << rec_points.n << " " << num_rec_parts << std::endl;
+                        << " " << rec_points.n << " " << num_rec_parts << " " << depth << std::endl;
             throw std::runtime_error("Size of rec centroids is wrong");
         }
 
