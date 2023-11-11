@@ -4,18 +4,18 @@ import subprocess
 data_path = 'data'
 
 datasets = [
-	('turing', 'L2'),
+	#('turing', 'L2'),
 	('deep', 'L2'),
 	('text-to-image', 'mips')
 ]
 
 partitioning_methods = [
-	#'GP', 'KMeans',
+	'GP', 'KMeans',
 	'Pyramid',
-	'OurPyramid'
+	#'OurPyramid'
 ]
 
-num_shards_vals = [40, 20, 10]
+num_shards_vals = [40]#, 20, 10]
 
 num_neighbors = 10
 
@@ -70,10 +70,12 @@ def run_query_set(dataset, metric, part_method, num_shards):
 def run_queries_on_all_datasets():
 	for dataset, metric in datasets:
 		for part_method in partitioning_methods:
+			if dataset == "deep" and part_method != "Pyramid":
+				continue
 			for num_shards in num_shards_vals:
 				run_query_set(dataset, metric, part_method, num_shards)
 
 
 
-compute_all_partitions()
+#compute_all_partitions()
 run_queries_on_all_datasets()
