@@ -79,6 +79,62 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
     #endif
 }
 
+void AggregateClustersParallel(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
+    auto clusters = parlay::group_by_index(
+            parlay::delayed_tabulate(
+                    closest_center.size(),
+                    [&](size_t i) { return std::make_pair(closest_center[i], i); }
+            ), centroids.n);
+
+    centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
+
+    parlay::parallel_for(0, clusters.size(), [&](int c) {
+        const auto& cluster = clusters[c];
+        float* C = centroids.GetPoint(c);
+        for (auto u : cluster) {
+            float* Pu = P.GetPoint(u);
+            for (size_t j = 0; j < P.d; ++j) {
+                C[j] += Pu[j];
+            }
+        }
+        if (!clusters.empty()) {
+            for (size_t j = 0; j < P.d; ++j) {
+                C[j] /= cluster.size();
+            }
+        }
+    }, 1);
+
+    bool any_zero = parlay::any_of(clusters, [&](const auto& C) { return C.empty(); });
+
+    if (any_zero) {
+        std::vector<int> remapped_cluster_ids(centroids.n, -1);
+        size_t l = 0;
+        for (size_t r = 0; r < centroids.n; ++r) {
+            if (!clusters[r].empty()) {
+                if (l != r) {       // don't do the copy if not necessary
+                    float* L = centroids.GetPoint(l);
+                    float* R = centroids.GetPoint(r);
+                    for (size_t j = 0; j < centroids.d; ++j) {
+                        L[j] = R[j];
+                    }
+                }
+                remapped_cluster_ids[r] = l;
+                l++;
+            }
+        }
+        centroids.n = l;
+        centroids.coordinates.resize(centroids.n * centroids.d);
+        for (int& cluster_id : closest_center) {
+            cluster_id = remapped_cluster_ids[cluster_id];
+            if (cluster_id == -1) throw std::runtime_error("ClusterID -1");
+        }
+    }
+
+    #ifdef MIPS_DISTANCE
+    Normalize(centroids);
+    #endif
+}
+
 PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
     PointSet centroids;
     centroids.n = num_samples;
