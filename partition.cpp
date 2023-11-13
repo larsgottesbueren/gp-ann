@@ -30,9 +30,15 @@ int main(int argc, const char* argv[]) {
     } else if (part_method == "KMeans") {
         partition = RecursiveKMeansPartitioning(points, k, eps);
     } else if (part_method == "OurPyramid") {
-        std::vector<int> second_partition;
-        partition = OurPyramidPartitioning(points, k, eps, second_partition, part_file + ".our_pyramid_routing_index");
-        WriteMetisPartition(second_partition, part_file + ".hnsw_graph_part");
+        for (double coarsening_rates : { 0.005, 0.01, 0.015, 0.02 }) {
+            std::string my_part_file = part_file + ".coarsen=" + std::to_string(coarsening_rates);
+            std::vector<int> second_partition;
+            partition = OurPyramidPartitioning(points, k, eps, second_partition, my_part_file + ".our_pyramid_routing_index");
+            WriteMetisPartition(second_partition, my_part_file + ".hnsw_graph_part");
+            WriteMetisPartition(partition, my_part_file);
+        }
+        std::cout << "Finished partitioning" << std::endl;
+        std::exit(0);
     } else {
         std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
         std::abort();
