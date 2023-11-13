@@ -151,7 +151,7 @@ struct KMeansTreeRouter {
 
     std::pair<PointSet, std::vector<int>> ExtractPoints() {
         PointSet points;
-        points.d = roots[0].centroids.d;
+        points.d = dim;
         std::vector<int> partition;
 
         int b = 0;
@@ -163,11 +163,15 @@ struct KMeansTreeRouter {
                 for (TreeNode& c : u->children) {
                     queue.push(&c);
                 }
+                if (u->centroids.coordinates.size() != u->centroids.n * u->centroids.d) {
+                    std::cout << u->centroids.coordinates.size() << " " << u->centroids.n << " " << u->centroids.d << std::endl;
+                    throw std::runtime_error("C");
+                }
                 points.coordinates.insert(points.coordinates.end(), u->centroids.coordinates.begin(), u->centroids.coordinates.end());
                 points.n += u->centroids.n;
                 partition.insert(partition.end(), u->centroids.n, b);
-                b++;
             }
+            b++;
         }
 
         return std::make_pair(std::move(points), std::move(partition));
