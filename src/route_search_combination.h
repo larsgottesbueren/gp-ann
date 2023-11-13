@@ -55,7 +55,7 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
         size_t total_hits = 0;
         for (int q = 0; q < num_queries; ++q) {
             int hits = 0;
-            for (const auto & s : search.query_hits_in_shard) {
+            for (const auto& s : search.query_hits_in_shard) {
                 hits += s[q];
             }
             total_hits += std::min(num_neighbors, hits);
@@ -65,6 +65,37 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
     }
 }
 
+void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition, int num_shards) {
+    for (const auto& route : routes) {
+        std::vector<size_t> hits(num_shards, 0);
+        for (size_t q = 0; q < route.buckets_to_probe.size(); ++q) {
+            std::vector<int> overlap(num_shards, 0);
+            for (int nb = 0; nb < num_neighbors; ++nb) {
+                overlap[partition[ground_truth[q][nb].second]]++;
+            }
+
+            for (int nprobes = 0; nprobes < std::min<int>(num_shards, route.buckets_to_probe[q].size()); ++nprobes) {
+                hits[nprobes] += overlap[route.buckets_to_probe[q][nprobes]];
+            }
+        }
+
+
+        std::cout << "Route with " << route.index_trainer << " " << route.routing_algorithm << " " << route.hnsw_num_voting_neighbors << std::endl;
+        size_t hit_sum = 0;
+        for (int nprobes = 0; nprobes < num_shards; ++nprobes) {
+            hit_sum += hits[nprobes];
+            if (route.try_increasing_num_shards) {
+                double recall = double(hit_sum) / num_neighbors / ground_truth.size();
+                std::cout << "Nprobes = " << nprobes + 1 << " recall = " << recall << "\t";
+            }
+        }
+        if (!route.try_increasing_num_shards) {
+            double recall = double(hit_sum) / num_neighbors / ground_truth.size();
+            std::cout << "recall = " recall;
+        }
+        std::cout << std::endl;
+    }
+}
 
 void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file,
                                           int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
