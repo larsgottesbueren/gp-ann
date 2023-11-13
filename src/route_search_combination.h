@@ -50,6 +50,21 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     });
 }
 
+void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int num_neighbors, int num_queries, int num_shards, int num_requested_shards) {
+    for (const auto& search : shard_searches) {
+        size_t total_hits = 0;
+        for (int q = 0; q < num_queries; ++q) {
+            int hits = 0;
+            for (const auto & s : search.query_hits_in_shard) {
+                hits += s[q];
+            }
+            total_hits += std::min(num_neighbors, hits);
+        }
+        double recall = double(total_hits) / double(num_queries);
+        std::cout << "Search with ef_search = " << search.ef_search << " scored " << recall << " total recall" << std::endl;
+    }
+}
+
 
 void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file,
                                           int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
