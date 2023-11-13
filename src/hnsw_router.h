@@ -27,7 +27,6 @@ struct HNSWRouter {
         hnsw_parameters(parameters)
     {
         hnsw = std::make_unique<hnswlib::HierarchicalNSW<float>>(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
-        parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw->addPoint(routing_points.GetPoint(i), i); });
         hnsw->setEf(hnsw_parameters.ef_search);
     }
 
@@ -39,6 +38,10 @@ struct HNSWRouter {
         hnsw(new hnswlib::HierarchicalNSW<float>(&space, file))
     {
         hnsw->setEf(hnsw_parameters.ef_search);
+    }
+
+    void Train(PointSet& routing_points) {
+        parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw->addPoint(routing_points.GetPoint(i), i); });
     }
 
     void Serialize(const std::string& file) {

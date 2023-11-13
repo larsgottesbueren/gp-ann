@@ -212,19 +212,25 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                 new_route.try_increasing_num_shards = true;
                 new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
             }
+            PinThread(0);
             std::tie(routing_points, routing_index_partition) = router.ExtractPoints();
+            UnpinThread();
             std::cout << "Extraction finished" << std::endl;
         }
 
         {
             routing_timer.Start();
+            PinThread(0);
             HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition,
                                    HNSWParameters {
                                            .M = 32,
                                            .ef_construction = 200,
                                            .ef_search = 200 }
             );
+            UnpinThread();
+            hnsw_router.Train(routing_points);
             std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
+            PinThread(0);
             // hnsw_router.Serialize(routing_index_file);
             // std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
 
@@ -232,26 +238,31 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             blueprint.index_trainer = "HierKMeans";
             blueprint.routing_index_options = routing_index_options;
             IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+            UnpinThread();
         }
     }
 
     if (!pyramid_index_file.empty()) {
         std::cout << "Run Pyramid routing" << std::endl;
+        PinThread(0);
         std::vector<int> routing_index_partition = ReadMetisPartition(pyramid_index_file + ".routing_index_partition");
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = "Pyramid";
         IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+        UnpinThread();
     }
 
     if (!our_pyramid_index_file.empty()) {
         std::cout << "Run OurPyramid++ routing" << std::endl;
+        PinThread(0);
         std::vector<int> routing_index_partition = ReadMetisPartition(
                 pyramid_index_file + (our_pyramid_is_hnsw_partition ? ".hnsw" : ".knn") + ".routing_index_partition");
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = std::string("OurPyramid+") + std::string(our_pyramid_is_hnsw_partition ? "HNSW" : "KNN");
         IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+        UnpinThread();
     }
 
     return routes;
