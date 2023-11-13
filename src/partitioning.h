@@ -347,7 +347,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
         if (clusters[i].empty()) throw std::runtime_error("Cluster points empty. KMeans should remove empty cluster IDs");
         PointSet cluster_points = ExtractPointsInBucket(clusters[i], points);
         recursion_results[i] = HierarchicalKMeans(cluster_points, coarsening_ratio, depth+1);
-    }, depth < 1 ? clusters.size() : 1);
+    }, depth < 1 ? clusters.size() / 8 : 1);
 
     PointSet centroids_from_recursion;
     centroids_from_recursion.d = points.d;
