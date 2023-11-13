@@ -91,7 +91,7 @@ void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vecto
         }
         if (!route.try_increasing_num_shards) {
             double recall = double(hit_sum) / num_neighbors / ground_truth.size();
-            std::cout << "recall = " recall;
+            std::cout << "recall = " << recall;
         }
         std::cout << std::endl;
     }
