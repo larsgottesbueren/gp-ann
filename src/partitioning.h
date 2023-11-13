@@ -380,6 +380,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
 
 std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition,
                                         const std::string& routing_index_path, double coarsening_rate = 0.002) {
+    std::cout << "Call OurPyramid with coarsening rate " << coarsening_rate << std::endl;
     Timer timer; timer.Start();
     auto [routing_clusters, routing_points] = HierarchicalKMeans(points, coarsening_rate);
     std::cout << "HierKMeans took " << timer.Restart() << std::endl;
