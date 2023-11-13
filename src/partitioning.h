@@ -385,6 +385,9 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     auto [routing_clusters, routing_points] = HierarchicalKMeans(points, coarsening_rate);
     std::cout << "HierKMeans took " << timer.Restart() << std::endl;
 
+    std::cout << "routing_clusters.size() = " << routing_clusters.size() << " num routing clusters = " << NumPartsInPartition(routing_clusters)
+                << " num routing points = " << routing_points.n << std::endl;
+
     #ifdef MIPS_DISTANCE
     hnswlib::InnerProductSpace space(points.d);
     #else

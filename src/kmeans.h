@@ -191,7 +191,11 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	static constexpr size_t NUM_ROUNDS = 20;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
-		AggregateClusters(P, centroids, closest_center);
+		if (P.n >= 10000000 && centroids.n >= 16) {
+		    AggregateClustersParallel(P, centroids, closest_center);
+		} else {
+            AggregateClusters(P, centroids, closest_center);
+        }
 	}
 	return closest_center;
 }
