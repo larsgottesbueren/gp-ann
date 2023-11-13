@@ -35,7 +35,7 @@ int main(int argc, const char* argv[]) {
     int num_shards = NumPartsInPartition(partition);
 
     KMeansTreeRouterOptions router_options;
-    router_options.budget = points.n / num_shards;
+    router_options.budget = points.n / requested_num_shards;
     std::string pyramid_index_file, our_pyramid_index_file;
     bool our_pyramid_is_hnsw_partition = false;
     if (part_method == "Pyramid") {
