@@ -38,7 +38,7 @@ struct KMeansTreeRouter {
     }
 
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
-        PointSet centroids = RandomSample(points, std::max(1, std::min<int>(options.num_centroids, options.budget)), seed);
+        PointSet centroids = RandomSample(points, std::max(2, std::min<int>(options.num_centroids, options.budget)), seed);
         auto partition = KMeans(points, centroids);
         auto buckets = ConvertPartitionToBuckets(partition);
         // std::cout << "num buckets " << buckets.size() << " num centroids " << centroids.n << " num points " << points.n << " options.budget " << options.budget << std::endl;
