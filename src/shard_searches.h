@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include "defs.h"
 #include "dist.h"
 #include "../external/hnswlib/hnswlib/hnswlib.h"

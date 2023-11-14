@@ -1,5 +1,8 @@
 #pragma once
 
+#include <sstream>
+#include <fstream>
+
 #include "metis_io.h"
 #include "kmeans_tree_router.h"
 #include "hnsw_router.h"
