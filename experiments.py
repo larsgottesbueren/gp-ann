@@ -74,8 +74,6 @@ def run_query_set(dataset, metric, part_method, num_shards):
 def run_queries_on_all_datasets():
 	for dataset, metric in datasets:
 		for part_method in partitioning_methods:
-			if dataset == "deep" and part_method != "Pyramid":
-				continue
 			for num_shards in num_shards_vals:
 				run_query_set(dataset, metric, part_method, num_shards)
 

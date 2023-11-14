@@ -42,10 +42,14 @@ int main(int argc, const char* argv[]) {
         pyramid_index_file = partition_file + ".pyramid_routing_index";
     }
     if (part_method == "OurPyramid") {
-        our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
-        if (partition_file.ends_with(".hnsw_graph_part")) {
+        std::string sfx(".hnsw_graph_part");
+        if (partition_file.ends_with(sfx)) {
             our_pyramid_is_hnsw_partition = true;
+            for (size_t i = 0; i < sfx.size(); ++i) {
+                partition_file.pop_back();
+            }
         }
+        our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
     }
     #if false
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
