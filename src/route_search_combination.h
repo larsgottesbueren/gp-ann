@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 #include "routes.h"
 #include "shard_searches.h"
 
@@ -51,6 +53,7 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
 }
 
 void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int num_neighbors, int num_queries, int num_shards, int num_requested_shards) {
+    std::cout << "k = " << num_neighbors << " nq = " << num_queries << " num shards = " << num_shards << " num requested = " << num_requested_shards << std::endl;
     for (const auto& search : shard_searches) {
         size_t total_hits = 0;
         for (int q = 0; q < num_queries; ++q) {
@@ -60,7 +63,7 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
             }
             total_hits += std::min(num_neighbors, hits);
         }
-        double recall = double(total_hits) / double(num_queries);
+        double recall = double(total_hits) / double(num_queries) / num_neighbors;
         std::cout << "Search with ef_search = " << search.ef_search << " scored " << recall << " total recall" << std::endl;
     }
 }
