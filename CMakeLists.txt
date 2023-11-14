@@ -15,6 +15,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 add_subdirectory(external/parlaylib)
 add_subdirectory(external/KaMinPar)
 add_subdirectory(external/hnswlib)
+add_subdirectory(external/message-queue)
 
 include_directories("src")
 
@@ -25,6 +26,7 @@ add_executable(Partition partition.cpp)
 add_executable(QueryAttribution run_query_attribution.cpp)
 add_executable(OracleRecall oracle_recall.cpp)
 add_executable(SplitOldDataformat split_old_dataformat.cpp)
+add_executable(DistributedBench distributed_bench.cpp)
 
 target_link_libraries(BuildKNNGraph PUBLIC parlay)
 target_link_libraries(RunQueries PUBLIC parlay)
@@ -33,6 +35,7 @@ target_link_libraries(Partition PUBLIC parlay kaminpar_shm)
 target_link_libraries(QueryAttribution PUBLIC parlay)
 target_link_libraries(OracleRecall PUBLIC parlay)
 target_link_libraries(SplitOldDataformat PUBLIC parlay)
+target_link_libraries(DistributedBench PUBLIC parlay message-queue kassert::kassert)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)

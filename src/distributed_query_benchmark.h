@@ -6,6 +6,8 @@
 #include "hnsw_router.h"
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 
+#include "../external/message-queue/include/message-queue/buffered_queue.hpp"
+
 class DistributedQueryBenchmark {
 public:
     int rank;
@@ -24,18 +26,18 @@ public:
     #endif
 
     std::unique_ptr<SpaceT> space;
-    std::unique_ptr<hnswlib::HierarchicalNSW<float>> shard_hnsw;
+    std::unique_ptr<hnswlib::HierarchicalNSW<float>> hnsw;
     std::unique_ptr<HNSWRouter> router;
     HNSWParameters hnsw_parameters;
 
-    void LoadQueries(const std::string& query_file, const std::string& ground_truth_file) {
-        PointSet queries = ReadPoints(query_file);
-        auto ground_truth = ReadGroundTruth(ground_truth_file);
+    DistributedQueryBenchmark() {
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     }
 
     void LoadPartition(const std::string& partition_file) {
         partition = ReadMetisPartition(partition_file);
-        num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+        num_shards = NumPartsInPartition(partition);
     }
 
     void LoadShardPointSet(const std::string& point_set_file) {
@@ -88,26 +90,34 @@ public:
         router = std::make_unique<HNSWRouter>(hnsw_router_file, dim, partition);
     }
 
-    void ProcessQueries(std::vector<int>& queries) {
-        // MPI barrier --> so that all ranks start at the same time
-        MPI_Barrier(MPI_COMM_WORLD);
+    void ProcessQueries(const std::vector<int>& query_ids, PointSet& queries) {
 
-        // Design decisions
-        // 1) Process routing queries first so that we can get everyone working as soon as possible
-        //      Reduce #messages by grouping vectors going to the same shard
-        //      Maybe send a couple messages already so the machines who run out of routing work get to do something
-        // 2) Load balancing among replicas?    a) probe 2 random ones b) send to random one
+    }
 
-        std::vector<int> waiting_for_return, incoming_requests;
+    void MessagePassingExample() {
+        message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
 
-        while (!queries.empty() && !waiting_for_return.empty() &&!incoming_requests.empty()) {
-            // process routing queries first
-
-            // listen for new requests
-
-            // listen for potentially returned results
-
-
+        auto queue =
+                message_queue::make_buffered_queue<int>(MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
+                                                        message_queue::aggregation::NoSplitter{},
+                                                        message_queue::aggregation::NoOpCleaner{});
+        std::mt19937 gen;
+        std::uniform_int_distribution<int> dist(0, comm_size - 1);
+        std::uniform_int_distribution<int> message_size_dist(1, 10);
+        queue.global_threshold(10);
+        queue.local_threshold(2);
+        queue.flush_strategy(flush_strategy);
+        for (auto i = 0; i < 50; ++i) {
+            int destination = dist(gen);
+            int message_size = message_size_dist(gen);
+            auto message = std::vector<int>(message_size, 1);
+            queue.post_message(std::move(message), destination, rank);
         }
+
+        size_t zero_message_counter = 0;
+        auto handler = [&](message_queue::Envelope<int> auto envelope) {
+            message_queue::atomic_debug("Message...");
+        };
+        queue.terminate(handler);
     }
 };
