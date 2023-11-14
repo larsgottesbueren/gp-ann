@@ -15,6 +15,7 @@ public:
 
     int num_shards;
     int dim;
+    int num_neighbors;
 
     PointSet shard_points;
     std::vector<int> partition;
@@ -112,39 +113,48 @@ public:
         message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
 
         auto requests_queue =
-                message_queue::make_buffered_queue<std::pair<int,int>>();
+                message_queue::make_buffered_queue<int>();
         //MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
         //                message_queue::aggregation::NoSplitter{},
         //                message_queue::aggregation::NoOpCleaner{});
-/*
-        auto responses_queue =
-                message_queue::make_buffered_queue<QueryResponse>(MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
-                        message_queue::aggregation::NoSplitter{},
-                        message_queue::aggregation::NoOpCleaner{});
-*/
-        std::vector<int> local_requests;
-        for (int query_id : query_ids) {
-            QueryRequest rq;
-            rq.query_id = query_id;
-            rq.sender = rank;
-            auto rqp = std::make_pair(query_id, rank);
-            float* Q = queries.GetPoint(query_id);
-            //rq.query_coords.reserve(dim);
-            //for (int j = 0; j < dim; ++j) {
-            //    rq.query_coords.push_back(Q[j]);
-            //}
 
-            std::vector<int> probes = Route(Q);
+        using ResponseType = std::pair<float, int>;
+        auto responses_queue =
+                message_queue::make_buffered_queue<ResponseType>();
+
+        std::vector<int> local_requests;
+        // TODO parallelize?
+        for (int query_id : query_ids) {
+            std::vector<int> probes = Route(queries.GetPoint(query_id));
             for (int shard_id : probes) {
                 if (shard_id == rank) {
                     local_requests.push_back(query_id);
                 } else {
-                    requests_queue.post_message(/*make a copy*/rqp, shard_id);
+                    requests_queue.post_message(query_id, shard_id);
                 }
             }
-
-
         }
+
+        auto return_neighbors = [&](message_queue::Envelope<int> auto request_envelope) {
+            for (int query_id : request_envelope.message) {
+                int original_sender = request_envelope.sender;
+                auto result = hnsw->searchKnn(queries.GetPoint(query_id), num_neighbors);
+                while (!result.empty()) {
+                    auto next = result.top();
+                    result.pop();
+                    // TODO aggregate neighbors for the same query...
+                    // TODO the concept doesn't work with recursively defined pairs of MPI_Datatypes --> atm query ID misses
+                    responses_queue.post_message(next, original_sender);
+                }
+            }
+        };
+
+        auto accept_returned_neighbors = [&](message_queue::Envelope<ResponseType> auto response_envelope) {
+            /* Do nothing here */
+        };
+
+        requests_queue.terminate(return_neighbors);
+        responses_queue.terminate(accept_returned_neighbors);
 
 
     }
