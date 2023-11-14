@@ -40,7 +40,7 @@ void OldDeserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>
     }
 }
 
-int main2(int argc, const char* argv[]) {
+int main(int argc, const char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage ./QueryAttribution output-file" << std::endl;
         std::abort();
@@ -51,13 +51,13 @@ int main2(int argc, const char* argv[]) {
     std::vector<ShardSearch> shard_searches;
     std::vector<RoutingConfig> routes;
 
-    OldDeserialize(routes, shard_searches, output_file + "routes_and_searches.txt");
+    OldDeserialize(routes, shard_searches, output_file + ".routes_and_searches.txt");
 
-    SerializeRoutes(routes, output_file + ".searches");
+    // SerializeRoutes(routes, output_file + ".routes");
     SerializeShardSearches(shard_searches, output_file + ".searches");
 }
 
-int main(int argc, const char* argv[]) {
+int main2(int argc, const char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage ./QueryAttribution output-file" << std::endl;
         std::abort();
