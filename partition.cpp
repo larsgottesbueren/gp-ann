@@ -14,14 +14,31 @@ int main(int argc, const char* argv[]) {
     std::string input_file = argv[1];
     std::string output_file = argv[2];
     std::string k_string = argv[3];
+    int k = std::stoi(k_string);
     std::string part_method = argv[4];
+    std::string part_file = output_file + ".k=" + std::to_string(k) + "." + part_method;
+
+    if (part_method == "Random") {
+        uint32_t n;
+        {
+            std::ifstream in(input_file, std::ios::binary);
+            in.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        }
+        std::vector<int> partition;
+        partition.reserve(n);
+        for (int b = 0; b < k; ++b) {
+            partition.insert(partition.end(), n/k, b);
+        }
+        std::mt19937 prng(555);
+        std::shuffle(partition.begin(), partition.end(), prng);
+        WriteMetisPartition(partition, part_file);
+        return 0;
+    }
 
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
 
-    int k = std::stoi(k_string);
     const double eps = 0.05;
-    std::string part_file = output_file + ".k=" + std::to_string(k) + "." + part_method;
     std::vector<int> partition;
     if (part_method == "GP") {
         partition = GraphPartitioning(points, k, eps);
@@ -38,7 +55,7 @@ int main(int argc, const char* argv[]) {
             WriteMetisPartition(partition, my_part_file);
         }
         std::cout << "Finished partitioning" << std::endl;
-        std::exit(0);
+        return 0;
     } else {
         std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
         std::abort();
