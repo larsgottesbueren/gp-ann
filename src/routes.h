@@ -174,7 +174,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         copy = routing_index_option_vals;
         routing_index_option_vals.clear();
         for (auto ro : copy) {
-            for (int num_centroids : {32,64,128,256}) {
+            for (int num_centroids : {64,128,256}) {
                 ro.num_centroids = num_centroids;
                 routing_index_option_vals.push_back(ro);
             }
