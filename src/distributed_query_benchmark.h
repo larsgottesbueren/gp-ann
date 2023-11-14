@@ -90,7 +90,62 @@ public:
         router = std::make_unique<HNSWRouter>(hnsw_router_file, dim, partition);
     }
 
+    std::vector<int> Route(float* Q) {
+        // TODO set the parameters during LoadRouter
+        std::vector<int> probes = router->Query(Q, 250);
+        // TODO trim down to desired number of probes
+        return probes;
+    }
+
+
+    struct QueryRequest {
+        int query_id = 0;
+        int sender = 0;
+        // std::vector<float> query_coords; // TODO ignore these for now?
+    };
+    struct QueryResponse {
+        int query_id;
+        NNVec neighbors;
+    };
+
     void ProcessQueries(const std::vector<int>& query_ids, PointSet& queries) {
+        message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
+
+        auto requests_queue =
+                message_queue::make_buffered_queue<std::pair<int,int>>();
+        //MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
+        //                message_queue::aggregation::NoSplitter{},
+        //                message_queue::aggregation::NoOpCleaner{});
+/*
+        auto responses_queue =
+                message_queue::make_buffered_queue<QueryResponse>(MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
+                        message_queue::aggregation::NoSplitter{},
+                        message_queue::aggregation::NoOpCleaner{});
+*/
+        std::vector<int> local_requests;
+        for (int query_id : query_ids) {
+            QueryRequest rq;
+            rq.query_id = query_id;
+            rq.sender = rank;
+            auto rqp = std::make_pair(query_id, rank);
+            float* Q = queries.GetPoint(query_id);
+            //rq.query_coords.reserve(dim);
+            //for (int j = 0; j < dim; ++j) {
+            //    rq.query_coords.push_back(Q[j]);
+            //}
+
+            std::vector<int> probes = Route(Q);
+            for (int shard_id : probes) {
+                if (shard_id == rank) {
+                    local_requests.push_back(query_id);
+                } else {
+                    requests_queue.post_message(/*make a copy*/rqp, shard_id);
+                }
+            }
+
+
+        }
+
 
     }
 
