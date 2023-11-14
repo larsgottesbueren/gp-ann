@@ -27,6 +27,10 @@ int main(int argc, const char* argv[]) {
 
     MPI_Init(nullptr, nullptr);
 
+    int rank, comm_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+
     DistributedQueryBenchmark bench;
     bench.LoadPartition(partition_file);
     bench.LoadShardPointSet(point_file);
@@ -34,16 +38,24 @@ int main(int argc, const char* argv[]) {
     bench.LoadRouter(router_file);
 
     PointSet queries = ReadPoints(query_file);
+    std::vector<int> query_ids(queries.n);
+    std::iota(query_ids.begin(), query_ids.end(), 0);
+    #if false
+    int seed = 555;
+    std::mt19937 prng(seed);
+    std::shuffle(query_ids.begin(), query_ids.end());
+    #endif
+    size_t chunk_size = ComputeChunkSize(query_ids.size(), comm_size);
+    std::vector<int> my_query_ids(query_ids.begin() + rank * chunk_size, query_ids.begin() + std::min(query_ids.size(), (rank + 1) * chunk_size));
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     double t1, t2;
     t1 = MPI_Wtime();
-    bench.ProcessQueries({}, queries);
+    bench.ProcessQueries(my_query_ids, queries);
     t2 = MPI_Wtime();
 
     MPI_Barrier(MPI_COMM_WORLD);    // TODO is this necessary? the subsequent MPI_Reduce should enforce a sync
-    int rank = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     double elapsed = t2 - t1;
     double max_elapsed = 0.0;
     MPI_Reduce(&elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
