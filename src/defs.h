@@ -96,6 +96,7 @@ struct Timer {
 
 
 void PinThread(int cpu_id) {
+    return;
     cpu_set_t mask;
     CPU_ZERO(&mask);
     CPU_SET(cpu_id, &mask);
@@ -143,6 +144,7 @@ void PinThread(cpu_set_t old_affinity) {
 }
 
 void UnpinThread() {
+    return;
     cpu_set_t mask;
     CPU_ZERO(&mask);
     for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
