@@ -158,31 +158,4 @@ public:
 
 
     }
-
-    void MessagePassingExample() {
-        message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
-
-        auto queue =
-                message_queue::make_buffered_queue<int>(MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
-                                                        message_queue::aggregation::NoSplitter{},
-                                                        message_queue::aggregation::NoOpCleaner{});
-        std::mt19937 gen;
-        std::uniform_int_distribution<int> dist(0, comm_size - 1);
-        std::uniform_int_distribution<int> message_size_dist(1, 10);
-        queue.global_threshold(10);
-        queue.local_threshold(2);
-        queue.flush_strategy(flush_strategy);
-        for (auto i = 0; i < 50; ++i) {
-            int destination = dist(gen);
-            int message_size = message_size_dist(gen);
-            auto message = std::vector<int>(message_size, 1);
-            queue.post_message(std::move(message), destination, rank);
-        }
-
-        size_t zero_message_counter = 0;
-        auto handler = [&](message_queue::Envelope<int> auto envelope) {
-            message_queue::atomic_debug("Message...");
-        };
-        queue.terminate(handler);
-    }
 };
