@@ -257,8 +257,8 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         std::cout << "Run OurPyramid++ routing" << std::endl;
         PinThread(0);
         std::vector<int> routing_index_partition = ReadMetisPartition(
-                pyramid_index_file + (our_pyramid_is_hnsw_partition ? ".hnsw" : ".knn") + ".routing_index_partition");
-        HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
+                our_pyramid_index_file + (our_pyramid_is_hnsw_partition ? ".hnsw" : ".knn") + ".routing_index_partition");
+        HNSWRouter hnsw_router(our_pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = std::string("OurPyramid+") + std::string(our_pyramid_is_hnsw_partition ? "HNSW" : "KNN");
         IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);

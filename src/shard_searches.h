@@ -143,6 +143,7 @@ std::vector<ShardSearch> RunInShardSearches(
         for (size_t ef_search : ef_search_param_values) {
             hnsw.setEf(ef_search);
 
+            size_t total_hits = 0;
             Timer timer;
             for (size_t q = 0; q < queries.n; ++q) {
                 float* Q = queries.GetPoint(q);
@@ -154,11 +155,12 @@ std::vector<ShardSearch> RunInShardSearches(
                     result.pop();
                     if (top.first <= distance_to_kth_neighbor[q]) {
                         shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
+                        total_hits++;
                     }
                 }
             }
 
-            std::cout << "Shard search with ef-search = " << ef_search << " took " << timer.total_duration.count() << std::endl;
+            std::cout << "Shard search with ef-search = " << ef_search << " took " << timer.total_duration.count() << " total hits " << total_hits << std::endl;
 
             ef_search_param_id++;
         }

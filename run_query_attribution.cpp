@@ -47,11 +47,13 @@ int main(int argc, const char* argv[]) {
             our_pyramid_is_hnsw_partition = true;
         }
     }
+    #if false
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file,
                                                               our_pyramid_is_hnsw_partition);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
+    #endif
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
@@ -79,5 +81,5 @@ int main(int argc, const char* argv[]) {
 
     SerializeShardSearches(shard_searches, output_file + ".searches");
 
-    PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
+    // PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
 }

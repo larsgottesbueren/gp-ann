@@ -437,5 +437,5 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
 
     second_partition = std::move(full_hnsw_partition);
 
-    return knn_partition;
+    return full_knn_partition;
 }

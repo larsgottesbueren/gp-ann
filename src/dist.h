@@ -123,7 +123,7 @@ float mips_distance(float *p, float *q, unsigned d){
     for(unsigned i=0; i<d; i++){
       result += (q[i]) * (p[i]);
     }
-    return -result;
+    return 1.0f - result;
 }
 
 double vec_norm(float* p, unsigned d) {

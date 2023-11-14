@@ -2,6 +2,7 @@
 
 #include "shard_searches.h"
 #include "routes.h"
+#include "route_search_combination.h"
 
 void OldSerialize(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
     std::ofstream out(output_file);
@@ -39,7 +40,7 @@ void OldDeserialize(std::vector<RoutingConfig>& routes, std::vector<ShardSearch>
     }
 }
 
-int main(int argc, const char* argv[]) {
+int main2(int argc, const char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage ./QueryAttribution output-file" << std::endl;
         std::abort();
@@ -54,4 +55,17 @@ int main(int argc, const char* argv[]) {
 
     SerializeRoutes(routes, output_file + ".searches");
     SerializeShardSearches(shard_searches, output_file + ".searches");
+}
+
+int main(int argc, const char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage ./QueryAttribution output-file" << std::endl;
+        std::abort();
+    }
+
+    std::string output_file = argv[1];
+
+    std::vector<ShardSearch> shard_searches = DeserializeShardSearches(output_file);
+    MaxShardSearchRecall(shard_searches, 10, shard_searches[0].query_hits_in_shard[0].size(), 40, shard_searches[0].query_hits_in_shard.size());
+
 }
