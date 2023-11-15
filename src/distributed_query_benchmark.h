@@ -99,24 +99,12 @@ public:
     }
 
 
-    struct QueryRequest {
-        int query_id = 0;
-        int sender = 0;
-        // std::vector<float> query_coords; // TODO ignore these for now?
-    };
-    struct QueryResponse {
-        int query_id;
-        NNVec neighbors;
-    };
-
     void ProcessQueries(const std::vector<int>& query_ids, PointSet& queries) {
         message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
 
+        using RequestType = int;
         auto requests_queue =
-                message_queue::make_buffered_queue<int>();
-        //MPI_COMM_WORLD, message_queue::aggregation::AppendMerger{},
-        //                message_queue::aggregation::NoSplitter{},
-        //                message_queue::aggregation::NoOpCleaner{});
+                message_queue::make_buffered_queue<RequestType>();
 
         using ResponseType = std::pair<float, int>;
         auto responses_queue =
@@ -135,8 +123,8 @@ public:
             }
         }
 
-        auto return_neighbors = [&](message_queue::Envelope<int> auto request_envelope) {
-            for (int query_id : request_envelope.message) {
+        auto return_neighbors = [&](message_queue::Envelope<RequestType> auto request_envelope) {
+            for (const RequestType& query_id : request_envelope.message) {
                 int original_sender = request_envelope.sender;
                 auto result = hnsw->searchKnn(queries.GetPoint(query_id), num_neighbors);
                 while (!result.empty()) {
