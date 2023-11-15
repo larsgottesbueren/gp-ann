@@ -55,9 +55,7 @@ struct HNSWRouter {
         std::vector<int> RoutingQuery() const {
             std::vector<int> probes(min_dist.size());
             std::iota(probes.begin(), probes.end(), 0);
-            std::sort(probes.begin(), probes.end(), [&](int l, int r) {
-                return min_dist[l] < min_dist[r];
-            });
+            std::sort(probes.begin(), probes.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
             return probes;
         }
 

@@ -105,8 +105,6 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
         {   // Pyramid routing
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
             for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].PyramidRoutingQuery(); }
-            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
-            std::cout << "Pyramid routing first shard recall = " << first_shard_recall << std::endl;
 
             routes.push_back(blueprint);
             auto& new_route = routes.back();
@@ -124,8 +122,6 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
             // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
             for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].SPANNRoutingQuery(/*eps=*/0.6); }
-            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
-            std::cout << "SPANN routing first shard recall = " << first_shard_recall << std::endl;
 
             routes.push_back(blueprint);
             auto& new_route = routes.back();
