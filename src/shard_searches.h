@@ -166,12 +166,14 @@ std::vector<ShardSearch> RunInShardSearches(
             std::cout << "Shard search with ef-search = " << ef_search << " took " << timer.total_duration.count() << " total hits " << total_hits
                         << " total timer took " << total.Stop() << std::endl;
 
+            #if false
             total.Start();
             parlay::parallel_for(0, queries.n, [&](size_t q) {
                 float* Q = queries.GetPoint(q);
                 auto result = hnsw.searchKnn(Q, num_neighbors);
             });
             std::cout << "Parallel queries took " << total.Stop() << " s " << std::endl;
+            #endif
 
             ef_search_param_id++;
         }

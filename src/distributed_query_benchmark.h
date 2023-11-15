@@ -143,7 +143,5 @@ public:
 
         requests_queue.terminate(return_neighbors);
         responses_queue.terminate(accept_returned_neighbors);
-
-
     }
 };
