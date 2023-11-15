@@ -76,70 +76,68 @@ double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_t
 void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
                               const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
     Timer routing_timer;
-    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
+    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 250, 300, 400, 500}) {
         std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+        std::vector<HNSWRouter::ShardPriorities> routing_objects(queries.n);
         routing_timer.Start();
         for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
+            routing_objects[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
         }
         double time_routing = routing_timer.Stop();
-        double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
-        std::cout << "HNSW routing took " << time_routing << " s. First shard recall = " << first_shard_recall << std::endl;
-        routes.push_back(blueprint);
-        auto& new_route = routes.back();
-        new_route.routing_algorithm = "HNSW";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
+        std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
+        {   // HNSW routing
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].RoutingQuery(); }
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
+            std::cout << "HNSW routing first shard recall = " << first_shard_recall << std::endl;
 
-        new_route.try_increasing_num_shards = true;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
-
-        new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
-        hnsw_router.hnsw->metric_distance_computations = 0;
-    }
-
-    // Pyramid routing where you visit the shards touched during the search
-    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.PyramidRoutingQuery(queries.GetPoint(i), num_voting_neighbors);
+            routes.push_back(blueprint);
+            auto& new_route = routes.back();
+            new_route.routing_algorithm = "HNSW";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.try_increasing_num_shards = true;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            hnsw_router.hnsw->metric_distance_computations = 0;
         }
-        double time_routing = routing_timer.Stop();
-        std::cout << "Pyramid routing took " << time_routing << " s" << std::endl;
-        routes.push_back(blueprint);
-        auto& new_route = routes.back();
-        new_route.routing_algorithm = "Pyramid";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
-        new_route.try_increasing_num_shards = false;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
 
-        new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
-        hnsw_router.hnsw->metric_distance_computations = 0;
-    }
+        {   // Pyramid routing
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].PyramidRoutingQuery(); }
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
+            std::cout << "Pyramid routing first shard recall = " << first_shard_recall << std::endl;
 
-    // SPANN routing where you prune next shards based on how much further they are than the closest shard
-    // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
-    for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
-        std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-        routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
-            buckets_to_probe_by_query_hnsw[i] = hnsw_router.SPANNRoutingQuery(queries.GetPoint(i), num_voting_neighbors, 0.6);
+            routes.push_back(blueprint);
+            auto& new_route = routes.back();
+            new_route.routing_algorithm = "Pyramid";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.try_increasing_num_shards = false;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            hnsw_router.hnsw->metric_distance_computations = 0;
         }
-        double time_routing = routing_timer.Stop();
-        std::cout << "SPANN routing took " << time_routing << " s" << std::endl;
-        routes.push_back(blueprint);
-        auto& new_route = routes.back();
-        new_route.routing_algorithm = "SPANN";
-        new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
-        new_route.routing_time = time_routing;
-        new_route.try_increasing_num_shards = false;
-        new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
 
-        new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
-        hnsw_router.hnsw->metric_distance_computations = 0;
+        {   // SPANN routing
+            // where you prune next shards based on how much further they are than the closest shard
+            // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].SPANNRoutingQuery(/*eps=*/0.6); }
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
+            std::cout << "SPANN routing first shard recall = " << first_shard_recall << std::endl;
+
+            routes.push_back(blueprint);
+            auto& new_route = routes.back();
+            new_route.routing_algorithm = "SPANN";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.try_increasing_num_shards = false;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+
+            new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
+            hnsw_router.hnsw->metric_distance_computations = 0;
+        }
     }
 }
 

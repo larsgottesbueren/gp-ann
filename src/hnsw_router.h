@@ -49,61 +49,50 @@ struct HNSWRouter {
         WriteMetisPartition(partition, file + ".routing_index_partition");
     }
 
-    std::vector<int> Query(float* Q, int num_voting_neighbors) {
-        auto near_neighbors = hnsw->searchKnn(Q, num_voting_neighbors);
+    struct ShardPriorities {
+        std::vector<float> min_dist;
 
-        std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
-        while (!near_neighbors.empty()) {
-            auto [dist, point_id] = near_neighbors.top();
-            near_neighbors.pop();
-            min_dist[partition[point_id]] = std::min(min_dist[partition[point_id]], dist);
+        std::vector<int> RoutingQuery() const {
+            std::vector<int> probes(min_dist.size());
+            std::iota(probes.begin(), probes.end(), 0);
+            std::sort(probes.begin(), probes.end(), [&](int l, int r) {
+                return min_dist[l] < min_dist[r];
+            });
+            return probes;
         }
 
-        std::vector<int> probes(num_shards);
-        std::iota(probes.begin(), probes.end(), 0);
-        std::sort(probes.begin(), probes.end(), [&](int l, int r) {
-            return min_dist[l] < min_dist[r];
-        });
-        return probes;
-    }
-
-    std::vector<int> PyramidRoutingQuery(float* Q, int num_voting_neighbors) {
-        auto near_neighbors = hnsw->searchKnn(Q, num_voting_neighbors);
-
-        std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
-        while (!near_neighbors.empty()) {
-            auto [dist, point_id] = near_neighbors.top();
-            near_neighbors.pop();
-            min_dist[partition[point_id]] = std::min(min_dist[partition[point_id]], dist);
-        }
-
-        std::vector<int> probes;
-        for (int b = 0; b < num_shards; ++b) {
-            if (min_dist[b] != std::numeric_limits<float>::max()) {
-                probes.push_back(b);
+        std::vector<int> PyramidRoutingQuery() const {
+            std::vector<int> probes;
+            for (int b = 0; b < num_shards; ++b) {
+                if (min_dist[b] != std::numeric_limits<float>::max()) {
+                    probes.push_back(b);
+                }
             }
+            return probes;
         }
-        return probes;
-    }
 
-    std::vector<int> SPANNRoutingQuery(float* Q, int num_voting_neighbors, double eps) {
+        std::vector<int> SPANNRoutingQuery(double eps) const {
+            double closest_shard_dist = *std::min_element(min_dist.begin(), min_dist.end()) * (1.0 + eps);
+            std::vector<int> probes;
+            for (int b = 0; b < num_shards; ++b) {
+                if (min_dist[b] <= closest_shard_dist) {
+                    probes.push_back(b);
+                }
+            }
+            return probes;
+        }
+    };
+
+    ShardPriorities Query(float* Q, int num_voting_neighbors) {
         auto near_neighbors = hnsw->searchKnn(Q, num_voting_neighbors);
 
-        std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
+        ShardPriorities result;
+        result.min_dist.assign(num_shards, std::numeric_limits<float>::max());
         while (!near_neighbors.empty()) {
             auto [dist, point_id] = near_neighbors.top();
             near_neighbors.pop();
-            min_dist[partition[point_id]] = std::min(min_dist[partition[point_id]], dist);
+            result.min_dist[partition[point_id]] = std::min(result.min_dist[partition[point_id]], dist);
         }
-
-
-        double closest_shard_dist = *std::min_element(min_dist.begin(), min_dist.end()) * (1.0 + eps);
-        std::vector<int> probes;
-        for (int b = 0; b < num_shards; ++b) {
-            if (min_dist[b] <= closest_shard_dist) {
-                probes.push_back(b);
-            }
-        }
-        return probes;
+        return result;
     }
 };
