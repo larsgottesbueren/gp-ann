@@ -55,8 +55,26 @@ struct RoutingConfig {
     }
 };
 
+double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_to_probe, const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
+    if (ground_truth.empty()) {
+        std::cerr << "Ground truth empty. Max recall calculation during routing not possible (not necessarily an issue).";
+        return 555.0;
+    }
+    size_t hits = 0;
+    for (size_t q = 0; q < buckets_to_probe.size(); ++q) {
+        if (buckets_to_probe[q].empty()) continue;
+        int probe = buckets_to_probe[q][0];
+        for (int i = 0; i < num_neighbors; ++i) {
+            if (partition[ground_truth[q][i].second] == probe) {
+                hits++;
+            }
+        }
+    }
+    return static_cast<double>(hits) / buckets_to_probe.size() / num_neighbors;
+}
 
-void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint) {
+void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
+                              const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
     Timer routing_timer;
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 400, 500}) {
         std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
@@ -66,7 +84,8 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
             buckets_to_probe_by_query_hnsw[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
         }
         double time_routing = routing_timer.Stop();
-        std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
+        double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
+        std::cout << "HNSW routing took " << time_routing << " s. First shard recall = " << first_shard_recall << std::endl;
         routes.push_back(blueprint);
         auto& new_route = routes.back();
         new_route.routing_algorithm = "HNSW";
@@ -152,7 +171,9 @@ std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
 }
 
 std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
-                                                 KMeansTreeRouterOptions routing_index_options_blueprint, const std::string& routing_index_file,
+                                                 KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
+                                                 int num_neighbors,
+                                                 const std::string& routing_index_file,
                                                  const std::string& pyramid_index_file, const std::string& our_pyramid_index_file,
                                                  bool our_pyramid_is_hnsw_partition = false) {
     std::vector<RoutingConfig> routes;
@@ -205,7 +226,9 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                     buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
                 }
                 double time_routing = routing_timer.Stop();
-                std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
+                double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, partition);
+                std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n
+                            << " s per query. Max first shard recall = " << first_shard_recall << std::endl;
                 auto& new_route = routes.emplace_back();
                 new_route.routing_algorithm = "KMeansTree";
                 new_route.hnsw_num_voting_neighbors = 0;
@@ -240,7 +263,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             RoutingConfig blueprint;
             blueprint.index_trainer = "HierKMeans";
             blueprint.routing_index_options = routing_index_options;
-            IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+            IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
             UnpinThread();
         }
     }
@@ -252,7 +275,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = "Pyramid";
-        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
         UnpinThread();
     }
 
@@ -264,7 +287,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         HNSWRouter hnsw_router(our_pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = std::string("OurPyramid+") + std::string(our_pyramid_is_hnsw_partition ? "HNSW" : "KNN");
-        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint);
+        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
         UnpinThread();
     }
 

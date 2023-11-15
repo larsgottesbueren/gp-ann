@@ -31,6 +31,18 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
+    std::vector<NNVec> ground_truth;
+    if (std::filesystem::exists(ground_truth_file)) {
+        ground_truth = ReadGroundTruth(ground_truth_file);
+        std::cout << "Read ground truth file" << std::endl;
+    } else {
+        std::cout << "start computing ground truth" << std::endl;
+        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
+        std::cout << "computed ground truth" << std::endl;
+    }
+    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
+    std::cout << "Finished computing distance to kth neighbor" << std::endl;
+
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = NumPartsInPartition(partition);
 
@@ -51,25 +63,14 @@ int main(int argc, const char* argv[]) {
         }
         our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
     }
-    #if false
+    #if true
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
+                                                              ground_truth, num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file,
                                                               our_pyramid_is_hnsw_partition);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
     #endif
-
-    std::vector<NNVec> ground_truth;
-    if (std::filesystem::exists(ground_truth_file)) {
-        ground_truth = ReadGroundTruth(ground_truth_file);
-        std::cout << "Read ground truth file" << std::endl;
-    } else {
-        std::cout << "start computing ground truth" << std::endl;
-        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
-        std::cout << "computed ground truth" << std::endl;
-    }
-    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
-    std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
     Timer timer;
     timer.Start();
