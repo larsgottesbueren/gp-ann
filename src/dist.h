@@ -2,10 +2,7 @@
 
 #include "../external/hnswlib/hnswlib/space_l2.h"
 
-#include <x86intrin.h>
 #include <iostream>
-#include <algorithm>
-#include <type_traits>
 #include <math.h>
 
 
