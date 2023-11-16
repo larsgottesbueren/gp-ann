@@ -378,7 +378,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     return std::make_pair(level_partition, centroids_from_recursion);
 }
 
-std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon, std::vector<int>& second_partition,
+std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon,
                                         const std::string& routing_index_path, double coarsening_rate = 0.002) {
     std::cout << "Call OurPyramid with coarsening rate " << coarsening_rate << std::endl;
     Timer timer; timer.Start();
@@ -387,28 +387,6 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
 
     std::cout << "routing_clusters.size() = " << routing_clusters.size() << " num routing clusters = " << NumPartsInPartition(routing_clusters)
                 << " num routing points = " << routing_points.n << std::endl;
-
-    #ifdef MIPS_DISTANCE
-    hnswlib::InnerProductSpace space(points.d);
-    #else
-    hnswlib::L2Space space(points.d);
-    #endif
-    HNSWParameters hnsw_parameters;
-    hnswlib::HierarchicalNSW<float> hnsw(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
-    parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw.addPoint(routing_points.GetPoint(i), i); });
-    std::cout << "Building HNSW took " << timer.Restart() << std::endl;
-    hnsw.saveIndex(routing_index_path);
-
-    AdjGraph hnsw_graph(routing_points.n);
-    for (uint32_t i = 0; i < routing_points.n; ++i) {
-        auto neighbors = hnsw.getConnectionsWithLock(i, 0);
-        for (auto v : neighbors) {
-            hnsw_graph[i].push_back(v);
-        }
-    }
-    Symmetrize(hnsw_graph);
-    CSR hnsw_csr = ConvertAdjGraphToCSR(hnsw_graph);
-    std::cout << "Converting HNSW to AdjGraph + Symmetrize + AdjGraphToCsr took " << timer.Restart() << std::endl;
 
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(routing_points, 20);
@@ -419,23 +397,16 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
 
     knn_csr.node_weights.resize(routing_points.n, 0);
     for (int cluster_id : routing_clusters) knn_csr.node_weights[cluster_id]++;
-    hnsw_csr.node_weights = knn_csr.node_weights;
 
     std::vector<int> knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
-    std::vector<int> hnsw_partition = PartitionGraphWithKaMinPar(hnsw_csr, num_clusters, epsilon);
 
     WriteMetisPartition(knn_partition, routing_index_path + ".knn.routing_index_partition");
-    WriteMetisPartition(hnsw_partition, routing_index_path + ".hnsw.routing_index_partition");
 
     // Project from coarse partition
     std::vector<int> full_knn_partition(points.n);
-    std::vector<int> full_hnsw_partition(points.n);
     for (uint32_t i = 0; i < points.n; ++i) {
         full_knn_partition[i] = knn_partition[routing_clusters[i]];
-        full_hnsw_partition[i] = hnsw_partition[routing_clusters[i]];
     }
-
-    second_partition = std::move(full_hnsw_partition);
 
     return full_knn_partition;
 }
