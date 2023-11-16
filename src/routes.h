@@ -174,7 +174,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
     {
-        for (double factor : {0.2, 0.4, 0.8, 1.0}) {
+        for (double factor : {0.2, 0.4, 0.8 }) {
             KMeansTreeRouterOptions ro = routing_index_options_blueprint;
             ro.budget *= factor;
             routing_index_option_vals.push_back(ro);
@@ -183,7 +183,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         auto copy = routing_index_option_vals;
         routing_index_option_vals.clear();
         for (auto ro : copy) {
-            for (int min_cluster_size : {250, 300, 350, 400}) {
+            for (int min_cluster_size : {250, 400}) {
                 ro.min_cluster_size = min_cluster_size;
                 routing_index_option_vals.push_back(ro);
             }
@@ -235,7 +235,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             PinThread(0);
             std::tie(routing_points, routing_index_partition) = router.ExtractPoints();
             UnpinThread();
-            std::cout << "Extraction finished" << std::endl;
+            std::cout << "Extraction finished. Index size = " << routing_points.n << std::endl;
         }
 
         {
