@@ -388,6 +388,17 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     std::cout << "routing_clusters.size() = " << routing_clusters.size() << " num routing clusters = " << NumPartsInPartition(routing_clusters)
                 << " num routing points = " << routing_points.n << std::endl;
 
+    #ifdef MIPS_DISTANCE
+    hnswlib::InnerProductSpace space(points.d);
+    #else
+    hnswlib::L2Space space(points.d);
+    #endif
+    HNSWParameters hnsw_parameters;
+    hnswlib::HierarchicalNSW<float> hnsw(&space, routing_points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, /* random seed = */ 500);
+    parlay::parallel_for(0, routing_points.n, [&](size_t i) { hnsw.addPoint(routing_points.GetPoint(i), i); });
+    std::cout << "Building HNSW took " << timer.Restart() << std::endl;
+    hnsw.saveIndex(routing_index_path);
+
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(routing_points, 20);
     std::cout << "Build KNN graph took " << timer.Restart() << std::endl;
