@@ -180,7 +180,6 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
 
         auto copy = routing_index_option_vals;
-        routing_index_option_vals.clear();
         for (auto ro : copy) {
             for (int min_cluster_size : {250, 400}) {
                 ro.min_cluster_size = min_cluster_size;
@@ -198,6 +197,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
     }
 
+    routing_index_option_vals.clear();
 
     for (const KMeansTreeRouterOptions& routing_index_options : routing_index_option_vals)
     {
@@ -262,6 +262,10 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     }
 
     if (!pyramid_index_file.empty()) {
+        if (!std::filesystem::exists(pyramid_index_file)) {
+            std::cerr << "Tried to open " << pyramid_index_file << " but it doesnt exist-..." << std::endl;
+            std::abort();
+        }
         std::cout << "Run Pyramid routing" << std::endl;
         PinThread(0);
         std::vector<int> routing_index_partition = ReadMetisPartition(pyramid_index_file + ".routing_index_partition");
@@ -273,6 +277,10 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     }
 
     if (!our_pyramid_index_file.empty()) {
+        if (!std::filesystem::exists(our_pyramid_index_file)) {
+            std::cerr << "Tried to open " << our_pyramid_index_file << " but it doesnt exist-..." << std::endl;
+            std::abort();
+        }
         std::cout << "Run OurPyramid++ routing" << std::endl;
         PinThread(0);
         std::vector<int> routing_index_partition = ReadMetisPartition(our_pyramid_index_file + ".knn.routing_index_partition");
