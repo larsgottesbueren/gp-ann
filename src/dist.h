@@ -118,12 +118,16 @@ namespace efanna2e {
 
 }  // namespace efanna2e
 
-float mips_distance(float *p, float *q, unsigned d){
+float inner_product(float* p, float* q, unsigned d) {
     float result = 0;
     for(unsigned i=0; i<d; i++){
-      result += (q[i]) * (p[i]);
+        result += (q[i]) * (p[i]);
     }
-    return 1.0f - result;
+    return result;
+}
+
+float mips_distance(float *p, float *q, unsigned d){
+    return 1.0f - inner_product(p, q, d);
 }
 
 double vec_norm(float* p, unsigned d) {

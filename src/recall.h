@@ -88,7 +88,10 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
 
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         auto& neighs = ground_truth[q];
-        bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k);
+        auto comp = [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) {
+            return l.first > r.first;
+        };
+        bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k, comp);
         if (!is_sorted_before_recalc) {
             __atomic_fetch_add(&wrong_sorts_before_before_recalc, 1, __ATOMIC_RELAXED);
         }
@@ -98,7 +101,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
         for (size_t j = 0; j < k; ++j) {
             uint32_t point_id = neighs[j].second;
             float dist = neighs[j].first;
-            float true_dist = distance(points.GetPoint(point_id), Q, points.d);
+            float true_dist = inner_product(points.GetPoint(point_id), Q, points.d);
             if (std::abs(dist - true_dist) > 1e-8) {
                 local_distance_mismatches++;
             }
@@ -111,9 +114,9 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
             neighs[j].first = true_dist;
         }
 
-        bool is_sorted = std::is_sorted(neighs.begin(), neighs.begin() + k);
+        bool is_sorted = std::is_sorted(neighs.begin(), neighs.begin() + k, comp);
         if (!is_sorted) {
-            std::sort(neighs.begin(), neighs.begin() + k);
+            std::sort(neighs.begin(), neighs.begin() + k, comp);
             __atomic_fetch_add(&wrong_sorts, 1, __ATOMIC_RELAXED);
         }
         distance_to_kth_neighbor[q] = neighs[k-1].first;
