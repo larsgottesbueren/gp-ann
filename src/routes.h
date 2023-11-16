@@ -168,8 +168,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                                                  KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
                                                  int num_neighbors,
                                                  const std::string& routing_index_file,
-                                                 const std::string& pyramid_index_file, const std::string& our_pyramid_index_file,
-                                                 bool our_pyramid_is_hnsw_partition = false) {
+                                                 const std::string& pyramid_index_file, const std::string& our_pyramid_index_file) {
     std::vector<RoutingConfig> routes;
 
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
@@ -276,11 +275,10 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
     if (!our_pyramid_index_file.empty()) {
         std::cout << "Run OurPyramid++ routing" << std::endl;
         PinThread(0);
-        std::vector<int> routing_index_partition = ReadMetisPartition(
-                our_pyramid_index_file + (our_pyramid_is_hnsw_partition ? ".hnsw" : ".knn") + ".routing_index_partition");
+        std::vector<int> routing_index_partition = ReadMetisPartition(our_pyramid_index_file + ".knn.routing_index_partition");
         HNSWRouter hnsw_router(our_pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
-        blueprint.index_trainer = std::string("OurPyramid+") + std::string(our_pyramid_is_hnsw_partition ? "HNSW" : "KNN");
+        blueprint.index_trainer = "OurPyramid+KNN";
         IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
         UnpinThread();
     }

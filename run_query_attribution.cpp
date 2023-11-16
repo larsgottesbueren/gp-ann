@@ -49,25 +49,16 @@ int main(int argc, const char* argv[]) {
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / requested_num_shards;
     std::string pyramid_index_file, our_pyramid_index_file;
-    bool our_pyramid_is_hnsw_partition = false;
     if (part_method == "Pyramid") {
         pyramid_index_file = partition_file + ".pyramid_routing_index";
     }
     if (part_method == "OurPyramid") {
-        std::string sfx(".hnsw_graph_part");
-        if (partition_file.ends_with(sfx)) {
-            our_pyramid_is_hnsw_partition = true;
-            for (size_t i = 0; i < sfx.size(); ++i) {
-                partition_file.pop_back();
-            }
-        }
         our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
     }
     #if true
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
                                                               ground_truth, num_neighbors,
-                                                              partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file,
-                                                              our_pyramid_is_hnsw_partition);
+                                                              partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
     #endif
