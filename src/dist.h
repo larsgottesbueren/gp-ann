@@ -81,8 +81,6 @@ float distance(float *p, float *q, unsigned d) {
 }
 
 void Normalize(PointSet& points) {
-    std::cerr << "Normalize requested but it's currently disabled" << std::endl;
-    return;
     for (size_t i = 0; i < points.n; ++i) {
         float* p = points.GetPoint(i);
         if (!L2Normalize(p, points.d)) {

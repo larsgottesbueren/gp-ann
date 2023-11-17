@@ -53,10 +53,6 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
 
     std::cout << "Read took " << timer.Stop() << std::endl;
 
-    #ifdef MIPS_DISTANCE
-    Normalize(points);
-    #endif
-
     return points;
 }
 
