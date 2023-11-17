@@ -3,6 +3,7 @@
 #include "dist.h"
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
+#include <parlay/sequence.h>
 #include <numeric>
 #include <random>
 
@@ -25,10 +26,12 @@ void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_
 	});
 }
 
-std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
+std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center,
+                                      const parlay::sequence<float>& vector_sqrt_norms) {
     centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
 	std::vector<size_t> cluster_size(centroids.n, 0);
     #ifdef MIPS_DISTANCE
+	std::cout << "Running MIPS centroid calculation" << std::endl;
 	std::vector<double> norm_sums(centroids.n, 0.0);
     #endif
 	for (size_t i = 0; i < closest_center.size(); ++i) {
@@ -37,9 +40,8 @@ std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vec
 		float* C = centroids.GetPoint(c);
 		float* Pi = P.GetPoint(i);
         #ifdef MIPS_DISTANCE
-        double norm = vec_norm(Pi, centroids.d);
-        norm_sums[c] += norm;
-        float multiplier = 1.0f / std::sqrt(norm);
+        norm_sums[c] += vector_sqrt_norms[i] * vector_sqrt_norms[i];
+        float multiplier = 1.0f / vector_sqrt_norms[i];
         for (size_t j = 0; j < P.d; ++j) {
             C[j] += Pi[j] * multiplier;
         }
@@ -207,10 +209,15 @@ void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int
 std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
     if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
 	std::vector<int> closest_center(P.n, -1);
+    parlay::sequence<float> vector_sqrt_norms;
+    #ifdef MIPS_DISTANCE
+    // precompute norms and sqrts since it slowed down centroid calculation
+    vector_sqrt_norms = parlay::tabulate(P.n, [&](size_t i) -> float { return std::sqrt(vec_norm(P.GetPoint(i), P.d)); });
+    #endif
 	static constexpr size_t NUM_ROUNDS = 20;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
-        AggregateClusters(P, centroids, closest_center);
+        AggregateClusters(P, centroids, closest_center, vector_sqrt_norms);
 	}
 	return closest_center;
 }
@@ -223,14 +230,20 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     static constexpr size_t NUM_ROUNDS = 20;
     static constexpr size_t NUM_ROUNDS_WITH_IMBALANCE_ALLOWED = 5;  // first build some solid clustering, then start balancing it.
     std::vector<int> closest_center(points.n, -1);
+    parlay::sequence<float> vector_sqrt_norms;
+    #ifdef MIPS_DISTANCE
+    // precompute norms and sqrts since it slowed down centroid calculation
+    vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> float { return std::sqrt(vec_norm(points.GetPoint(i), points.d)); });
+    #endif
     std::vector<size_t> cluster_sizes;
     for (size_t r = 0; r < NUM_ROUNDS; ++r) {
         NearestCenters(points, centroids, closest_center);
-        cluster_sizes = AggregateClusters(points, centroids, closest_center);
+        cluster_sizes = AggregateClusters(points, centroids, closest_center, vector_sqrt_norms);
 
         if (r >= NUM_ROUNDS_WITH_IMBALANCE_ALLOWED
             && std::any_of(cluster_sizes.begin(), cluster_sizes.end(), [&](size_t cs) { return cs > max_cluster_size; })) {
             KMeansRebalancing(points, centroids, max_cluster_size, cluster_sizes, closest_center);
         }
     }
+    return closest_center;
 }
