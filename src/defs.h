@@ -5,6 +5,9 @@
 #include <chrono>
 #include <algorithm>
 
+#include "topn.h"
+#include "dist.h"
+
 struct PointSet {
   std::vector<float> coordinates;   // potentially empty
   size_t d = 0, n = 0;
@@ -13,6 +16,15 @@ struct PointSet {
   void Alloc() { coordinates.resize(n*d); }
   bool empty() const { return n == 0; }
 };
+
+void Normalize(PointSet& points) {
+    for (size_t i = 0; i < points.n; ++i) {
+        float* p = points.GetPoint(i);
+        if (!L2Normalize(p, points.d)) {
+            std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
+        }
+    }
+}
 
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
     PointSet ps;
@@ -45,6 +57,36 @@ std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<i
 using AdjGraph = std::vector<std::vector<int>>;
 
 using NNVec = std::vector<std::pair<float, uint32_t>>;
+
+NNVec ConvertTopKToNNVec(TopN& top_k) {
+    NNVec res = top_k.Take();
+    std::reverse(res.begin(), res.end());
+    return res;
+}
+
+int Top1Neighbor(PointSet& P, float* Q) {
+    int best = -1;
+    float best_dist = std::numeric_limits<float>::max();
+    for (size_t i = 0; i < P.n; ++i) {
+        float new_dist = distance(P.GetPoint(i), Q, P.d);
+        if (new_dist < best_dist) {
+            best_dist = new_dist;
+            best = i;
+        }
+    }
+    return best;
+}
+
+TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
+    TopN top_k(k);
+    float* Q = points.GetPoint(my_id);
+    for (uint32_t j = 0; j < leader_points.n; ++j) {
+        float* P = leader_points.GetPoint(j);
+        float dist = distance(P, Q, points.d);
+        top_k.Add(std::make_pair(dist, j));
+    }
+    return top_k;
+}
 
 struct HNSWParameters {
     size_t M = 32;
@@ -93,7 +135,6 @@ struct Timer {
     }
 
 };
-
 
 void PinThread(int cpu_id) {
     cpu_set_t mask;

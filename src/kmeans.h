@@ -7,19 +7,6 @@
 #include <numeric>
 #include <random>
 
-int Top1Neighbor(PointSet& P, float* Q) {
-	int best = -1;
-	float best_dist = std::numeric_limits<float>::max();
-	for (size_t i = 0; i < P.n; ++i) {
-		float new_dist = distance(P.GetPoint(i), Q, P.d);
-		if (new_dist < best_dist) {
-			best_dist = new_dist;
-			best = i;
-		}
-	}
-	return best;
-}
-
 void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
 	parlay::parallel_for(0, P.n, [&](size_t i) {
 		closest_center[i] = Top1Neighbor(centroids, P.GetPoint(i));
@@ -227,7 +214,10 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 }
 
 void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster_size, std::vector<size_t>& cluster_sizes, std::vector<int>& closest_center) {
-
+    auto centroid_ranking = parlay::tabulate(points.n, [&](size_t i) {
+        auto topk = ClosestLeaders(points, centroids, i, centroids.n);
+        return ConvertTopKToNNVec(topk);
+    });
 }
 
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
