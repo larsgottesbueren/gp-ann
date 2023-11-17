@@ -95,9 +95,6 @@ std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vec
 	    }
 	}
 
-    #ifdef MIPS_DISTANCE
-	Normalize(centroids);
-    #endif
 	return cluster_size;
 }
 
