@@ -25,29 +25,50 @@ void NearestCenters(PointSet& P, PointSet& centroids, std::vector<int>& closest_
 	});
 }
 
-void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
+std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
     centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
 	std::vector<size_t> cluster_size(centroids.n, 0);
+    #ifdef MIPS_DISTANCE
+	std::vector<double> norm_sums(centroids.n, 0.0);
+    #endif
 	for (size_t i = 0; i < closest_center.size(); ++i) {
 		int c = closest_center[i];
 		cluster_size[c]++;
 		float* C = centroids.GetPoint(c);
 		float* Pi = P.GetPoint(i);
-		for (size_t j = 0; j < P.d; ++j) {
-			C[j] += Pi[j];
-		}
+        #ifdef MIPS_DISTANCE
+        double norm = vec_norm(Pi, centroids.d);
+        norm_sums[c] += norm;
+        float multiplier = 1.0f / std::sqrt(norm);
+        for (size_t j = 0; j < P.d; ++j) {
+            C[j] += Pi[j] * multiplier;
+        }
+        #else
+        for (size_t j = 0; j < P.d; ++j) {
+            C[j] += Pi[j];
+        }
+        #endif
 	}
 
 	bool any_zero = false;
-	for (size_t i = 0; i < centroids.n; ++i) {
-		float* C = centroids.GetPoint(i);
-		if (cluster_size[i] == 0) {
+	for (size_t c = 0; c < centroids.n; ++c) {
+		float* C = centroids.GetPoint(c);
+		if (cluster_size[c] == 0) {
 		    any_zero = true;
 		    continue;
 		}
+        #ifdef MIPS_DISTANCE
+		double desired_norm = norm_sums[c] / cluster_size[c];
+		double current_norm = vec_norm(C, centroids.d);
+		double multiplier = std::sqrt(desired_norm / current_norm);
 		for (size_t j = 0; j < P.d; ++j) {
-			C[j] /= cluster_size[i];
+		    C[j] *= multiplier;
 		}
+        #else
+		for (size_t j = 0; j < P.d; ++j) {
+			C[j] /= cluster_size[c];
+		}
+        #endif
 	}
 
 	if (any_zero) {
@@ -77,6 +98,7 @@ void AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& close
     #ifdef MIPS_DISTANCE
 	Normalize(centroids);
     #endif
+	return cluster_size;
 }
 
 void AggregateClustersParallel(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
@@ -194,4 +216,14 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
         AggregateClusters(P, centroids, closest_center);
 	}
 	return closest_center;
+}
+
+std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
+    std::vector<int> closest_center(points.n, -1);
+    static constexpr size_t NUM_ROUNDS = 20;
+    std::vector<size_t> cluster_sizes;
+    for (size_t r = 0; r < NUM_ROUNDS; ++r) {
+        NearestCenters(points, centroids, closest_center);
+        cluster_sizes = AggregateClusters(points, centroids, closest_center);
+    }
 }
