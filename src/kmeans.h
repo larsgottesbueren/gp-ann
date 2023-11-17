@@ -31,6 +31,7 @@ std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vec
     centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
 	std::vector<size_t> cluster_size(centroids.n, 0);
     #ifdef MIPS_DISTANCE
+	Timer timer; timer.Start();
 	std::cout << "Running MIPS centroid calculation" << std::endl;
 	std::vector<double> norm_sums(centroids.n, 0.0);
     #endif
@@ -97,6 +98,9 @@ std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vec
 	    }
 	}
 
+    #ifdef MIPS_DISTANCE
+	std::cout << "MIPS centroid calculation took " << timer.Stop() << std::endl;
+    #endif
 	return cluster_size;
 }
 
