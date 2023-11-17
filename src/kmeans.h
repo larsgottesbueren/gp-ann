@@ -215,12 +215,22 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	return closest_center;
 }
 
+void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster_size, std::vector<size_t>& cluster_sizes, std::vector<int>& closest_center) {
+
+}
+
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
-    std::vector<int> closest_center(points.n, -1);
     static constexpr size_t NUM_ROUNDS = 20;
+    static constexpr size_t NUM_ROUNDS_WITH_IMBALANCE_ALLOWED = 5;  // first build some solid clustering, then start balancing it.
+    std::vector<int> closest_center(points.n, -1);
     std::vector<size_t> cluster_sizes;
     for (size_t r = 0; r < NUM_ROUNDS; ++r) {
         NearestCenters(points, centroids, closest_center);
         cluster_sizes = AggregateClusters(points, centroids, closest_center);
+
+        if (r >= NUM_ROUNDS_WITH_IMBALANCE_ALLOWED
+            && std::any_of(cluster_sizes.begin(), cluster_sizes.end(), [&](size_t cs) { return cs > max_cluster_size; })) {
+            KMeansRebalancing(points, centroids, max_cluster_size, cluster_sizes, closest_center);
+        }
     }
 }
