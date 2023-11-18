@@ -197,8 +197,6 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
     }
 
-    routing_index_option_vals.clear();
-
     for (const KMeansTreeRouterOptions& routing_index_options : routing_index_option_vals)
     {
         std::cout   << "Train router on " << routing_index_options.num_centroids << " centroids " << routing_index_options.min_cluster_size
