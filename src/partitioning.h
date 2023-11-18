@@ -175,18 +175,22 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
 
+    size_t num_leaders = 1;
     auto assign_point = [&](size_t i) {
-        int leader_id = Top1Neighbor(aggregate_points, points.GetPoint(i));
-        int part = aggregate_partition[leader_id];
-        if (num_points_in_cluster[part] < max_points_in_cluster) {
-            __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
-            partition[i] = part;
-        } else {
-            // haven't found a candidate here --> go again in another round
-            unfinished_points_lock.lock();
-            unfinished_points.push_back(i);
-            unfinished_points_lock.unlock();
+        auto closest_leaders_top_k = ClosestLeaders(points, aggregate_points, i, num_leaders);
+        auto closest_leaders = ConvertTopKToNNVec(closest_leaders_top_k);
+        for (const auto& [dist, leader_id] : closest_leaders) {
+            int part = aggregate_partition[leader_id];
+            if (num_points_in_cluster[part] < max_points_in_cluster) {
+                __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
+                partition[i] = part;
+                return;
+            }
         }
+        // haven't found a candidate here --> go again in another round
+        unfinished_points_lock.lock();
+        unfinished_points.push_back(i);
+        unfinished_points_lock.unlock();
     };
 
     parlay::parallel_for(0, points.n, assign_point);
