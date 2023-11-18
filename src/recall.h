@@ -89,7 +89,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         auto& neighs = ground_truth[q];
         auto comp = [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) {
-            return l.first > r.first;
+            return l.first < r.first;
         };
         bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k, comp);
         if (!is_sorted_before_recalc) {
@@ -101,7 +101,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
         for (size_t j = 0; j < k; ++j) {
             uint32_t point_id = neighs[j].second;
             float dist = neighs[j].first;
-            float true_dist = inner_product(points.GetPoint(point_id), Q, points.d);
+            float true_dist = distance(points.GetPoint(point_id), Q, points.d);
             if (std::abs(dist - true_dist) > 1e-8) {
                 local_distance_mismatches++;
             }
