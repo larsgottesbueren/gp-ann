@@ -163,17 +163,11 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     Symmetrize(knn_graph);
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
-    // assign node weights
-    // csr.node_weights.resize(num_aggregate_points, 0);
-    // for (int subsample_part_id : subsample_partition) csr.node_weights[subsample_part_id]++;
-
     // partition
     std::vector<int> aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
-
     WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
 
     // Assign points to the partition of the closest point in the aggregate set
-    // Fix balance by assigning to the second closest etc. if the first choice is overloaded
     size_t max_points_in_cluster = points.n * (1+epsilon) / num_clusters;
     std::vector<size_t> num_points_in_cluster(num_clusters, 0);
     std::vector<int> partition(points.n);
@@ -181,34 +175,26 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
 
-    size_t num_leaders = 5;
     auto assign_point = [&](size_t i) {
-        auto closest_leaders_top_k = ClosestLeaders(points, aggregate_points, i, num_leaders);
-        auto closest_leaders = ConvertTopKToNNVec(closest_leaders_top_k);
-
-        for (const auto& [dist, leader_id] : closest_leaders) {
-            const int part = aggregate_partition[leader_id];
-            if (num_points_in_cluster[part] < max_points_in_cluster) {
-                __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
-                partition[i] = part;
-                return; // from lambda
-            }
+        int leader_id = Top1Neighbor(aggregate_points, points.GetPoint(i));
+        int part = aggregate_partition[leader_id];
+        if (num_points_in_cluster[part] < max_points_in_cluster) {
+            __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
+            partition[i] = part;
+        } else {
+            // haven't found a candidate here --> go again in another round
+            unfinished_points_lock.lock();
+            unfinished_points.push_back(i);
+            unfinished_points_lock.unlock();
         }
-
-        // haven't found a candidate here --> go again in another round
-        unfinished_points_lock.lock();
-        unfinished_points.push_back(i);
-        unfinished_points_lock.unlock();
     };
 
     parlay::parallel_for(0, points.n, assign_point);
-
     std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
 
     size_t num_extra_rounds = 0;
+    std::vector<uint32_t> frontier;
     while (!unfinished_points.empty()) {
-        num_leaders = 1;    // switch to only picking the top choice
-
         // now we have to remove the points in aggregated_points associated with overloaded blocks
         std::vector<uint32_t> aggr_points_to_keep;
         std::vector<int> new_aggr_partition;
@@ -218,10 +204,11 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
                 new_aggr_partition.push_back(aggregate_partition[i]);
             }
         }
-        aggregate_points = ExtractPointsInBucket(aggr_points_to_keep, aggregate_points);
+        PointSet reduced_aggregate_points = ExtractPointsInBucket(aggr_points_to_keep, aggregate_points);
         aggregate_partition = std::move(new_aggr_partition);
+        aggregate_points = std::move(reduced_aggregate_points);
 
-        std::vector<uint32_t> frontier;
+        frontier.clear();
         std::swap(unfinished_points, frontier);
         parlay::parallel_for(0, frontier.size(), [&](size_t i) { assign_point(frontier[i]); });
         std::cout << "Extra Pyramid assignment round " << ++num_extra_rounds << " finished. " << unfinished_points.size() << " still unassigned" << std::endl;
