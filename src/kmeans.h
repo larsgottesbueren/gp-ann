@@ -218,6 +218,8 @@ void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster
         auto topk = ClosestLeaders(points, centroids, i, centroids.n);
         return ConvertTopKToNNVec(topk);
     });
+
+
 }
 
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {

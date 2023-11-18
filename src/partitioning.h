@@ -164,8 +164,8 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
     // assign node weights
-    csr.node_weights.resize(num_aggregate_points, 0);
-    for (int subsample_part_id : subsample_partition) csr.node_weights[subsample_part_id]++;
+    // csr.node_weights.resize(num_aggregate_points, 0);
+    // for (int subsample_part_id : subsample_partition) csr.node_weights[subsample_part_id]++;
 
     // partition
     std::vector<int> aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
