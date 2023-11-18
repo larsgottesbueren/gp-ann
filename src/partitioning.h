@@ -188,7 +188,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
             }
         }
         // haven't found a candidate here --> go again in another round
-        unfinished_points_lock.lock();
+        unfinished_points_lock.lock();  // the efficiency of this could be improved, but so far it doesn't matter much
         unfinished_points.push_back(i);
         unfinished_points_lock.unlock();
     };
@@ -199,6 +199,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     size_t num_extra_rounds = 0;
     std::vector<uint32_t> frontier;
     while (!unfinished_points.empty()) {
+        #if false
         // now we have to remove the points in aggregated_points associated with overloaded blocks
         std::vector<uint32_t> aggr_points_to_keep;
         std::vector<int> new_aggr_partition;
@@ -211,9 +212,10 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
         PointSet reduced_aggregate_points = ExtractPointsInBucket(aggr_points_to_keep, aggregate_points);
         aggregate_partition = std::move(new_aggr_partition);
         aggregate_points = std::move(reduced_aggregate_points);
-
+        #endif
         frontier.clear();
         std::swap(unfinished_points, frontier);
+        num_leaders *= 2;
         parlay::parallel_for(0, frontier.size(), [&](size_t i) { assign_point(frontier[i]); });
         std::cout << "Extra Pyramid assignment round " << ++num_extra_rounds << " finished. " << unfinished_points.size() << " still unassigned" << std::endl;
     }
