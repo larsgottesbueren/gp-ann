@@ -78,7 +78,7 @@ void SumPointsInClustersL2(PointSet& P, PointSet& centroids, std::vector<int>& c
 }
 
 void SumPointsInClustersIP(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, std::vector<size_t>& cluster_size,
-                           const parlay::sequence<float>& vector_sqrt_norms, std::vector<double>& norm_sums, size_t start, size_t end) {
+                           const parlay::sequence<float>& vector_sqrt_norms, std::vector<float>& norm_sums, size_t start, size_t end) {
     for (size_t i = start; i < end; ++i) {
         int c = closest_center[i];
         cluster_size[c]++;
