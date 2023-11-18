@@ -51,8 +51,8 @@ float mips_distance(float *p, float *q, unsigned d){
     return 1.0f - inner_product(p, q, d);
 }
 
-double vec_norm(float* p, unsigned d) {
-    double result = 0.f;
+float vec_norm(float* p, unsigned d) {
+    float result = 0.f;
     for (unsigned i = 0; i < d; ++i) result += p[i] * p[i];
     return result;
 }

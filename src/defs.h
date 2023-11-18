@@ -13,7 +13,7 @@ struct PointSet {
   size_t d = 0, n = 0;
   float* GetPoint(size_t i) { return &coordinates[i*d]; }
   void Drop() { coordinates.clear(); coordinates.shrink_to_fit(); }
-  void Alloc() { coordinates.resize(n*d); }
+  void Alloc() { coordinates.resize(n*d, 0.f); }
   bool empty() const { return n == 0; }
 };
 
