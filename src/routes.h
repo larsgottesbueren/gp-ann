@@ -180,6 +180,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
 
         auto copy = routing_index_option_vals;
+        routing_index_option_vals.clear();
         for (auto ro : copy) {
             for (int min_cluster_size : {250, 400}) {
                 ro.min_cluster_size = min_cluster_size;

@@ -58,7 +58,6 @@ struct KMeansTreeRouter {
         if (options.budget <= 0) return;
 
         if (tree_node.centroids.n == 1) {
-            std::cout << "LOADS of DUPES" << std::endl;
             // Don't split it further. There's no use.
             return;
         }
