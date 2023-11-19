@@ -118,9 +118,11 @@ void atomic_fetch_add_float(float* addr, float x) {
 }
 
 std::vector<size_t> AggregateClustersParallel(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, const parlay::sequence<float>& vector_sqrt_norms) {
+    size_t block_size = std::max<size_t>(5000000, centroids.coordinates.size() * 200);
+    if (P.n <= block_size) return AggregateClusters(P, centroids, closest_center, vector_sqrt_norms);
+
     centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
     std::vector<size_t> cluster_size(centroids.n, 0);
-    size_t block_size = std::max<size_t>(5000000, centroids.coordinates.size() * 200);
 
     #ifdef MIPS_DISTANCE
     std::vector<float> norm_sums(centroids.n, 0.f);
@@ -222,7 +224,7 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	static constexpr size_t NUM_ROUNDS = 20;
 	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
 		NearestCenters(P, centroids, closest_center);
-        AggregateClusters(P, centroids, closest_center, vector_sqrt_norms);
+		AggregateClustersParallel(P, centroids, closest_center, vector_sqrt_norms);
 	}
 	return closest_center;
 }
