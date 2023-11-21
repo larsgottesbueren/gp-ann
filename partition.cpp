@@ -5,6 +5,24 @@
 #include "metis_io.h"
 #include "partitioning.h"
 
+std::vector<int> BalancedKMeansCall(PointSet& points, int k, double eps) {
+    PointSet centroids = RandomSample(points, k, 555);
+    size_t max_cluster_size = points.n * (1.0+eps) / k;
+    return BalancedKMeans(points, centroids, max_cluster_size);
+}
+
+std::vector<int> FlatKMeansCall(PointSet& points, int k, double eps) {
+    PointSet centroids = RandomSample(points, k, 555);
+    return KMeans(points, centroids);
+}
+
+void PrintImbalance(std::vector<int>& partition, int k) {
+    auto histo = parlay::histogram_by_index(partition, k);
+    auto max_part_size = *parlay::max_element(histo);
+    double imbalance = double(max_part_size) / (partition.size() / k);
+    std::cout << "imbalance " << imbalance << " max part size " << max_part_size << " perf balanced " << partition.size() / k << std::endl;
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 5) {
         std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method" << std::endl;
@@ -46,6 +64,10 @@ int main(int argc, const char* argv[]) {
         partition = PyramidPartitioning(points, k, eps, part_file + ".pyramid_routing_index");
     } else if (part_method == "KMeans") {
         partition = RecursiveKMeansPartitioning(points, k, eps);
+    } else if (part_method == "BalancedKMeans") {
+        partition = BalancedKMeansCall(points, k, eps);
+    } else if (part_method == "FlatKMeans") {
+        partition = FlatKMeansCall(points, k, eps);
     } else if (part_method == "OurPyramid") {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else {
@@ -53,5 +75,6 @@ int main(int argc, const char* argv[]) {
         std::abort();
     }
     std::cout << "Finished partitioning" << std::endl;
-    WriteMetisPartition(partition, part_file);
+    PrintImbalance(partition, k);
+    // WriteMetisPartition(partition, part_file);
 }

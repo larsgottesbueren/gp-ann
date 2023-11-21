@@ -229,33 +229,70 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 	return closest_center;
 }
 
-void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster_size, std::vector<size_t>& cluster_sizes, std::vector<int>& closest_center) {
-    auto centroid_ranking = parlay::tabulate(points.n, [&](size_t i) {
-        auto topk = ClosestLeaders(points, centroids, i, centroids.n);
-        return ConvertTopKToNNVec(topk);
+void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster_size, std::vector<size_t>& cluster_sizes_ext,
+                       std::vector<int>& closest_center, std::vector<float>& influence) {
+    auto centroid_distances = parlay::tabulate(points.n, [&](size_t i) {
+        return parlay::tabulate(centroids.n, [&](size_t j) {
+           return distance(points.GetPoint(i), centroids.GetPoint(j), points.d);
+        });
     });
+
+
+
+    for (int r = 0; r < 5; ++r) {
+        parlay::parallel_for(0, points.n, [&](size_t i) {
+            int best = -1; float best_dist = std::numeric_limits<float>::max();
+            for (size_t j = 0; j < centroid_distances[i].size(); ++j) {
+                float eff_dist = centroid_distances[i][j] * influence[j];
+                if (eff_dist < best_dist) best_dist = eff_dist, best = j;
+            }
+            closest_center[i] = best;
+        });
+
+        auto cluster_sizes = parlay::histogram_by_index(closest_center, centroids.n);
+
+        if (parlay::all_of(cluster_sizes, [&](size_t x) { return x <= max_cluster_size; })) {
+            return;
+        }
+
+        for (size_t j = 0; j < centroids.n; ++j) {
+            double gamma = static_cast<double>(max_cluster_size) / cluster_sizes[j];
+            gamma = std::pow(gamma, 1.0/6.0);
+            std::cout << cluster_sizes[j] << " " << influence[j] << " " << gamma << std::endl;
+            // cluster larger than max size --> smaller gamma --> larger influence param --> effective distance is worse
+            influence[j] = influence[j] / gamma;
+        }
+        std::cout << "----------------------------" << std::endl;
+
+    }
 
 
 }
 
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
     static constexpr size_t NUM_ROUNDS = 20;
-    static constexpr size_t NUM_ROUNDS_WITH_IMBALANCE_ALLOWED = 5;  // first build some solid clustering, then start balancing it.
+    static constexpr size_t NUM_ROUNDS_WITH_IMBALANCE_ALLOWED = 8;  // first build some solid clustering, then start balancing it.
     std::vector<int> closest_center(points.n, -1);
     parlay::sequence<float> vector_sqrt_norms;
+    std::vector<float> influence(centroids.n, 1.f);
     #ifdef MIPS_DISTANCE
     // precompute norms and sqrts since it slowed down centroid calculation
     vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> float { return std::sqrt(vec_norm(points.GetPoint(i), points.d)); });
     #endif
     std::vector<size_t> cluster_sizes;
-    for (size_t r = 0; r < NUM_ROUNDS; ++r) {
+    for (size_t r = 0; r < NUM_ROUNDS_WITH_IMBALANCE_ALLOWED; ++r) {
         NearestCenters(points, centroids, closest_center);
         cluster_sizes = AggregateClusters(points, centroids, closest_center, vector_sqrt_norms);
-
-        if (r >= NUM_ROUNDS_WITH_IMBALANCE_ALLOWED
-            && std::any_of(cluster_sizes.begin(), cluster_sizes.end(), [&](size_t cs) { return cs > max_cluster_size; })) {
-            KMeansRebalancing(points, centroids, max_cluster_size, cluster_sizes, closest_center);
+    }
+    for (size_t r = NUM_ROUNDS_WITH_IMBALANCE_ALLOWED; r < NUM_ROUNDS; ++r) {
+        if (std::all_of(cluster_sizes.begin(), cluster_sizes.end(), [&](size_t cs) { return cs <= max_cluster_size; })) {
+            break;
         }
+        // TODO
+        // trace imbalance over time. if it drifts too heavily, reset influence?
+        // feels a bit like luck if it can finish
+        KMeansRebalancing(points, centroids, max_cluster_size, cluster_sizes, closest_center, influence);
+        AggregateClusters(points, centroids, closest_center, vector_sqrt_norms);
     }
     return closest_center;
 }

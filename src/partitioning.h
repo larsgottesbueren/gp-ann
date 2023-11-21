@@ -21,7 +21,12 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     PointSet centroids = RandomSample(points, num_clusters, 555);
 
     Timer timer; timer.Start();
-    std::vector<int> partition = KMeans(points, centroids);
+    std::vector<int> partition;
+    if (depth == 0) {
+        partition = BalancedKMeans(points, centroids, max_cluster_size);
+    } else {
+        partition = KMeans(points, centroids);
+    }
     std::cout << "k-means at depth " << depth << " took " << timer.Stop() << " s" << std::endl;
 
     num_clusters = *std::max_element(partition.begin(), partition.end()) + 1;
