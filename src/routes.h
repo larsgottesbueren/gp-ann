@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <filesystem>
 
 #include "metis_io.h"
 #include "kmeans_tree_router.h"
@@ -22,7 +23,7 @@ struct RoutingConfig {
     std::string Serialize() const {
         std::stringstream sb;
         sb  << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " "
-            << routing_time << " " << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size()
+            << routing_time << " " << std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << " "
             << routing_index_options.budget << " " << routing_index_options.num_centroids << " " << routing_index_options.min_cluster_size << "\n";
         for (const auto& visit_order : buckets_to_probe) {
             for (const int b : visit_order) {
