@@ -115,15 +115,10 @@ std::vector<ShardSearch> RunInShardSearches(
         using SpaceType = hnswlib::L2Space;
         #endif
 
-
-        PinThread(0);
-
         SpaceType space(points.d);
 
         Timer build_timer; build_timer.Start();
         hnswlib::HierarchicalNSW<float> hnsw(&space, cluster.size(), hnsw_parameters.M, hnsw_parameters.ef_construction, 555 + b);
-
-        UnpinThread();
 
         std::mt19937 prng(555 + b);
         std::shuffle(cluster.begin(), cluster.end(), prng);
@@ -138,8 +133,6 @@ std::vector<ShardSearch> RunInShardSearches(
         }, 512);
 
         std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
-
-        PinThread(0);
 
         size_t ef_search_param_id = 0;
         for (size_t ef_search : ef_search_param_values) {
@@ -179,8 +172,6 @@ std::vector<ShardSearch> RunInShardSearches(
         }
 
         std::cout << "Finished searches in bucket " << b << std::endl;
-
-        UnpinThread();
     }
 
     return shard_searches;
