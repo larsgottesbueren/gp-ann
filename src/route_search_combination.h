@@ -117,7 +117,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
         double QPS_per_host;
     };
 
-    std::map<std::string, std::vector<Desc>> outputs;
+    std::vector<Desc> outputs;
 
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
@@ -151,7 +151,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
 
                         // out << str.str() << std::flush;
                         // std::cout << str.str() << std::flush;
-                        outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
+                        outputs.push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
                     }
 
                     // assign one more replica to the slowest shard
@@ -168,27 +168,23 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
     }
 
     std::vector<Desc> pareto;
-    for (auto& [routing_algo, configs] : outputs) {
-        if (configs.empty()) continue;
-        std::cout << "num configs " << configs.size() << std::endl;
 
-        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall <= r.recall && l.QPS_per_host <= r.QPS_per_host; };
+    auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall <= r.recall && l.QPS_per_host <= r.QPS_per_host; };
 
-        for (const auto& c : configs) {
-            bool insert_new = true;
-            for (int64_t i = 0; i < pareto.size(); ++i) {
-                if (dominates(pareto[i], c)) {  // remove pareto[i]
-                    pareto[i] = std::move(pareto.back());
-                    pareto.pop_back();
-                    --i;
-                } else if (dominates(c, pareto[i])) {
-                    insert_new = false;
-                    break;
-                }
+    for (const auto& c : outputs) {
+        bool insert_new = true;
+        for (int64_t i = 0; i < pareto.size(); ++i) {
+            if (dominates(pareto[i], c)) {  // remove pareto[i]
+                pareto[i] = std::move(pareto.back());
+                pareto.pop_back();
+                --i;
+            } else if (dominates(c, pareto[i])) {
+                insert_new = false;
+                break;
             }
-            if (insert_new) {
-                pareto.push_back(c);
-            }
+        }
+        if (insert_new) {
+            pareto.push_back(c);
         }
     }
 
