@@ -103,11 +103,11 @@ void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vecto
 void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file,
                                           int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
 
-    std::ofstream out(output_file);
+    // std::ofstream out(output_file);
     // header
     std::string header = "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
                          "QPS without routing, QPS without routing per host,num hosts,num shards,requested num shards\n";
-    out << header;
+    // out << header;
 
     struct Desc {
         std::string format_string;
@@ -145,7 +145,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
                             << "," << r.n_probes << "," << recall << "," << QPS << "," << QPS_per_host
                             << "," << QPS_without_routing << "," << QPS_without_routing_per_host
                             << "," << num_hosts << "," << num_shards << "," << num_requested_shards << "\n";
-                        out << str.str() << std::flush;
+                        // out << str.str() << std::flush;
                         // std::cout << str.str() << std::flush;
                         outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
                     }
@@ -163,14 +163,13 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
         }
     }
 
-    std::ofstream pareto_out(output_file + ".pareto");
-    pareto_out << header;
+    std::vector<Desc> pareto;
     for (auto& [routing_algo, configs] : outputs) {
         if (configs.empty()) continue;
+        std::cout << "num configs " << configs.size() << std::endl;
 
-        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall < r.recall && l.QPS_per_host < r.QPS_per_host; };
+        auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall <= r.recall && l.QPS_per_host <= r.QPS_per_host; };
 
-        std::vector<Desc> pareto;
         for (const auto& c : configs) {
             bool insert_new = true;
             for (int64_t i = 0; i < pareto.size(); ++i) {
@@ -187,10 +186,18 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
                 pareto.push_back(c);
             }
         }
+    }
 
-        for (const auto& c : pareto) {
-            pareto_out << c.format_string << std::endl;
-            // std::cout << c.format_string << std::endl;
-        }
+    std::cout << "Pareto size " << pareto.size() << std::endl;
+
+    std::sort(pareto.begin(), pareto.end(), [](const Desc& l, const Desc& r) {
+       return l.QPS_per_host > r.QPS_per_host;
+    });
+
+    std::ofstream pareto_out(output_file + ".pareto");
+    pareto_out << header;
+    for (const auto& c : pareto) {
+        pareto_out << c.format_string;
+        // std::cout << c.format_string;
     }
 }

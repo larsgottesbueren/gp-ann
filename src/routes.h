@@ -34,15 +34,37 @@ struct RoutingConfig {
         return sb.str();
     }
 
+    static int Log10(uint64_t x) {
+        int res = 0;
+        while (x > 0) { x /= 10; res++; }
+        return res;
+    }
+
+    static uint64_t CleanMangledRoutingBudget(uint64_t mangled, int num_queries) {
+        int num_queries_digits = Log10(num_queries);
+        int num_mangled_digits = Log10(mangled);
+
+        int num_digits_to_extract = num_mangled_digits - num_queries_digits;
+
+        uint64_t mult = 1;
+        for (int i = 0; i < num_digits_to_extract; ++i) mult *= 10;
+        uint64_t res = mangled - mult * num_queries;
+        return res;
+    }
+
     static RoutingConfig Deserialize(std::ifstream& in) {
         RoutingConfig r;
-        int num_queries = 0;
+        int num_queries = 100000;
         std::string line;
         std::getline(in, line);
         std::istringstream iss(line);
-        iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha >> num_queries
-            >> r.routing_index_options.budget >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
-        std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << " " << r.try_increasing_num_shards << " " << std::noboolalpha << num_queries << std::endl;
+        uint64_t mangled_queries_and_routing_budget;
+        iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.try_increasing_num_shards >> std::noboolalpha
+        // >> num_queries >> r.routing_index_options.budget
+        >> mangled_queries_and_routing_budget
+        >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
+        r.routing_index_options.budget = CleanMangledRoutingBudget(mangled_queries_and_routing_budget, num_queries);
+        // std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << r.try_increasing_num_shards << std::noboolalpha << " " << num_queries << std::endl;
         for (int i = 0; i < num_queries; ++i) {
             std::getline(in, line);
             std::istringstream line_stream(line);
@@ -157,7 +179,7 @@ std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
     std::vector<RoutingConfig> routes;
     for (size_t i = 0; i < num_routes; ++i) {
         std::getline(in, header);
-        std::cout << "i = " << i << " for routes " << std::endl;
+        // std::cout << "i = " << i << " for routes " << std::endl;
         if (header != "R") std::cout << "routing config doesn't start with marker R. Instead: " << header << std::endl;
         RoutingConfig r = RoutingConfig::Deserialize(in);
         routes.push_back(std::move(r));
