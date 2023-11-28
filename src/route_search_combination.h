@@ -106,7 +106,9 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
     // std::ofstream out(output_file);
     // header
     std::string header = "partitioning,shard query,routing query,routing index,ef-search-shard,num voting points,routing time,num probes,recall,QPS,QPS per host,"
-                         "QPS without routing, QPS without routing per host,num hosts,num shards,requested num shards\n";
+                         "QPS without routing, QPS without routing per host,num hosts,num shards,requested num shards"
+                         ",routing index size,min cluster size,num centroids"
+                         "\n";
     // out << header;
 
     struct Desc {
@@ -144,7 +146,9 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
                             << "," << route.routing_time / num_queries
                             << "," << r.n_probes << "," << recall << "," << QPS << "," << QPS_per_host
                             << "," << QPS_without_routing << "," << QPS_without_routing_per_host
-                            << "," << num_hosts << "," << num_shards << "," << num_requested_shards << "\n";
+                            << "," << num_hosts << "," << num_shards << "," << num_requested_shards << ",";
+                        str << route.routing_index_options.budget << "," << route.routing_index_options.min_cluster_size << "," << route.routing_index_options.num_centroids << "\n";
+
                         // out << str.str() << std::flush;
                         // std::cout << str.str() << std::flush;
                         outputs[route.routing_algorithm].push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
