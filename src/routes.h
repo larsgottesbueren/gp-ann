@@ -196,16 +196,24 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
     {
+        #if false
         for (double factor : {0.2, 0.4, 0.8 }) {
             KMeansTreeRouterOptions ro = routing_index_options_blueprint;
             ro.budget *= factor;
             routing_index_option_vals.push_back(ro);
         }
+        #else
+        for (int64_t budget : { 20000, 100000, 200000, 1000000, 5000000 }) {
+            KMeansTreeRouterOptions ro = routing_index_options_blueprint;
+            ro.budget = budget;
+            routing_index_option_vals.push_back(ro);
+        }
+        #endif
 
         auto copy = routing_index_option_vals;
         routing_index_option_vals.clear();
         for (auto ro : copy) {
-            for (int min_cluster_size : {250, 400}) {
+            for (int min_cluster_size : { 350 }) {
                 ro.min_cluster_size = min_cluster_size;
                 routing_index_option_vals.push_back(ro);
             }
@@ -214,7 +222,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         copy = routing_index_option_vals;
         routing_index_option_vals.clear();
         for (auto ro : copy) {
-            for (int num_centroids : {64,128,256}) {
+            for (int num_centroids : { 64 }) {
                 ro.num_centroids = num_centroids;
                 routing_index_option_vals.push_back(ro);
             }
