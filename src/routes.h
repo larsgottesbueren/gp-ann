@@ -101,6 +101,7 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
     Timer routing_timer;
     for (size_t num_voting_neighbors : {20, 40, 80, 120, 200, 250, 300, 400, 500}) {
         std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
+        hnsw_router.hnsw->setEf(num_voting_neighbors);
         std::vector<HNSWRouter::ShardPriorities> routing_objects(queries.n);
         routing_timer.Start();
         for (size_t i = 0; i < queries.n; ++i) {
@@ -224,6 +225,10 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         for (auto ro : copy) {
             for (int num_centroids : { 64 }) {
                 ro.num_centroids = num_centroids;
+                routing_index_option_vals.push_back(ro);
+            }
+            if (ro.budget <= 100000) {
+                ro.num_centroids = 32;
                 routing_index_option_vals.push_back(ro);
             }
         }
