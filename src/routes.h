@@ -206,7 +206,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             routing_index_option_vals.push_back(ro);
         }
 #else
-        for (int64_t budget : { 20000, 100000, 200000, 1000000, 5000000 }) {
+        for (int64_t budget : { 20'000, 100'000, 200'000, 500'000, 1'000'000, 2'000'000, 5'000'000, 10'000'000 }) {
             KMeansTreeRouterOptions ro = routing_index_options_blueprint;
             ro.budget = budget;
             routing_index_option_vals.push_back(ro);
@@ -229,8 +229,9 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                 ro.num_centroids = num_centroids;
                 routing_index_option_vals.push_back(ro);
             }
-            if (ro.budget <= 100000) {
-                ro.num_centroids = 32;
+
+            if (ro.budget >= 5'000'000) {
+                ro.num_centroids = 128;
                 routing_index_option_vals.push_back(ro);
             }
         }
