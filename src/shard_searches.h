@@ -122,52 +122,44 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
         // do some insertion sequentially
         size_t seq_insertion = std::min(1UL << 11, cluster.size());
-        for (size_t i = 0; i < seq_insertion; ++i) {
-            hnsw.addPoint(points.GetPoint(cluster[i]), i);
-        }
-        parlay::parallel_for(seq_insertion, cluster.size(), [&](size_t i) {
-            hnsw.addPoint(points.GetPoint(cluster[i]), i);
-        }, 512);
+        for (size_t i = 0; i < seq_insertion; ++i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }
+        parlay::parallel_for(seq_insertion, cluster.size(), [&](size_t i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }, 512);
 
         std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
 
         size_t ef_search_param_id = 0;
-        for (size_t ef_search : ef_search_param_values) {
+        for (size_t ef_search: ef_search_param_values) {
             hnsw.setEf(ef_search);
-            size_t total_hits = 0;
-            Timer total; total.Start();
-            parlay::parallel_for(0, queries.n, [&](size_t q) {
-                float* Q = queries.GetPoint(q);
-                auto result = hnsw.searchKnn(Q, num_neighbors);
-                while (!result.empty()) {
-                    auto top = result.top();
-                    result.pop();
-                    if (top.first <= distance_to_kth_neighbor[q]) {
-                        shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
+
+            parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+                size_t total_hits = 0;
+                Timer total;
+                total.Start();
+
+                parlay::parallel_for(0, queries.n, [&](size_t q) {
+                    float* Q = queries.GetPoint(q);
+                    auto result = hnsw.searchKnn(Q, num_neighbors);
+                    while (!result.empty()) {
+                        auto top = result.top();
+                        result.pop();
+                        if (top.first <= distance_to_kth_neighbor[q]) {
+                            shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
+                        }
                     }
+                }, 10);
+                const double elapsed = total.Stop();
+
+                for (size_t q = 0; q < queries.n; ++q) {
+                    total_hits += shard_searches[ef_search_param_id].query_hits_in_shard[b][q];
+                    // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
+                    // want to repeat the query for each probe config (which we don't because it would take forever.
+                    // this is the parameter tuning code after all.)
+                    shard_searches[ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
                 }
-            }, 10);
-            const double elapsed = total.Stop();
 
-            for (size_t q = 0; q < queries.n; ++q) {
-                total_hits += shard_searches[ef_search_param_id].query_hits_in_shard[b][q];
-                // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
-                // want to repeat the query for each probe config (which we don't because it would take forever.
-                // this is the parameter tuning code after all.)
-                shard_searches[ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
-            }
-
-            std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits
-                        << " total timer took " << total.total_duration.count() << std::endl;
-
-            #if false
-            total.Start();
-            parlay::parallel_for(0, queries.n, [&](size_t q) {
-                float* Q = queries.GetPoint(q);
-                auto result = hnsw.searchKnn(Q, num_neighbors);
+                std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits <<
+                        " total timer took " << total.total_duration.count() << std::endl;
             });
-            std::cout << "Parallel queries took " << total.Stop() << " s " << std::endl;
-            #endif
 
             ef_search_param_id++;
         }
