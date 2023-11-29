@@ -27,6 +27,12 @@ struct KMeansTreeRouter {
 
         std::cout << "Train. num-shards = " << num_shards << " dim = " << dim << " budget = " << options.budget << std::endl;
 
+        int num_shards_processed_in_parallel = 8;
+#ifdef MIPS_DISTANCE
+        // not for MIPS_DISTANCE (just for text-to-image...)
+        num_shards_processed_in_parallel = 2;
+#endif
+
         parlay::parallel_for(0, num_shards, [&](int b) {
             //for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
             PointSet ps = ExtractPointsInBucket(buckets[b], points);
@@ -34,7 +40,7 @@ struct KMeansTreeRouter {
             recursive_options.budget = double(buckets[b].size() * options.budget) / double(points.n);
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
             // }
-        }, num_shards / 8);
+        }, num_shards / num_shards_processed_in_parallel);
     }
 
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
