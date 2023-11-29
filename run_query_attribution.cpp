@@ -1,11 +1,21 @@
 #include <iostream>
 #include <filesystem>
-#include <map>
 
 #include "points_io.h"
 #include "metis_io.h"
 #include "recall.h"
 #include "route_search_combination.h"
+
+void SetAffinity() {
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    for (int cpu = 0; cpu < 64; ++cpu) { CPU_SET(cpu, &mask); }
+    int err = sched_setaffinity(0, sizeof(mask), &mask);
+    if (err) {
+        std::cerr << "thread pinning failed" << std::endl;
+        std::abort();
+    }
+}
 
 int main(int argc, const char* argv[]) {
     if (argc != 9) {
@@ -15,9 +25,7 @@ int main(int argc, const char* argv[]) {
         std::abort();
     }
 
-    cpu_set_t old_affinity;
-    CPU_ZERO(&old_affinity);
-    sched_getaffinity(0, sizeof(old_affinity), &old_affinity);
+    SetAffinity();
 
     std::string point_file = argv[1];
     std::string query_file = argv[2];
