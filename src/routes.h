@@ -104,14 +104,16 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
         hnsw_router.hnsw->setEf(num_voting_neighbors);
         std::vector<HNSWRouter::ShardPriorities> routing_objects(queries.n);
         routing_timer.Start();
-        for (size_t i = 0; i < queries.n; ++i) {
+        parlay::parallel_for(0, queries.n, [&](size_t i) {
             routing_objects[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
-        }
+        });
         double time_routing = routing_timer.Stop();
         std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
         {   // HNSW routing
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].RoutingQuery(); }
+            parlay::parallel_for(0, queries.n, [&](size_t i) {
+                buckets_to_probe_by_query_hnsw[i] = routing_objects[i].RoutingQuery();
+            });
             double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
             std::cout << "HNSW routing first shard recall = " << first_shard_recall << std::endl;
 
@@ -128,7 +130,9 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
 
         {   // Pyramid routing
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].PyramidRoutingQuery(); }
+            parlay::parallel_for(0, queries.n, [&](size_t i) {
+                buckets_to_probe_by_query_hnsw[i] = routing_objects[i].PyramidRoutingQuery();
+            });
 
             routes.push_back(blueprint);
             auto& new_route = routes.back();
@@ -145,8 +149,9 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
             // where you prune next shards based on how much further they are than the closest shard
             // --> i.e., dist(q, shard_i) > (1+eps) dist(q, shard_1) then cut off before i. eps in [0.6, 7] in the paper
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
-            for (size_t i = 0; i < queries.n; ++i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].SPANNRoutingQuery(/*eps=*/0.6); }
-
+            parlay::parallel_for(0, queries.n, [&](size_t i) {
+                buckets_to_probe_by_query_hnsw[i] = routing_objects[i].SPANNRoutingQuery(/*eps=*/0.6);
+            });
             routes.push_back(blueprint);
             auto& new_route = routes.back();
             new_route.routing_algorithm = "SPANN";
