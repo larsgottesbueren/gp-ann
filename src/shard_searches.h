@@ -10,24 +10,27 @@
 
 
 struct ShardSearch {
-    ShardSearch() {};
+    ShardSearch() { };
+
     void Init(size_t ef_search, int num_shards, size_t num_queries) {
         this->ef_search = ef_search;
         query_hits_in_shard.assign(num_shards, std::vector<int>(num_queries, 0));
         time_query_in_shard.assign(num_shards, std::vector<double>(num_queries, 0.0));
     }
+
     size_t ef_search = 0;
     std::vector<std::vector<int>> query_hits_in_shard;
     std::vector<std::vector<double>> time_query_in_shard;
+
     std::string Serialize() const {
         std::stringstream out;
         out << ef_search << " " << query_hits_in_shard.size() << " " << query_hits_in_shard[0].size() << "\n";
-        for (const auto& qh : query_hits_in_shard) {
-            for (int x : qh) { out << x << " "; }
+        for (const auto& qh: query_hits_in_shard) {
+            for (int x: qh) { out << x << " "; }
             out << "\n";
         }
-        for (const auto& tq : time_query_in_shard) {
-            for (double x : tq) { out << x << " "; }
+        for (const auto& tq: time_query_in_shard) {
+            for (double x: tq) { out << x << " "; }
             out << "\n";
         }
         return out.str();
@@ -45,9 +48,7 @@ struct ShardSearch {
             std::istringstream line_stream(line);
             s.query_hits_in_shard.emplace_back();
             int hits;
-            while (line_stream >> hits) {
-                s.query_hits_in_shard.back().push_back(hits);
-            }
+            while (line_stream >> hits) { s.query_hits_in_shard.back().push_back(hits); }
             assert(s.query_hits_in_shard.back().size() == num_queries);
         }
 
@@ -56,9 +57,7 @@ struct ShardSearch {
             std::istringstream line_stream(line);
             s.time_query_in_shard.emplace_back();
             double time;
-            while (line_stream >> time) {
-                s.time_query_in_shard.back().push_back(time);
-            }
+            while (line_stream >> time) { s.time_query_in_shard.back().push_back(time); }
         }
         return s;
     }
@@ -67,7 +66,7 @@ struct ShardSearch {
 void SerializeShardSearches(const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
     std::ofstream out(output_file);
     out << shard_searches.size() << std::endl;
-    for (const ShardSearch& search : shard_searches) {
+    for (const ShardSearch& search: shard_searches) {
         out << "S" << std::endl;
         out << search.Serialize();
     }
@@ -91,17 +90,14 @@ std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file)
 }
 
 
-std::vector<ShardSearch> RunInShardSearches(
-        PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-        std::vector<std::vector<uint32_t>>& clusters, int num_shards,
-        const std::vector<float>& distance_to_kth_neighbor) {
+std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
+                                            std::vector<std::vector<uint32_t>>& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
-    Timer init_timer; init_timer.Start();
+    Timer init_timer;
+    init_timer.Start();
     std::vector<ShardSearch> shard_searches(ef_search_param_values.size());
-    for (size_t i = 0; i < ef_search_param_values.size(); ++i) {
-        shard_searches[i].Init(ef_search_param_values[i], num_shards, queries.n);
-    }
+    for (size_t i = 0; i < ef_search_param_values.size(); ++i) { shard_searches[i].Init(ef_search_param_values[i], num_shards, queries.n); }
     std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
     for (int b = 0; b < num_shards; ++b) {
@@ -109,15 +105,16 @@ std::vector<ShardSearch> RunInShardSearches(
 
         std::cout << "Start building HNSW for shard " << b << " of size " << cluster.size() << std::endl;
 
-        #ifdef MIPS_DISTANCE
+#ifdef MIPS_DISTANCE
         using SpaceType = hnswlib::InnerProductSpace;
-        #else
+#else
         using SpaceType = hnswlib::L2Space;
-        #endif
+#endif
 
         SpaceType space(points.d);
 
-        Timer build_timer; build_timer.Start();
+        Timer build_timer;
+        build_timer.Start();
         hnswlib::HierarchicalNSW<float> hnsw(&space, cluster.size(), hnsw_parameters.M, hnsw_parameters.ef_construction, 555 + b);
 
         std::mt19937 prng(555 + b);
