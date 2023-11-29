@@ -9,7 +9,9 @@
 
 int main(int argc, const char* argv[]) {
     if (argc != 9) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method requested-num-shards" << std::endl;
+        std::cerr <<
+                "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method requested-num-shards"
+                << std::endl;
         std::abort();
     }
 
@@ -49,33 +51,28 @@ int main(int argc, const char* argv[]) {
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / requested_num_shards;
     std::string pyramid_index_file, our_pyramid_index_file;
-    if (part_method == "Pyramid") {
-        pyramid_index_file = partition_file + ".pyramid_routing_index";
-    }
-    if (part_method == "OurPyramid") {
-        our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
-    }
-    #if true
+    if (part_method == "Pyramid") { pyramid_index_file = partition_file + ".pyramid_routing_index"; }
+    if (part_method == "OurPyramid") { our_pyramid_index_file = partition_file + ".our_pyramid_routing_index"; }
+#if true
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
                                                               ground_truth, num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
-    #endif
+#endif
 
     Timer timer;
     timer.Start();
     std::vector<std::vector<uint32_t>> clusters(num_shards);
-    for (uint32_t i = 0; i < partition.size(); ++i) {
-        clusters[partition[i]].push_back(i);
-    }
+    for (uint32_t i = 0; i < partition.size(); ++i) { clusters[partition[i]].push_back(i); }
     std::cout << "Convert partition to clusters took " << timer.Stop() << std::endl;
 
     std::cout << "Start shard searches" << std::endl;
-    std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
+    std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards,
+                                                                 distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
 
     SerializeShardSearches(shard_searches, output_file + ".searches");
 
-    // PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
+    PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
 }
