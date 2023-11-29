@@ -121,7 +121,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
         std::shuffle(cluster.begin(), cluster.end(), prng);
 
         // do some insertion sequentially
-        size_t seq_insertion = std::min(1UL << 11, cluster.size());
+        const size_t seq_insertion = std::min(1UL << 11, cluster.size());
         for (size_t i = 0; i < seq_insertion; ++i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }
         parlay::parallel_for(seq_insertion, cluster.size(), [&](size_t i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }, 512);
 
@@ -129,10 +129,8 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
         parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
             size_t ef_search_param_id = 0;
-            for (size_t ef_search : ef_search_param_values) {
+            for (const size_t ef_search : ef_search_param_values) {
                 hnsw.setEf(ef_search);
-
-
                 size_t total_hits = 0;
                 Timer total;
                 total.Start();
@@ -141,7 +139,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                     float* Q = queries.GetPoint(q);
                     auto result = hnsw.searchKnn(Q, num_neighbors);
                     while (!result.empty()) {
-                        auto top = result.top();
+                        const auto top = result.top();
                         result.pop();
                         if (top.first <= distance_to_kth_neighbor[q]) {
                             shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
