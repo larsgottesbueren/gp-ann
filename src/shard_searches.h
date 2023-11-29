@@ -137,27 +137,31 @@ std::vector<ShardSearch> RunInShardSearches(
         size_t ef_search_param_id = 0;
         for (size_t ef_search : ef_search_param_values) {
             hnsw.setEf(ef_search);
-
             size_t total_hits = 0;
-            Timer timer;
             Timer total; total.Start();
-            for (size_t q = 0; q < queries.n; ++q) {
+            parlay::parallel_for(0, queries.n, [&](size_t q) {
                 float* Q = queries.GetPoint(q);
-                timer.Start();
                 auto result = hnsw.searchKnn(Q, num_neighbors);
-                shard_searches[ef_search_param_id].time_query_in_shard[b][q] = timer.Stop();
                 while (!result.empty()) {
                     auto top = result.top();
                     result.pop();
                     if (top.first <= distance_to_kth_neighbor[q]) {
                         shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
-                        total_hits++;
                     }
                 }
+            }, 10);
+            const double elapsed = total.Stop();
+
+            for (size_t q = 0; q < queries.n; ++q) {
+                total_hits += shard_searches[ef_search_param_id].query_hits_in_shard[b][q];
+                // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
+                // want to repeat the query for each probe config (which we don't because it would take forever.
+                // this is the parameter tuning code after all.)
+                shard_searches[ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
             }
 
-            std::cout << "Shard search with ef-search = " << ef_search << " took " << timer.total_duration.count() << " total hits " << total_hits
-                        << " total timer took " << total.Stop() << std::endl;
+            std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits
+                        << " total timer took " << total.total_duration.count() << std::endl;
 
             #if false
             total.Start();
