@@ -92,22 +92,17 @@ double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_t
     return static_cast<double>(hits) / buckets_to_probe.size() / num_neighbors;
 }
 
-void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
-                              const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
+void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
+                                         const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
     Timer routing_timer;
     for (size_t num_voting_neighbors : { 20, 40, 80, 120, 200, 250, 300, 400, 500 }) {
         std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
         hnsw_router.hnsw->setEf(num_voting_neighbors);
         std::vector<HNSWRouter::ShardPriorities> routing_objects(queries.n);
 
-        double time_routing;
-        parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
-            routing_timer.Start();
-            parlay::parallel_for(0, queries.n, [&](size_t i) {
-                routing_objects[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors);
-            });
-            time_routing = routing_timer.Stop();
-        });
+        routing_timer.Start();
+        parlay::parallel_for(0, queries.n, [&](size_t i) { routing_objects[i] = hnsw_router.Query(queries.GetPoint(i), num_voting_neighbors); });
+        double time_routing = routing_timer.Stop();
 
         std::cout << "HNSW routing took " << time_routing << " s" << std::endl;
 
@@ -161,6 +156,13 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
             hnsw_router.hnsw->metric_distance_computations = 0;
         }
     }
+}
+
+void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
+                              const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
+    parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+        IterateHNSWRouterConfigsInScheduler(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
+    });
 }
 
 void SerializeRoutes(const std::vector<RoutingConfig>& routes, const std::string& output_file) {
@@ -286,6 +288,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             RoutingConfig blueprint;
             blueprint.index_trainer = "HierKMeans";
             blueprint.routing_index_options = routing_index_options;
+
             IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
         }
     }

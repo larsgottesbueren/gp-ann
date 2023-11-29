@@ -25,12 +25,12 @@ struct ShardSearch {
     std::string Serialize() const {
         std::stringstream out;
         out << ef_search << " " << query_hits_in_shard.size() << " " << query_hits_in_shard[0].size() << "\n";
-        for (const auto& qh: query_hits_in_shard) {
-            for (int x: qh) { out << x << " "; }
+        for (const auto& qh : query_hits_in_shard) {
+            for (int x : qh) { out << x << " "; }
             out << "\n";
         }
-        for (const auto& tq: time_query_in_shard) {
-            for (double x: tq) { out << x << " "; }
+        for (const auto& tq : time_query_in_shard) {
+            for (double x : tq) { out << x << " "; }
             out << "\n";
         }
         return out.str();
@@ -66,7 +66,7 @@ struct ShardSearch {
 void SerializeShardSearches(const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
     std::ofstream out(output_file);
     out << shard_searches.size() << std::endl;
-    for (const ShardSearch& search: shard_searches) {
+    for (const ShardSearch& search : shard_searches) {
         out << "S" << std::endl;
         out << search.Serialize();
     }
@@ -127,11 +127,12 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
         std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
 
-        size_t ef_search_param_id = 0;
-        for (size_t ef_search: ef_search_param_values) {
-            hnsw.setEf(ef_search);
+        parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+            size_t ef_search_param_id = 0;
+            for (size_t ef_search : ef_search_param_values) {
+                hnsw.setEf(ef_search);
 
-            parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+
                 size_t total_hits = 0;
                 Timer total;
                 total.Start();
@@ -159,12 +160,12 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
                 std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits <<
                         " total timer took " << total.total_duration.count() << std::endl;
-            });
 
-            ef_search_param_id++;
-        }
+                ef_search_param_id++;
+            }
 
-        std::cout << "Finished searches in bucket " << b << std::endl;
+            std::cout << "Finished searches in bucket " << b << std::endl;
+        });
     }
 
     return shard_searches;
