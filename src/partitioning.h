@@ -19,11 +19,11 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     Timer timer;
     timer.Start();
     std::vector<int> partition;
-    if (depth == 0) {
-        partition = BalancedKMeans(points, centroids, max_cluster_size);
-    } else {
+    //if (depth == 0) {
+    //    partition = BalancedKMeans(points, centroids, max_cluster_size);
+    //} else {
         partition = KMeans(points, centroids);
-    }
+    //}
     std::cout << "k-means at depth " << depth << " took " << timer.Stop() << " s" << std::endl;
 
     num_clusters = *std::max_element(partition.begin(), partition.end()) + 1;
@@ -69,14 +69,15 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
             // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
             std::cout << "Cluster " << part_id << " / " << num_clusters << " at depth " << depth << " was overloaded " << cluster_sizes[part_id] << " / " <<
-                    max_cluster_size
-                    << " and got split into " << max_sub_part_id + 1 << " sub-clusters" << std::endl;
+                        max_cluster_size << " and got split into " << max_sub_part_id + 1 << " sub-clusters" << std::endl;
             for (uint32_t sub_point_id = 0; sub_point_id < cluster.size(); ++sub_point_id) {
-                uint32_t point_id = cluster[sub_point_id];
-                partition[point_id] = next_part_id + sub_partition[sub_point_id];
+                if (sub_partition[sub_point_id] != 0) {     // reuse old part ID for the first sub-cluster. the others get a new one
+                    uint32_t point_id = cluster[sub_point_id];
+                    partition[point_id] = next_part_id + sub_partition[sub_point_id] - 1;   // the sub_partition IDs used here start with 1 --> -1
+                }
             }
 
-            next_part_id += max_sub_part_id + 1;
+            next_part_id += max_sub_part_id;
         }
     }
 
@@ -87,10 +88,19 @@ std::vector<int> KMeansPartitioning(PointSet& points, int num_clusters, double e
     size_t max_cluster_size = points.n * (1 + epsilon) / num_clusters;
     int num_clusters_bound = std::numeric_limits<int>::max();
     std::vector<int> partition;
-    for (int requested_num_clusters = num_clusters; requested_num_clusters < num_clusters_bound; ++requested_num_clusters) {
-        std::vector<int> new_partition = RecursiveKMeansPartitioning(points, max_cluster_size, 0, num_clusters);
+    for (int requested_num_clusters = num_clusters; requested_num_clusters <= num_clusters_bound; ++requested_num_clusters) {
+        std::cout << "-----------------------------\n";
+        std::cout << "ask for new partition with " << requested_num_clusters << " clusters" << std::endl;
+        std::cout << "-----------------------------\n";
+        std::vector<int> new_partition = RecursiveKMeansPartitioning(points, max_cluster_size, 0, requested_num_clusters);
+
         int num_clusters_in_new_partition = NumPartsInPartition(new_partition);
-        if (num_clusters_in_new_partition < num_clusters_bound) {
+        std::cout << "-----------------------------\n";
+        std::cout << "new partition has " << num_clusters_in_new_partition << " clusters. old bound = " << num_clusters_bound << std::endl;
+        std::cout << "-----------------------------\n";
+
+        // <= instead of < prefers partitions that were split less
+        if (num_clusters_in_new_partition <= num_clusters_bound) {
             num_clusters_bound = num_clusters_in_new_partition;
             partition = std::move(new_partition);
         }

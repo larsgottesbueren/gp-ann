@@ -63,7 +63,7 @@ int main(int argc, const char* argv[]) {
     } else if (part_method == "Pyramid") {
         partition = PyramidPartitioning(points, k, eps, part_file + ".pyramid_routing_index");
     } else if (part_method == "KMeans") {
-        partition = RecursiveKMeansPartitioning(points, k, eps);
+        partition = KMeansPartitioning(points, k, eps);
     } else if (part_method == "BalancedKMeans") {
         partition = BalancedKMeansCall(points, k, eps);
     } else if (part_method == "FlatKMeans") {

@@ -54,6 +54,23 @@ std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<i
     return buckets;
 }
 
+void RemapPartitionIDs(std::vector<int>& partition) {
+    if (partition.empty()) return;
+    int num_shards = NumPartsInPartition(partition);
+    std::vector<size_t> num_points_in_shard(num_shards, 0);
+    for (int x : partition) { num_points_in_shard[x]++; }
+    if (std::any_of(num_points_in_shard.begin(), num_points_in_shard.end(), [](const auto& n) { return n == 0; })) {
+        std::vector<int> remapped(num_shards, 0);
+        int l = 0;
+        for (int r = 0; r < num_shards; ++r) {
+            if (num_points_in_shard[r] > 0) {
+                remapped[r] = l++;
+            }
+        }
+        for (int& x : partition) { x = remapped[x]; }
+    }
+}
+
 using AdjGraph = std::vector<std::vector<int>>;
 
 using NNVec = std::vector<std::pair<float, uint32_t>>;
