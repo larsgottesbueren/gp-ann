@@ -19,6 +19,19 @@ int main(int argc, const char* argv[]) {
     int num_neighbors = std::stoi(k_string);
     std::string partition_file = argv[3];
 
+    auto partition = ReadMetisPartition(partition_file);
+    std::cout << "Finished reading partition file" << std::endl;
+
+    int num_parts = NumPartsInPartition(partition);
+    std::cout << "num parts in partition: " << num_parts << std::endl;
+    std::cout << "shard sizes ";
+    std::vector<int> cluster_size(num_parts, 0);
+    for (int x : partition) cluster_size[x]++;
+    for (int i = 0; i < num_parts; ++i) { std::cout << cluster_size[i] << " (" << 100.0 * cluster_size[i] / partition.size() << ")%  "; }
+    std::cout << std::endl;
+
+    std::cout << "max desired % " << 100.0 * (1.05 / 16) << std::endl;
+
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -32,9 +45,6 @@ int main(int argc, const char* argv[]) {
         ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
         std::cout << "computed ground truth" << std::endl;
     }
-
-    auto partition = ReadMetisPartition(partition_file);
-    std::cout << "Finished reading partition file" << std::endl;
 
     OracleRecall(ground_truth, partition, num_neighbors);
 }

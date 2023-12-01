@@ -76,5 +76,5 @@ int main(int argc, const char* argv[]) {
     }
     std::cout << "Finished partitioning" << std::endl;
     PrintImbalance(partition, k);
-    // WriteMetisPartition(partition, part_file);
+    WriteMetisPartition(partition, part_file);
 }
