@@ -55,16 +55,14 @@ struct RoutingConfig {
 
     static RoutingConfig Deserialize(std::ifstream& in) {
         RoutingConfig r;
-        int num_queries = 100000;
         std::string line;
         std::getline(in, line);
         std::istringstream iss(line);
-        uint64_t mangled_queries_and_routing_budget;
+        int num_queries;
         iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.
                 try_increasing_num_shards >> std::noboolalpha
-                // >> num_queries >> r.routing_index_options.budget
-                >> mangled_queries_and_routing_budget >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
-        r.routing_index_options.budget = CleanMangledRoutingBudget(mangled_queries_and_routing_budget, num_queries);
+                >> num_queries >> r.routing_index_options.budget
+                >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
         // std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << r.try_increasing_num_shards << std::noboolalpha << " " << num_queries << std::endl;
         for (int i = 0; i < num_queries; ++i) {
             std::getline(in, line);

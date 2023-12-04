@@ -1,10 +1,12 @@
 #include <iostream>
 
+#include "points_io.h"
+#include "metis_io.h"
 #include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
     if (argc != 6) {
-        std::cerr << "Usage ./Convert routes searches output part-method num-actual-shards" << std::endl;
+        std::cerr << "Usage ./Convert routes searches output part-method part-file query-file" << std::endl;
         std::abort();
     }
 
@@ -18,8 +20,14 @@ int main(int argc, const char* argv[]) {
 
     std::string output_file = argv[3];
     std::string part_method = argv[4];
-    std::string num_actual_shards_str = argv[5];
-    int num_actual_shards = std::stoi(num_actual_shards_str);
-    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file,
-    10, 100000, num_actual_shards, 40, part_method);
+    std::string part_file = argv[5];
+    std::string query_file = argv[6];
+
+    auto partition = ReadMetisPartition(part_file);
+    int num_actual_shards = NumPartsInPartition(partition);
+
+    auto queries = ReadPoints(query_file);
+    int num_queries = queries.n;
+
+    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file, 10, num_queries, num_actual_shards, 40, part_method);
 }
