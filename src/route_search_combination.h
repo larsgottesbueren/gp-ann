@@ -128,7 +128,12 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
                 std::vector<size_t> assigned_hosts(num_shards, 1);
                 size_t num_hosts = num_shards;
 
-                for (size_t extra_hosts = 0; extra_hosts < 21; ++extra_hosts, ++num_hosts) {
+                // allow up to 20 replicas to combat load imbalance
+                // but if a partitioning method already uses more than the requested number of shards
+                // then don't give it the load imbalance replicas on top -- this would obfuscate the raw QPS numbers.
+                const size_t max_num_hosts = std::max(num_requested_shards + 20, num_shards);
+
+                for ( ; num_hosts <= max_num_hosts; ++num_hosts) {
                     const size_t max_shard = std::distance(lwr.begin(), std::max_element(lwr.begin(), lwr.end()));
                     const double max_latency = lwr[max_shard];
 
