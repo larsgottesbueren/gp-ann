@@ -5,7 +5,7 @@
 #include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
-    if (argc != 6) {
+    if (argc != 7) {
         std::cerr << "Usage ./Convert routes searches output part-method part-file query-file" << std::endl;
         std::abort();
     }
