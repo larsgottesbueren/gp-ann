@@ -215,18 +215,18 @@ void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int
 
 std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
     if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
-	std::vector<int> closest_center(P.n, -1);
+    std::vector<int> closest_center(P.n, -1);
     parlay::sequence<float> vector_sqrt_norms;
     #ifdef MIPS_DISTANCE
     // precompute norms and sqrts since it slowed down centroid calculation
     vector_sqrt_norms = parlay::tabulate(P.n, [&](size_t i) -> float { return std::sqrt(vec_norm(P.GetPoint(i), P.d)); });
     #endif
-	static constexpr size_t NUM_ROUNDS = 20;
-	for (size_t r = 0; r < NUM_ROUNDS; ++r) {
-		NearestCenters(P, centroids, closest_center);
-		AggregateClustersParallel(P, centroids, closest_center, vector_sqrt_norms);
-	}
-	return closest_center;
+    static constexpr size_t NUM_ROUNDS = 20;
+    for (size_t r = 0; r < NUM_ROUNDS; ++r) {
+        NearestCenters(P, centroids, closest_center);
+        AggregateClustersParallel(P, centroids, closest_center, vector_sqrt_norms);
+    }
+return closest_center;
 }
 
 void KMeansRebalancing(PointSet& points, PointSet& centroids, size_t max_cluster_size, std::vector<size_t>& cluster_sizes_ext,

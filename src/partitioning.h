@@ -86,26 +86,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
 
 std::vector<int> KMeansPartitioning(PointSet& points, int num_clusters, double epsilon) {
     size_t max_cluster_size = points.n * (1 + epsilon) / num_clusters;
-    int num_clusters_bound = std::numeric_limits<int>::max();
-    std::vector<int> partition;
-    for (int requested_num_clusters = num_clusters; requested_num_clusters <= num_clusters_bound; ++requested_num_clusters) {
-        std::cout << "-----------------------------\n";
-        std::cout << "ask for new partition with " << requested_num_clusters << " clusters" << std::endl;
-        std::cout << "-----------------------------\n";
-        std::vector<int> new_partition = RecursiveKMeansPartitioning(points, max_cluster_size, 0, requested_num_clusters);
-
-        int num_clusters_in_new_partition = NumPartsInPartition(new_partition);
-        std::cout << "-----------------------------\n";
-        std::cout << "new partition has " << num_clusters_in_new_partition << " clusters. old bound = " << num_clusters_bound << std::endl;
-        std::cout << "-----------------------------\n";
-
-        // <= instead of < prefers partitions that were split less
-        if (num_clusters_in_new_partition <= num_clusters_bound) {
-            num_clusters_bound = num_clusters_in_new_partition;
-            partition = std::move(new_partition);
-        }
-    }
-    return partition;
+    return RecursiveKMeansPartitioning(points, max_cluster_size, 0, num_clusters);
 }
 
 struct CSR {
