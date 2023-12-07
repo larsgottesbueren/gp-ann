@@ -19,6 +19,7 @@ std::vector<int> FlatKMeansCall(PointSet& points, int k, double eps) {
 void PrintImbalance(std::vector<int>& partition, int k) {
     auto histo = parlay::histogram_by_index(partition, k);
     auto max_part_size = *parlay::max_element(histo);
+    std::cout << " max part size " << max_part_size << " " << partition.size() << " " << k << std::endl;
     double imbalance = double(max_part_size) / (partition.size() / k);
     std::cout << "imbalance " << imbalance << " max part size " << max_part_size << " perf balanced " << partition.size() / k << std::endl;
 }

@@ -249,11 +249,11 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     };
 
     // directly from the BKM+ implementation. seems SUPER bogus
-    auto penalty_function_iter = [](int round) -> double { if (round > 100) { return 1.01; } else { return 1.1009 - 0.0009 * round; } };
+    auto penalty_function_iter = [](int round) -> double { if (round > 100) { return 1.01; } else { return 1.5009 - 0.0009 * round; } };
 
     int round = 0;
-    constexpr int MAX_ROUNDS = 30;
-    double round_penalty = penalty_function_iter(round);
+    constexpr int MAX_ROUNDS = 500;
+    double round_penalty = 0.0;
 
     std::vector<int> best_partition;
     double best_objective = std::numeric_limits<double>::max();
@@ -267,7 +267,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
         // mini-batch cluster moves and updates
         auto perm = parlay::random_shuffle(parlay::iota<uint32_t>(points.n), parlay::random(round));
-        size_t num_subrounds = 20;
+        size_t num_subrounds = 1000;
         size_t n = points.n;
         size_t chunk_size = idiv_ceil(n, num_subrounds);
         for (size_t sub_round = 0; sub_round < num_subrounds; ++sub_round) {
@@ -289,26 +289,44 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     const size_t cluster_size = cluster_sizes[j];
                     float dist = distance(centroids.GetPoint(j), p, points.d);
                     const double score = dist + round_penalty * cluster_size;
-                    if (score >= best_score) { continue; }
-
                     int denom = old_cluster_size - cluster_size;
                     if (denom == 0) { denom = 1; }
 
                     const double penalty_needed = (dist - old_cluster_dist) / denom;
-                    if (cluster_size < old_cluster_size) {
-                        if (penalty_needed <= round_penalty) {
+#if true
+                    if (old_cluster_size > cluster_size) {
+                        if (round_penalty < penalty_needed) {
+                            if (penalty_needed < min_penalty_needed) { min_penalty_needed = penalty_needed; }
+                        } else {
+                            if (score < best_score) {
+                                best = j;
+                                best_score = score;
+                            }
+                        }
+                    } else {
+                        if (round_penalty < penalty_needed && score < best_score) {
                             best = j;
                             best_score = score;
+                        }
+                    }
+#else
+                    if (cluster_size < old_cluster_size) {
+                        if (penalty_needed <= round_penalty) {
+                            if (score < best_score) {
+                                best = j;
+                                best_score = score;
+                            }
                         } else {
                             // BKM+ code says this goes only in this branch, not in the other
                             min_penalty_needed = std::min(min_penalty_needed, penalty_needed);
                         }
                     } else {
-                        if (penalty_needed > round_penalty) {
+                        if (penalty_needed > round_penalty && score < best_score) {
                             best = j;
                             best_score = score;
                         }
                     }
+#endif
                 }
 
                 penalties_needed[point_id] = min_penalty_needed;
@@ -337,9 +355,10 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
 
         print_cluster_sizes();
+        const double next_penalty = *parlay::min_element(penalties_needed);
+        const double objective = ObjectiveValue(points, centroids, closest_center);
+        std::cout << "objective " << objective <<  " next penalty " << next_penalty << std::endl;
         if (is_balanced()) {
-            double objective = ObjectiveValue(points, centroids, closest_center);
-            std::cout << "objective " << objective << std::endl;
             if (objective < best_objective) {
                 best_objective = objective;
                 best_partition = closest_center;
@@ -349,7 +368,6 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
             }
         } else {
             // adjust penalty
-            const double next_penalty = *parlay::min_element(penalties_needed);
             round_penalty = penalty_function_iter(round) * next_penalty;
         }
     }
