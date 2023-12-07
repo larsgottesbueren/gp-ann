@@ -255,7 +255,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     constexpr int MAX_ROUNDS = 500;
     double round_penalty = 0.0;
 
-    std::vector<int> best_partition;
+    std::vector<int> best_partition = closest_center;
     double best_objective = std::numeric_limits<double>::max();
 
     parlay::sequence<double> penalties_needed(points.n);
