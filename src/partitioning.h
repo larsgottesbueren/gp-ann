@@ -22,7 +22,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     //if (depth == 0) {
     //    partition = BalancedKMeans(points, centroids, max_cluster_size);
     //} else {
-        partition = KMeans(points, centroids);
+    partition = KMeans(points, centroids);
     //}
     std::cout << "k-means at depth " << depth << " took " << timer.Stop() << " s" << std::endl;
 
@@ -30,16 +30,10 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
 
     std::vector<size_t> cluster_sizes(num_clusters, 0);
 
-    for (int part_id : partition) {
-        cluster_sizes[part_id]++;
-    }
+    for (int part_id : partition) { cluster_sizes[part_id]++; }
 
     int num_overloaded_clusters = 0;
-    for (int part_id = 0; part_id < num_clusters; ++part_id) {
-        if (cluster_sizes[part_id] > max_cluster_size) {
-            num_overloaded_clusters++;
-        }
-    }
+    for (int part_id = 0; part_id < num_clusters; ++part_id) { if (cluster_sizes[part_id] > max_cluster_size) { num_overloaded_clusters++; } }
 
     if (num_overloaded_clusters > 0) {
         std::cout << "At depth " << depth << " there are " << num_overloaded_clusters << " / " << num_clusters << " too heavy clusters. Refine them" <<
@@ -54,11 +48,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
 
             // Determine nodes in the cluster (could do it for all clusters at once, be we assume that this happens for 1-2 clusters --> this is faster and uses less memory)
             std::vector<uint32_t> cluster;
-            for (uint32_t point_id = 0; point_id < partition.size(); ++point_id) {
-                if (partition[point_id] == part_id) {
-                    cluster.push_back(point_id);
-                }
-            }
+            for (uint32_t point_id = 0; point_id < partition.size(); ++point_id) { if (partition[point_id] == part_id) { cluster.push_back(point_id); } }
 
             // Set up the point subset of the cluster
             PointSet cluster_point_set = ExtractPointsInBucket(cluster, points);
@@ -69,11 +59,11 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
             // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
             std::cout << "Cluster " << part_id << " / " << num_clusters << " at depth " << depth << " was overloaded " << cluster_sizes[part_id] << " / " <<
-                        max_cluster_size << " and got split into " << max_sub_part_id + 1 << " sub-clusters" << std::endl;
+                    max_cluster_size << " and got split into " << max_sub_part_id + 1 << " sub-clusters" << std::endl;
             for (uint32_t sub_point_id = 0; sub_point_id < cluster.size(); ++sub_point_id) {
-                if (sub_partition[sub_point_id] != 0) {     // reuse old part ID for the first sub-cluster. the others get a new one
+                if (sub_partition[sub_point_id] != 0) { // reuse old part ID for the first sub-cluster. the others get a new one
                     uint32_t point_id = cluster[sub_point_id];
-                    partition[point_id] = next_part_id + sub_partition[sub_point_id] - 1;   // the sub_partition IDs used here start with 1 --> -1
+                    partition[point_id] = next_part_id + sub_partition[sub_point_id] - 1; // the sub_partition IDs used here start with 1 --> -1
                 }
             }
 
@@ -99,15 +89,11 @@ struct CSR {
 CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
     CSR csr;
     size_t num_edges = 0;
-    for (const auto& n : graph) {
-        num_edges += n.size();
-    }
+    for (const auto& n : graph) { num_edges += n.size(); }
     csr.xadj.reserve(graph.size() + 1);
     csr.adjncy.reserve(num_edges);
     for (const auto& n : graph) {
-        for (const int neighbor : n) {
-            csr.adjncy.push_back(neighbor);
-        }
+        for (const int neighbor : n) { csr.adjncy.push_back(neighbor); }
         csr.xadj.push_back(csr.adjncy.size());
     }
     return csr;
