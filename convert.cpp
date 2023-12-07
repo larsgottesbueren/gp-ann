@@ -5,6 +5,16 @@
 #include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
+
+    std::string file = argv[1];
+    std::string str_num_points = argv[2];
+    int num_points = std::stoi(str_num_points);
+    PointSet points = ReadPoints(file, num_points);
+
+    std::string out_file = argv[3];
+    WritePoints(points, out_file);
+
+#if false
     if (argc != 7) {
         std::cerr << "Usage ./Convert routes searches output part-method part-file query-file" << std::endl;
         std::abort();
@@ -30,4 +40,5 @@ int main(int argc, const char* argv[]) {
     int num_queries = queries.n;
 
     PrintCombinationsOfRoutesAndSearches(routes, searches, output_file, 10, num_queries, num_actual_shards, 40, part_method);
+#endif
 }

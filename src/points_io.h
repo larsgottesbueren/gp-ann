@@ -17,14 +17,14 @@ PointSet ReadPoints(const std::string& path, int64_t size = -1) {
     size_t offset = 0;
     {
         std::ifstream in(path, std::ios::binary);
-        if (size == -1) {
-            in.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
-            offset += sizeof(uint32_t);
-        } else {
-            n = size;
-        }
+        in.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        offset += sizeof(uint32_t);
         in.read(reinterpret_cast<char*>(&d), sizeof(uint32_t));
         offset += sizeof(uint32_t);
+    }
+
+    if (size != -1) {
+        n = size;
     }
 
     std::cout << n << " " << d << std::endl;
