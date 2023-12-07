@@ -230,13 +230,15 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     std::vector<size_t> cluster_sizes =
             AggregateClustersParallel(points, cluster_coordinate_sums, closest_center, /*TODO mips*/{ }, false);
 
+    std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
+
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
 
     if (is_balanced()) return closest_center;
 
     auto print_cluster_sizes = [&] -> void {
         size_t max_size = *parlay::max_element(cluster_sizes);
-        size_t min_size = *parlay::max_element(cluster_sizes);
+        size_t min_size = *parlay::min_element(cluster_sizes);
         size_t perfect_balance = points.n / centroids.n;
         double overshot = double(max_size) / max_cluster_size;
         double imbalance = double(max_size) / perfect_balance;
@@ -250,7 +252,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     auto penalty_function_iter = [](int round) -> double { if (round > 100) { return 1.01; } else { return 1.1009 - 0.0009 * round; } };
 
     int round = 0;
-    constexpr int MAX_ROUNDS = 15;
+    constexpr int MAX_ROUNDS = 30;
     double round_penalty = penalty_function_iter(round);
 
     std::vector<int> best_partition;
@@ -337,6 +339,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
         print_cluster_sizes();
         if (is_balanced()) {
             double objective = ObjectiveValue(points, centroids, closest_center);
+            std::cout << "objective " << objective << std::endl;
             if (objective < best_objective) {
                 best_objective = objective;
                 best_partition = closest_center;
