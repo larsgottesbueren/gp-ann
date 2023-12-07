@@ -236,7 +236,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     if (is_balanced()) return closest_center;
 
-    auto print_cluster_sizes = [&] -> void {
+    auto print_cluster_sizes = [&] {
         size_t max_size = *parlay::max_element(cluster_sizes);
         size_t min_size = *parlay::min_element(cluster_sizes);
         size_t perfect_balance = points.n / centroids.n;
