@@ -91,10 +91,17 @@ std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vec
     return cluster_size;
 }
 
-void atomic_fetch_add_float(float* addr, float x) {
+inline void atomic_fetch_add_float(float* addr, float x) {
     float expected;
     __atomic_load(addr, &expected, __ATOMIC_RELAXED);
     float desired = expected + x;
+    while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
+}
+
+inline void atomic_fetch_add_double(double* addr, double x) {
+    double expected;
+    __atomic_load(addr, &expected, __ATOMIC_RELAXED);
+    double desired = expected + x;
     while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
 }
 
@@ -218,7 +225,7 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 double ObjectiveValue(PointSet& points, PointSet& centroids, const std::vector<int>& closest_center) {
     return parlay::reduce(
         parlay::delayed_tabulate(points.n, [&](size_t i) -> double {
-            return distance(points.GetPoint(i), centroids.GetPoint(closest_center[i]), points.d);
+            return pos_distance(points.GetPoint(i), centroids.GetPoint(closest_center[i]), points.d);
         })
     );
 }
@@ -232,9 +239,20 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
 
+
+    // precompute norms and sqrts since it slowed down centroid calculation
+    parlay::sequence<double> vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> double {
+        return std::sqrt(vec_norm(points.GetPoint(i), points.d));
+    });
+
+    parlay::sequence<double> cluster_norm_sums = parlay::reduce_by_index(
+        parlay::zip(closest_center, vector_sqrt_norms),
+        centroids.n);
+
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
 
-    if (is_balanced()) return closest_center;
+    if (is_balanced())
+        return closest_center;
 
     auto print_cluster_sizes = [&] {
         size_t max_size = *parlay::max_element(cluster_sizes);
@@ -245,10 +263,10 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
         double imbalance2 = double(min_size) / perfect_balance;
 
         std::cout << "overshot " << overshot << " imbalance " << imbalance << " min imb " << imbalance2 << " largest cluster size " << max_size
-                    << " constraint " << max_cluster_size << std::endl;
+                << " constraint " << max_cluster_size << std::endl;
     };
 
-    // directly from the BKM+ implementation. seems SUPER bogus
+    // taken from the BKM+ paper and implementation.
     auto penalty_function_iter = [](int round) -> double { if (round > 100) { return 1.01; } else { return 1.5009 - 0.0009 * round; } };
 
     int round = 0;
@@ -278,10 +296,8 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                 uint32_t point_id = perm[i];
                 float* p = points.GetPoint(point_id);
                 const int old_cluster = closest_center[point_id];
-                float old_cluster_dist = distance(centroids.GetPoint(old_cluster), p, points.d);
-                #ifdef MIPS_DISTANCE
-                old_cluster_dist += 1.0f;
-                #endif
+                const float old_cluster_dist = pos_distance(centroids.GetPoint(old_cluster), p, points.d);
+
                 const size_t old_cluster_size = cluster_sizes[old_cluster];
 
                 int best = old_cluster;
@@ -290,10 +306,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
                 for (int j = 0; j < int(centroids.n); ++j) {
                     const size_t cluster_size = cluster_sizes[j];
-                    float dist = distance(centroids.GetPoint(j), p, points.d);
-                    #ifdef MIPS_DISTANCE
-                    dist += 1.0f;
-                    #endif
+                    const float dist = pos_distance(centroids.GetPoint(j), p, points.d);
                     const double score = dist + round_penalty * cluster_size;
                     int denom = old_cluster_size - cluster_size;
                     if (denom == 0) { denom = 1; }
@@ -314,7 +327,6 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                             best_score = score;
                         }
                     }
-
                 }
 
                 penalties_needed[point_id] = min_penalty_needed;
@@ -330,22 +342,52 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
                     float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
                     for (int j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
+
+#ifdef MIPS_DISTANCE
+                    atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -vector_sqrt_norms[point_id]);
+                    atomic_fetch_add_double(&cluster_norm_sums[best], vector_sqrt_norms[point_id]);
+#endif
                 }
             });
 
             // update centroids phase
+#ifdef MIPS_DISTANCE
             for (int c = 0; c < centroids.n; ++c) {
                 float* C = centroids.GetPoint(c);
                 float* C2 = cluster_coordinate_sums.GetPoint(c);
-                for (int j = 0; j < centroids.d; ++j) { if (cluster_sizes[c] == 0) { C[j] = 0.0; } else { C[j] = C2[j] / cluster_sizes[c]; } }
+                if (cluster_size[c] == 0) {
+                    for (int j = 0; j < centroids.d; ++j) {
+                        C[j] = 0.0f;
+                    }
+                } else {
+                    float desired_norm = norm_sums[c] / cluster_size[c];
+                    float current_norm = vec_norm(C, centroids.d);
+                    float multiplier = std::sqrt(desired_norm / current_norm);
+                    for (int j = 0; j < centroids.d; ++j) {
+                        C[j] = C2[j] * multiplier;
+                    }
+                }
             }
+#else
+            for (int c = 0; c < centroids.n; ++c) {
+                float* C = centroids.GetPoint(c);
+                float* C2 = cluster_coordinate_sums.GetPoint(c);
+                for (int j = 0; j < centroids.d; ++j) {
+                    if (cluster_sizes[c] == 0) {
+                        C[j] = 0.0;
+                    } else {
+                        C[j] = C2[j] / cluster_sizes[c];
+                    }
+                }
+            }
+#endif
         }
 
 
         print_cluster_sizes();
         const double next_penalty = *parlay::min_element(penalties_needed);
         const double objective = ObjectiveValue(points, centroids, closest_center);
-        std::cout << "objective " << objective <<  " next penalty " << next_penalty << std::endl;
+        std::cout << "objective " << objective << " next penalty " << next_penalty << std::endl;
         if (is_balanced()) {
             if (objective < best_objective) {
                 best_objective = objective;

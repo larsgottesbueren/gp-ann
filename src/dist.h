@@ -79,3 +79,10 @@ float distance(float *p, float *q, unsigned d) {
     return sqr_l2_dist(p, q, d);
     #endif
 }
+
+float pos_distance(float* p, float* q, unsigned d) {
+#ifdef MIPS_DISTANCE
+    return distance(p, q, d) + 1.0;
+#endif
+    return distance(p, q, d);
+}
