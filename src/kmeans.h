@@ -355,12 +355,12 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
             for (int c = 0; c < centroids.n; ++c) {
                 float* C = centroids.GetPoint(c);
                 float* C2 = cluster_coordinate_sums.GetPoint(c);
-                if (cluster_size[c] == 0) {
+                if (cluster_sizes[c] == 0) {
                     for (int j = 0; j < centroids.d; ++j) {
                         C[j] = 0.0f;
                     }
                 } else {
-                    float desired_norm = norm_sums[c] / cluster_size[c];
+                    float desired_norm = cluster_norm_sums[c] / cluster_sizes[c];
                     float current_norm = vec_norm(C, centroids.d);
                     float multiplier = std::sqrt(desired_norm / current_norm);
                     for (int j = 0; j < centroids.d; ++j) {
