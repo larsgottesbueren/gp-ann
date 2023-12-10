@@ -278,7 +278,10 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                 uint32_t point_id = perm[i];
                 float* p = points.GetPoint(point_id);
                 const int old_cluster = closest_center[point_id];
-                const float old_cluster_dist = distance(centroids.GetPoint(old_cluster), p, points.d);
+                float old_cluster_dist = distance(centroids.GetPoint(old_cluster), p, points.d);
+                #ifdef MIPS_DISTANCE
+                old_cluster_dist += 1.0f;
+                #endif
                 const size_t old_cluster_size = cluster_sizes[old_cluster];
 
                 int best = old_cluster;
@@ -288,12 +291,14 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                 for (int j = 0; j < int(centroids.n); ++j) {
                     const size_t cluster_size = cluster_sizes[j];
                     float dist = distance(centroids.GetPoint(j), p, points.d);
+                    #ifdef MIPS_DISTANCE
+                    dist += 1.0f;
+                    #endif
                     const double score = dist + round_penalty * cluster_size;
                     int denom = old_cluster_size - cluster_size;
                     if (denom == 0) { denom = 1; }
 
                     const double penalty_needed = (dist - old_cluster_dist) / denom;
-#if true
                     if (old_cluster_size > cluster_size) {
                         if (round_penalty < penalty_needed) {
                             if (penalty_needed < min_penalty_needed) { min_penalty_needed = penalty_needed; }
@@ -309,24 +314,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                             best_score = score;
                         }
                     }
-#else
-                    if (cluster_size < old_cluster_size) {
-                        if (penalty_needed <= round_penalty) {
-                            if (score < best_score) {
-                                best = j;
-                                best_score = score;
-                            }
-                        } else {
-                            // BKM+ code says this goes only in this branch, not in the other
-                            min_penalty_needed = std::min(min_penalty_needed, penalty_needed);
-                        }
-                    } else {
-                        if (penalty_needed > round_penalty && score < best_score) {
-                            best = j;
-                            best_score = score;
-                        }
-                    }
-#endif
+
                 }
 
                 penalties_needed[point_id] = min_penalty_needed;
