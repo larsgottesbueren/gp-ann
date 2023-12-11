@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(GP-ANNS)
 
+# for converting relative paths to absolute paths
+cmake_policy(SET CMP0076 NEW)
+
 option(KAMINPAR_64BIT_WEIGHTS "Enable 64 bit weights in KaMinPar" ON)
 option(KAMINPAR_64BIT_EDGE_IDS "Enable 64 bit edge IDs in KaMinPar" ON)
 
@@ -26,19 +29,25 @@ add_executable(QueryAttribution run_query_attribution.cpp)
 add_executable(OracleRecall oracle_recall.cpp)
 #add_executable(DistributedBench distributed_bench.cpp)
 
-target_link_libraries(RunQueries PUBLIC parlay)
-target_link_libraries(Convert PUBLIC parlay)
-target_link_libraries(Partition PUBLIC parlay kaminpar_shm)
-target_link_libraries(QueryAttribution PUBLIC parlay)
-target_link_libraries(OracleRecall PUBLIC parlay)
+set(TARGETS
+		RunQueries
+		Convert
+		Partition
+		QueryAttribution
+		OracleRecall)
+
+foreach(target IN LISTS TARGETS)
+	target_link_libraries(${target} PUBLIC parlay)
+endforeach()
+
+target_link_libraries(Partition PUBLIC kaminpar_shm)
 #target_link_libraries(DistributedBench PUBLIC parlay message-queue kassert::kassert)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)
-	target_compile_definitions(Partition PUBLIC MIPS_DISTANCE)
-	target_compile_definitions(RunQueries PUBLIC MIPS_DISTANCE)
-	target_compile_definitions(QueryAttribution PUBLIC MIPS_DISTANCE)
-	target_compile_definitions(OracleRecall PUBLIC MIPS_DISTANCE)
+	foreach(target IN LISTS TARGETS)
+		target_compile_definitions(${target} PUBLIC MIPS_DISTANCE)
+	endforeach()
 endif(MIPS_DISTANCE)
 
 find_library(TCMALLOC_LIB tcmalloc)
@@ -49,3 +58,6 @@ if (TCMALLOC_LIB)
 else ()
 	message(STATUS "tcmalloc enabled but unavailable on this system")
 endif ()
+
+
+add_subdirectory(src)
