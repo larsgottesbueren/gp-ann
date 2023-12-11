@@ -47,6 +47,8 @@ namespace {
         }
     }
 
+#ifdef MIPS_DISTANCE
+
     void NormalizeCentroidsIP(PointSet& centroids, const std::vector<size_t>& cluster_size, const std::vector<float>& norm_sums) {
         for (size_t c = 0; c < centroids.n; ++c) {
             float* C = centroids.GetPoint(c);
@@ -57,6 +59,21 @@ namespace {
             for (size_t j = 0; j < centroids.d; ++j) { C[j] *= multiplier; }
         }
     }
+
+    void SumPointsInClustersIP(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, std::vector<size_t>& cluster_size,
+                               const parlay::sequence<float>& vector_sqrt_norms, std::vector<float>& norm_sums, size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            int c = closest_center[i];
+            cluster_size[c]++;
+            float* C = centroids.GetPoint(c);
+            float* Pi = P.GetPoint(i);
+            norm_sums[c] += vector_sqrt_norms[i] * vector_sqrt_norms[i];
+            float multiplier = 1.0f / vector_sqrt_norms[i];
+            for (size_t j = 0; j < P.d; ++j) { C[j] += Pi[j] * multiplier; }
+        }
+    }
+
+#else
 
     void NormalizeCentroidsL2(PointSet& centroids, const std::vector<size_t>& cluster_size) {
         for (size_t c = 0; c < centroids.n; ++c) {
@@ -77,18 +94,7 @@ namespace {
         }
     }
 
-    void SumPointsInClustersIP(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, std::vector<size_t>& cluster_size,
-                               const parlay::sequence<float>& vector_sqrt_norms, std::vector<float>& norm_sums, size_t start, size_t end) {
-        for (size_t i = start; i < end; ++i) {
-            int c = closest_center[i];
-            cluster_size[c]++;
-            float* C = centroids.GetPoint(c);
-            float* Pi = P.GetPoint(i);
-            norm_sums[c] += vector_sqrt_norms[i] * vector_sqrt_norms[i];
-            float multiplier = 1.0f / vector_sqrt_norms[i];
-            for (size_t j = 0; j < P.d; ++j) { C[j] += Pi[j] * multiplier; }
-        }
-    }
+#endif
 
     std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center,
                                           const parlay::sequence<float>& vector_sqrt_norms, bool normalize = true) {
