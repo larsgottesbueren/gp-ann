@@ -36,6 +36,14 @@ std::vector<std::vector<uint32_t>> ConvertPartitionToClusters(const std::vector<
     return buckets;
 }
 
+Cover ConvertPartitionToCover(const Partition& partition) {
+    Cover cover(partition.size());
+    for (size_t i = 0; i < partition.size(); ++i) {
+        cover[i].push_back(partition[i]);
+    }
+    return cover;
+}
+
 Cover ConvertClustersToCover(const Clusters& clusters) {
     uint32_t max_point_id = 0;
     for (const auto & cluster : clusters) {

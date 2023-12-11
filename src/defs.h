@@ -31,6 +31,8 @@ int NumPartsInPartition(const Partition& partition);
 
 Clusters ConvertPartitionToClusters(const Partition& partition);
 
+Cover ConvertPartitionToCover(const Partition& partition);
+
 Cover ConvertClustersToCover(const Clusters& clusters);
 
 void RemapPartitionIDs(std::vector<int>& partition);
