@@ -6,6 +6,10 @@ set(Sources
 		metis_io.cpp
 )
 
+set (RoutingSources
+		kmeans_tree_router.cpp
+)
+
 foreach(target IN LISTS TARGETS)
 	message(STATUS "Adding sources to target : ${target}")
 	message(STATUS "Sources:  ${Sources}")
@@ -14,4 +18,4 @@ endforeach()
 
 target_sources(Partition PRIVATE partitioning.cpp)
 
-target_sources(QueryAttribution PRIVATE routes.cpp shard_searches.cpp route_search_combination.cpp)
+target_sources(QueryAttribution PRIVATE routes.cpp shard_searches.cpp route_search_combination.cpp kmeans_tree_router.cpp)
