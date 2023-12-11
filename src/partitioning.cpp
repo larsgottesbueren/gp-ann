@@ -115,6 +115,13 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
     return partition;
 }
 
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon) {
+    auto copy = adj_graph;
+    Symmetrize(copy);
+    CSR csr = ConvertAdjGraphToCSR(copy);
+    return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
+}
+
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
     Timer timer;
@@ -122,19 +129,13 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
     points.Drop();
-    std::cout << "Dealloc took " << timer.Restart() << std::endl;
-    Symmetrize(knn_graph);
-    std::cout << "symmetrize took " << timer.Restart() << std::endl;
+    std::cout << "Dealloc took " << timer.Stop() << std::endl;
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
         WriteMetisGraph(graph_output_path, knn_graph);
         std::cout << "Writing graph file took " << timer.Restart() << std::endl;
     }
-    CSR csr = ConvertAdjGraphToCSR(knn_graph);
-    std::cout << "Converting graph to CSR took " << timer.Restart() << std::endl;
-    knn_graph.clear();
-    knn_graph.shrink_to_fit();
-    return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
+    return PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
 }
 
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "") {
