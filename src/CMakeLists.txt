@@ -14,4 +14,4 @@ endforeach()
 
 target_sources(Partition PRIVATE partitioning.cpp)
 
-target_sources(QueryAttribution PRIVATE routes.cpp)
+target_sources(QueryAttribution PRIVATE routes.cpp shard_searches.cpp)
