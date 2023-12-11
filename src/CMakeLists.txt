@@ -3,6 +3,7 @@ set(Sources
 		dist.cpp
 		kmeans.cpp
 		points_io.cpp
+		metis_io.cpp
 )
 
 foreach(target IN LISTS TARGETS)
@@ -10,3 +11,5 @@ foreach(target IN LISTS TARGETS)
 	message(STATUS "Sources:  ${Sources}")
 	target_sources(${target} PRIVATE ${Sources})
 endforeach()
+
+target_sources(Partition PRIVATE partitioning.cpp)
