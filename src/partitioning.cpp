@@ -10,14 +10,14 @@
 
 #include <parlay/primitives.h>
 
-std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1) {
+Partition RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1) {
     if (num_clusters < 0) { num_clusters = static_cast<int>(ceil(double(points.n) / max_cluster_size)); }
-    if (num_clusters == 0) { return std::vector<int>(points.n, 0); }
+    if (num_clusters == 0) { return Partition(points.n, 0); }
     PointSet centroids = RandomSample(points, num_clusters, 555);
 
     Timer timer;
     timer.Start();
-    std::vector<int> partition;
+    Partition partition;
     //if (depth == 0) {
     //    partition = BalancedKMeans(points, centroids, max_cluster_size);
     //} else {
@@ -53,7 +53,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
             PointSet cluster_point_set = ExtractPointsInBucket(cluster, points);
 
             // Partition recursively
-            std::vector<int> sub_partition = RecursiveKMeansPartitioning(cluster_point_set, max_cluster_size, depth + 1);
+            Partition sub_partition = RecursiveKMeansPartitioning(cluster_point_set, max_cluster_size, depth + 1);
 
             // Translate partition IDs
             int max_sub_part_id = *std::max_element(sub_partition.begin(), sub_partition.end());
@@ -73,7 +73,7 @@ std::vector<int> RecursiveKMeansPartitioning(PointSet& points, size_t max_cluste
     return partition;
 }
 
-std::vector<int> KMeansPartitioning(PointSet& points, int num_clusters, double epsilon) {
+Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon) {
     size_t max_cluster_size = points.n * (1 + epsilon) / num_clusters;
     return RecursiveKMeansPartitioning(points, max_cluster_size, 0, num_clusters);
 }
@@ -98,7 +98,7 @@ CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
     return csr;
 }
 
-std::vector<int> PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
+Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
     size_t num_nodes = graph.xadj.size() - 1;
     std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
     auto context = kaminpar::shm::create_default_context();
@@ -108,14 +108,14 @@ std::vector<int> PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
     shm.compute_partition(555, k, kaminpar_partition.data());
-    std::vector<int> partition(num_nodes);
+    Partition partition(num_nodes);
     for (size_t i = 0; i < partition.size(); ++i) {
         partition[i] = kaminpar_partition[i]; // convert unsigned int partition ID to signed int partition ID
     }
     return partition;
 }
 
-std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
+Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
     Timer timer;
     timer.Start();
@@ -137,7 +137,7 @@ std::vector<int> GraphPartitioning(PointSet& points, int num_clusters, double ep
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
 }
 
-std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "") {
+Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "") {
     // Subsample points
     size_t num_subsample_points = 10000000; // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
@@ -145,7 +145,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     // Aggregate via k-means
     const size_t num_aggregate_points = 10000; // from the paper
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
-    std::vector<int> subsample_partition = KMeans(subsample_points, aggregate_points);
+    Partition subsample_partition = KMeans(subsample_points, aggregate_points);
 
     if (!routing_index_path.empty()) {
 #ifdef MIPS_DISTANCE
@@ -167,13 +167,13 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
     // partition
-    std::vector<int> aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
+    Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
     WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
 
     // Assign points to the partition of the closest point in the aggregate set
     size_t max_points_in_cluster = points.n * (1 + epsilon) / num_clusters;
     std::vector<size_t> num_points_in_cluster(num_clusters, 0);
-    std::vector<int> partition(points.n);
+    Partition partition(points.n);
 
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
@@ -204,7 +204,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
     while (!unfinished_points.empty()) {
         // now we have to remove the points in aggregated_points associated with overloaded blocks
         std::vector<uint32_t> aggr_points_to_keep;
-        std::vector<int> new_aggr_partition;
+        Partition new_aggr_partition;
         for (uint32_t i = 0; i < aggregate_partition.size(); ++i) {
             if (num_points_in_cluster[aggregate_partition[i]] < max_points_in_cluster) {
                 aggr_points_to_keep.push_back(i);
@@ -225,7 +225,7 @@ std::vector<int> PyramidPartitioning(PointSet& points, int num_clusters, double 
 
 // want to extract only the leaf-level points here
 // and the mapping of top-level points to leaf-level points
-std::pair<std::vector<int>, PointSet>
+std::pair<Partition, PointSet>
 HierarchicalKMeansParlayImpl(PointSet& points, double coarsening_ratio, int depth = 0) {
     int num_level_centroids = points.n * coarsening_ratio;
     if (num_level_centroids < 1) { num_level_centroids = 1; }
@@ -239,7 +239,7 @@ HierarchicalKMeansParlayImpl(PointSet& points, double coarsening_ratio, int dept
     Timer timer;
     timer.Start();
     PointSet level_centroids = RandomSample(points, num_level_centroids, 555);
-    std::vector<int> level_partition = KMeans(points, level_centroids);
+    Partition level_partition = KMeans(points, level_centroids);
     double t = timer.Stop();
     if (depth < 2) {
         std::cout << "KMeans on " << points.n << " points at depth " << depth << " with "
@@ -298,7 +298,7 @@ HierarchicalKMeansParlayImpl(PointSet& points, double coarsening_ratio, int dept
     return std::make_pair(level_partition, centroids_from_recursion);
 }
 
-std::pair<std::vector<int>, PointSet>
+std::pair<Partition, PointSet>
 HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     int num_level_centroids = points.n * coarsening_ratio;
     if (num_level_centroids < 1) { num_level_centroids = 1; }
@@ -312,7 +312,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     Timer timer;
     timer.Start();
     PointSet level_centroids = RandomSample(points, num_level_centroids, 555);
-    std::vector<int> level_partition = KMeans(points, level_centroids);
+    Partition level_partition = KMeans(points, level_centroids);
     double t = timer.Stop();
     if (depth < 2) {
         std::cout << "KMeans on " << points.n << " points at depth " << depth << " with "
@@ -331,7 +331,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
 
     auto clusters = ConvertPartitionToClusters(level_partition);
 
-    std::vector<std::pair<std::vector<int>, PointSet>> recursion_results(clusters.size());
+    std::vector<std::pair<Partition, PointSet>> recursion_results(clusters.size());
     parlay::parallel_for(0, clusters.size(), [&](size_t i) {
         if (clusters[i].empty())
             throw std::runtime_error("Cluster points empty. KMeans should remove empty cluster IDs");
@@ -364,7 +364,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
     return std::make_pair(level_partition, centroids_from_recursion);
 }
 
-std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon,
+Partition OurPyramidPartitioning(PointSet& points, int num_clusters, double epsilon,
                                         const std::string& routing_index_path, double coarsening_rate = 0.002) {
     std::cout << "Call OurPyramid with coarsening rate " << coarsening_rate << std::endl;
     Timer timer;
@@ -397,12 +397,12 @@ std::vector<int> OurPyramidPartitioning(PointSet& points, int num_clusters, doub
     for (int cluster_id : routing_clusters)
         knn_csr.node_weights[cluster_id]++;
 
-    std::vector<int> knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
+    Partition knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
 
     WriteMetisPartition(knn_partition, routing_index_path + ".knn.routing_index_partition");
 
     // Project from coarse partition
-    std::vector<int> full_knn_partition(points.n);
+    Partition full_knn_partition(points.n);
     for (uint32_t i = 0; i < points.n; ++i) { full_knn_partition[i] = knn_partition[routing_clusters[i]]; }
 
     return full_knn_partition;
