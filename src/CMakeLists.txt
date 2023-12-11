@@ -1,4 +1,5 @@
 set(Sources
+		defs.cpp
 		dist.cpp
 		kmeans.cpp
 		points_io.cpp
