@@ -323,10 +323,10 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
                     // TODO would a second pass that groups by cluster IDs be faster, or even the distributed style version that builds deltas for each cluster
                     float* coords_best = cluster_coordinate_sums.GetPoint(best);
-                    for (int j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j]); }
+                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j]); }
 
                     float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
-                    for (int j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
+                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
 
 #ifdef MIPS_DISTANCE
                     atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -vector_sqrt_norms[point_id]);
@@ -337,27 +337,27 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
             // update centroids phase
 #ifdef MIPS_DISTANCE
-            for (int c = 0; c < centroids.n; ++c) {
+            for (size_t c = 0; c < centroids.n; ++c) {
                 float* C = centroids.GetPoint(c);
                 float* C2 = cluster_coordinate_sums.GetPoint(c);
                 if (cluster_sizes[c] == 0) {
-                    for (int j = 0; j < centroids.d; ++j) {
+                    for (size_t j = 0; j < centroids.d; ++j) {
                         C[j] = 0.0f;
                     }
                 } else {
                     float desired_norm = cluster_norm_sums[c] / cluster_sizes[c];
                     float current_norm = vec_norm(C, centroids.d);
                     float multiplier = std::sqrt(desired_norm / current_norm);
-                    for (int j = 0; j < centroids.d; ++j) {
+                    for (size_t j = 0; j < centroids.d; ++j) {
                         C[j] = C2[j] * multiplier;
                     }
                 }
             }
 #else
-            for (int c = 0; c < centroids.n; ++c) {
+            for (size_t c = 0; c < centroids.n; ++c) {
                 float* C = centroids.GetPoint(c);
                 float* C2 = cluster_coordinate_sums.GetPoint(c);
-                for (int j = 0; j < centroids.d; ++j) {
+                for (size_t j = 0; j < centroids.d; ++j) {
                     if (cluster_sizes[c] == 0) {
                         C[j] = 0.0;
                     } else {
