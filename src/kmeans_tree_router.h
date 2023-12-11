@@ -1,7 +1,7 @@
 #pragma once
 
 #include "kmeans.h"
-#include "inverted_index.h"
+#include <numeric>
 
 struct TreeNode {
     std::vector<TreeNode> children;

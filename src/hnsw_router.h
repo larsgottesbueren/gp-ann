@@ -3,7 +3,6 @@
 #include <utility>
 
 #include "defs.h"
-#include "dist.h"
 
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 

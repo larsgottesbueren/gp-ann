@@ -1,6 +1,7 @@
 set(Sources
 		dist.cpp
 		kmeans.cpp
+		points_io.cpp
 )
 
 foreach(target IN LISTS TARGETS)

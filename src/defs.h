@@ -17,15 +17,6 @@ struct PointSet {
   bool empty() const { return n == 0; }
 };
 
-void Normalize(PointSet& points) {
-    for (size_t i = 0; i < points.n; ++i) {
-        float* p = points.GetPoint(i);
-        if (!L2Normalize(p, points.d)) {
-            std::cerr << "Point " << i << " is fully zero --> delete" << std::endl;
-        }
-    }
-}
-
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
     PointSet ps;
     ps.n = bucket.size();
