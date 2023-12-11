@@ -61,14 +61,13 @@ int main(int argc, const char* argv[]) {
     std::string pyramid_index_file, our_pyramid_index_file;
     if (part_method == "Pyramid") { pyramid_index_file = partition_file + ".pyramid_routing_index"; }
     if (part_method == "OurPyramid") { our_pyramid_index_file = partition_file + ".our_pyramid_routing_index"; }
-#if true
+
     Clusters clusters = ConvertPartitionToClusters(partition);
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options,
                                                               ground_truth, num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
-#endif
 
     std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards,

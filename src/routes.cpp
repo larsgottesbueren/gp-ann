@@ -154,6 +154,9 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals = GenerateRouterConfigs(routing_index_options_blueprint);
 
+
+    const Cover cover = ConvertClustersToCover(clusters);
+
     for (const KMeansTreeRouterOptions& routing_index_options : routing_index_option_vals) {
         std::cout << "Train router on " << routing_index_options.num_centroids << " centroids " << routing_index_options.min_cluster_size <<
                 " min cluster size " << routing_index_options.budget << " size budget " << std::endl;
