@@ -41,7 +41,7 @@ foreach(target IN LISTS TARGETS)
 endforeach()
 
 target_link_libraries(Partition PUBLIC kaminpar_shm)
-#target_link_libraries(DistributedBench PUBLIC parlay message-queue kassert::kassert)
+#target_link_libraries(DistributedBench PUBLIC message-queue kassert::kassert)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)
