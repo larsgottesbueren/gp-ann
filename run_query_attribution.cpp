@@ -62,18 +62,13 @@ int main(int argc, const char* argv[]) {
     if (part_method == "Pyramid") { pyramid_index_file = partition_file + ".pyramid_routing_index"; }
     if (part_method == "OurPyramid") { our_pyramid_index_file = partition_file + ".our_pyramid_routing_index"; }
 #if true
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, partition, num_shards, router_options,
+    Clusters clusters = ConvertPartitionToClusters(partition);
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options,
                                                               ground_truth, num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
 #endif
-
-    Timer timer;
-    timer.Start();
-    std::vector<std::vector<uint32_t>> clusters(num_shards);
-    for (uint32_t i = 0; i < partition.size(); ++i) { clusters[partition[i]].push_back(i); }
-    std::cout << "Convert partition to clusters took " << timer.Stop() << std::endl;
 
     std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards,
