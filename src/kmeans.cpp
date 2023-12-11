@@ -330,16 +330,23 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     __atomic_fetch_sub(&cluster_sizes[old_cluster], 1, __ATOMIC_RELAXED); // HORRIBLE contention...
                     __atomic_fetch_add(&cluster_sizes[best], 1, __ATOMIC_RELAXED);
 
-                    // TODO would a second pass that groups by cluster IDs be faster, or even the distributed style version that builds deltas for each cluster
-                    float* coords_best = cluster_coordinate_sums.GetPoint(best);
-                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j]); }
-
-                    float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
-                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
-
 #ifdef MIPS_DISTANCE
                     atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -square(vector_sqrt_norms[point_id]));
                     atomic_fetch_add_double(&cluster_norm_sums[best], square(vector_sqrt_norms[point_id]));
+
+                    float multiplier = 1.0f / vector_sqrt_norms[i];
+                    float* coords_best = cluster_coordinate_sums.GetPoint(best);
+                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j] * multiplier); }
+
+                    float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
+                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j] * multiplier); }
+#else
+                    // TODO would a second pass that groups by cluster IDs be faster, or even the distributed style version that builds deltas for each cluster
+                     float* coords_best = cluster_coordinate_sums.GetPoint(best);
+                     for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j]); }
+
+                     float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
+                     for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
 #endif
                 }
             });
