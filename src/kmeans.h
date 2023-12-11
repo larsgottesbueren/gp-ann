@@ -233,20 +233,19 @@ double ObjectiveValue(PointSet& points, PointSet& centroids, const std::vector<i
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
     std::vector<int> closest_center = KMeans(points, centroids);
 
-    PointSet cluster_coordinate_sums = centroids;
-    std::vector<size_t> cluster_sizes =
-            AggregateClustersParallel(points, cluster_coordinate_sums, closest_center, /*TODO mips*/{ }, false);
-
-    std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
-
-
     // precompute norms and sqrts since it slowed down centroid calculation
-    parlay::sequence<double> vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> double {
+    parlay::sequence<float> vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> float {
         return std::sqrt(vec_norm(points.GetPoint(i), points.d));
     });
 
+    PointSet cluster_coordinate_sums = centroids;
+    std::vector<size_t> cluster_sizes =
+            AggregateClustersParallel(points, cluster_coordinate_sums, closest_center, vector_sqrt_norms, false);
+
+    std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
+
     parlay::sequence<double> cluster_norm_sums = parlay::reduce_by_index(
-        parlay::zip(closest_center, vector_sqrt_norms),
+        parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })),
         centroids.n);
 
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
