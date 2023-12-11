@@ -2,6 +2,7 @@
 
 #include "kmeans.h"
 #include <numeric>
+#include <iostream>
 
 struct TreeNode {
     std::vector<TreeNode> children;
@@ -123,9 +124,6 @@ struct KMeansTreeRouter {
             PQEntry top = pq.top();
             pq.pop();
             budget -= top.node->centroids.n;
-#if PRINT
-            std::cout << "iter " << iter++ << " dist " << top.dist << " shard " << top.shard_id << " budget " << budget << " num centroids " << top.node->centroids.n << std::endl;
-#endif
             for (size_t i = 0; i < top.node->centroids.n; ++i) {
                 float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
                 min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
@@ -137,14 +135,6 @@ struct KMeansTreeRouter {
         std::iota(probes.begin(), probes.end(), 0);
         std::sort(probes.begin(), probes.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
 
-#if PRINT
-        std::cout << "done" << std::endl;
-        std::cout << "min dists ";
-        for (int i = 0; i < num_shards; ++i) {
-            std::cout << min_dist[i] << " ";
-        }
-        std::cout << std::endl;
-#endif
         return probes;
     }
 
