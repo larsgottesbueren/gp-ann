@@ -105,14 +105,14 @@ namespace {
         return cluster_size;
     }
 
-    inline void atomic_fetch_add_float(float* addr, float x) {
+    void atomic_fetch_add_float(float* addr, float x) {
         float expected;
         __atomic_load(addr, &expected, __ATOMIC_RELAXED);
         float desired = expected + x;
         while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
     }
 
-    inline void atomic_fetch_add_double(double* addr, double x) {
+    void atomic_fetch_add_double(double* addr, double x) {
         double expected;
         __atomic_load(addr, &expected, __ATOMIC_RELAXED);
         double desired = expected + x;
