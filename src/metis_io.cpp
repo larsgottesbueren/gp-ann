@@ -35,3 +35,23 @@ void WriteMetisGraph(const std::string& path, const AdjGraph& graph) {
         out << "\n";
     }
 }
+
+Clusters ReadClusters(const std::string& path) {
+    std::ifstream in(path);
+    std::string line;
+    Clusters clusters;
+    while (std::getline(in, line)) {
+        std::istringstream iss(line);
+        std::vector<uint32_t> new_cluster;
+        uint32_t id;
+        while (iss >> id) {
+            new_cluster.push_back(id);
+        }
+        clusters.emplace_back(std::move(new_cluster));
+    }
+    return clusters;
+}
+
+void WriteClusters(const Clusters& clusters, const std::string& path) {
+
+}

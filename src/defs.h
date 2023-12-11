@@ -22,7 +22,7 @@ PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& po
 using Partition = std::vector<int>;
 
 // maps a cluster ID to its contained points
-using Buckets = std::vector<std::vector<uint32_t>>;
+using Clusters = std::vector<std::vector<uint32_t>>;
 
 // maps a point to (potentially multiple) clusters
 using Cover = std::vector<std::vector<int>>;
