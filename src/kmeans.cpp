@@ -216,6 +216,8 @@ double ObjectiveValue(PointSet& points, PointSet& centroids, const std::vector<i
     );
 }
 
+double square(double x) { return x * x; }
+
 std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t max_cluster_size) {
     std::vector<int> closest_center = KMeans(points, centroids);
 
@@ -233,6 +235,13 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     auto cluster_norm_sums = parlay::reduce_by_index(
         parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })),
         centroids.n);
+
+    std::cout << "cluster norm sums ";
+    for (size_t j = 0; j < cluster_norm_sums.size(); ++j) {
+        std::cout << cluster_norm_sums[j] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0) << std::endl;
 
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
 
@@ -329,8 +338,8 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
 
 #ifdef MIPS_DISTANCE
-                    atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -vector_sqrt_norms[point_id]);
-                    atomic_fetch_add_double(&cluster_norm_sums[best], vector_sqrt_norms[point_id]);
+                    atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -square(vector_sqrt_norms[point_id]));
+                    atomic_fetch_add_double(&cluster_norm_sums[best], square(vector_sqrt_norms[point_id]));
 #endif
                 }
             });
