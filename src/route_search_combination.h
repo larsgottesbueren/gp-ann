@@ -15,7 +15,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     size_t total_hits = 0;
     std::vector<int> hits_per_query(num_queries, 0);
     std::vector<double> local_work(num_shards, 0.0);
-    for (int n_probes = 1; n_probes <= num_shards; ++n_probes) {
+    for (size_t n_probes = 1; n_probes <= num_shards; ++n_probes) {
         for (size_t q = 0; q < num_queries; ++q) {
             int b = route.buckets_to_probe[q][n_probes - 1];
             int diff = std::min(search.query_hits_in_shard[b][q], num_neighbors - hits_per_query[q]);
@@ -178,7 +178,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
 
     for (const auto& c : outputs) {
         bool insert_new = true;
-        for (int64_t i = 0; i < pareto.size(); ++i) {
+        for (int64_t i = 0; i < static_cast<int64_t>(pareto.size()); ++i) {
             if (dominates(pareto[i], c)) {  // remove pareto[i]
                 pareto[i] = std::move(pareto.back());
                 pareto.pop_back();

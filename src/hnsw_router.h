@@ -64,7 +64,7 @@ struct HNSWRouter {
 
         std::vector<int> PyramidRoutingQuery() const {
             std::vector<int> probes;
-            for (int b = 0; b < min_dist.size(); ++b) {
+            for (size_t b = 0; b < min_dist.size(); ++b) {
                 if (min_dist[b] != std::numeric_limits<float>::max()) {
                     probes.push_back(b);
                 }
@@ -75,7 +75,7 @@ struct HNSWRouter {
         std::vector<int> SPANNRoutingQuery(double eps) const {
             double closest_shard_dist = *std::min_element(min_dist.begin(), min_dist.end()) * (1.0 + eps);
             std::vector<int> probes;
-            for (int b = 0; b < min_dist.size(); ++b) {
+            for (size_t b = 0; b < min_dist.size(); ++b) {
                 if (min_dist[b] <= closest_shard_dist) {
                     probes.push_back(b);
                 }

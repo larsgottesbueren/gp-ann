@@ -3,7 +3,6 @@
 #include "kmeans_tree_router.h"
 #include "hnsw_router.h"
 
-
 struct RoutingConfig {
     std::string routing_algorithm = "None";
     std::string index_trainer = "KMeansTree";

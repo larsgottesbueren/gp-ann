@@ -98,7 +98,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
 
         float* Q = queries.GetPoint(q);
         size_t local_distance_mismatches = 0;
-        for (size_t j = 0; j < k; ++j) {
+        for (int j = 0; j < k; ++j) {
             uint32_t point_id = neighs[j].second;
             float dist = neighs[j].first;
             float true_dist = distance(points.GetPoint(point_id), Q, points.d);
