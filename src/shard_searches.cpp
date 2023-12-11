@@ -7,73 +7,6 @@
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 #include <parlay/parallel.h>
 
-std::string ShardSearch::Serialize() const {
-    std::stringstream out;
-    out << ef_search << " " << query_hits_in_shard.size() << " " << query_hits_in_shard[0].size() << "\n";
-    for (const auto& qh : query_hits_in_shard) {
-        for (int x : qh) { out << x << " "; }
-        out << "\n";
-    }
-    for (const auto& tq : time_query_in_shard) {
-        for (double x : tq) { out << x << " "; }
-        out << "\n";
-    }
-    return out.str();
-}
-
-ShardSearch ShardSearch::Deserialize(std::ifstream& in) {
-    ShardSearch s;
-    int num_shards, num_queries;
-    std::string line;
-    std::getline(in, line);
-    std::istringstream iss(line);
-    iss >> s.ef_search >> num_shards >> num_queries;
-    for (int i = 0; i < num_shards; ++i) {
-        std::getline(in, line);
-        std::istringstream line_stream(line);
-        s.query_hits_in_shard.emplace_back();
-        int hits;
-        while (line_stream >> hits) { s.query_hits_in_shard.back().push_back(hits); }
-        assert(s.query_hits_in_shard.back().size() == num_queries);
-    }
-
-    for (int i = 0; i < num_shards; ++i) {
-        std::getline(in, line);
-        std::istringstream line_stream(line);
-        s.time_query_in_shard.emplace_back();
-        double time;
-        while (line_stream >> time) { s.time_query_in_shard.back().push_back(time); }
-    }
-    return s;
-}
-
-void SerializeShardSearches(const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
-    std::ofstream out(output_file);
-    out << shard_searches.size() << std::endl;
-    for (const ShardSearch& search : shard_searches) {
-        out << "S" << std::endl;
-        out << search.Serialize();
-    }
-}
-
-std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file) {
-    std::ifstream in(input_file);
-    size_t num_searches;
-    std::string header;
-    std::getline(in, header);
-    std::istringstream iss(header);
-    iss >> num_searches;
-    std::vector<ShardSearch> shard_searches;
-    for (size_t i = 0; i < num_searches; ++i) {
-        std::getline(in, header);
-        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
-        ShardSearch s = ShardSearch::Deserialize(in);
-        shard_searches.push_back(std::move(s));
-    }
-    return shard_searches;
-}
-
-
 std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
                                             std::vector<std::vector<uint32_t>>& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
@@ -150,5 +83,73 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
         });
     }
 
+    return shard_searches;
+}
+
+
+
+std::string ShardSearch::Serialize() const {
+    std::stringstream out;
+    out << ef_search << " " << query_hits_in_shard.size() << " " << query_hits_in_shard[0].size() << "\n";
+    for (const auto& qh : query_hits_in_shard) {
+        for (int x : qh) { out << x << " "; }
+        out << "\n";
+    }
+    for (const auto& tq : time_query_in_shard) {
+        for (double x : tq) { out << x << " "; }
+        out << "\n";
+    }
+    return out.str();
+}
+
+ShardSearch ShardSearch::Deserialize(std::ifstream& in) {
+    ShardSearch s;
+    int num_shards, num_queries;
+    std::string line;
+    std::getline(in, line);
+    std::istringstream iss(line);
+    iss >> s.ef_search >> num_shards >> num_queries;
+    for (int i = 0; i < num_shards; ++i) {
+        std::getline(in, line);
+        std::istringstream line_stream(line);
+        s.query_hits_in_shard.emplace_back();
+        int hits;
+        while (line_stream >> hits) { s.query_hits_in_shard.back().push_back(hits); }
+        assert(s.query_hits_in_shard.back().size() == num_queries);
+    }
+
+    for (int i = 0; i < num_shards; ++i) {
+        std::getline(in, line);
+        std::istringstream line_stream(line);
+        s.time_query_in_shard.emplace_back();
+        double time;
+        while (line_stream >> time) { s.time_query_in_shard.back().push_back(time); }
+    }
+    return s;
+}
+
+void SerializeShardSearches(const std::vector<ShardSearch>& shard_searches, const std::string& output_file) {
+    std::ofstream out(output_file);
+    out << shard_searches.size() << std::endl;
+    for (const ShardSearch& search : shard_searches) {
+        out << "S" << std::endl;
+        out << search.Serialize();
+    }
+}
+
+std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file) {
+    std::ifstream in(input_file);
+    size_t num_searches;
+    std::string header;
+    std::getline(in, header);
+    std::istringstream iss(header);
+    iss >> num_searches;
+    std::vector<ShardSearch> shard_searches;
+    for (size_t i = 0; i < num_searches; ++i) {
+        std::getline(in, header);
+        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
+        ShardSearch s = ShardSearch::Deserialize(in);
+        shard_searches.push_back(std::move(s));
+    }
     return shard_searches;
 }
