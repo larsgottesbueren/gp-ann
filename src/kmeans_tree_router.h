@@ -22,9 +22,8 @@ struct KMeansTreeRouter {
     std::vector<TreeNode> roots;
     int num_shards;
 
-    void Train(PointSet& points, const std::vector<int>& partition, KMeansTreeRouterOptions options) {
-        auto buckets = ConvertPartitionToClusters(partition);
-        num_shards = buckets.size();
+    void Train(PointSet& points, const Clusters& clusters, KMeansTreeRouterOptions options) {
+        num_shards = clusters.size();
         roots.resize(num_shards);
         dim = points.d;
 
@@ -38,9 +37,10 @@ struct KMeansTreeRouter {
 
         parlay::parallel_for(0, num_shards, [&](int b) {
             //for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
-            PointSet ps = ExtractPointsInBucket(buckets[b], points);
+            PointSet ps = ExtractPointsInBucket(clusters[b], points);
             KMeansTreeRouterOptions recursive_options = options;
-            recursive_options.budget = double(buckets[b].size() * options.budget) / double(points.n);
+            recursive_options.budget = double(clusters
+                [b].size() * options.budget) / double(points.n);
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
             // }
         }, num_shards / num_shards_processed_in_parallel);
