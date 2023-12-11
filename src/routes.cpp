@@ -96,57 +96,63 @@ void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& quer
 }
 
 void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
-                              const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
+                              const std::vector<NNVec>& ground_truth, int num_neighbors, const Cover& cover) {
     parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
-        IterateHNSWRouterConfigsInScheduler(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
+        IterateHNSWRouterConfigsInScheduler(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, cover);
     });
 }
 
+std::vector<KMeansTreeRouterOptions> GenerateRouterConfigs(KMeansTreeRouterOptions routing_index_options_blueprint) {
+    std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
 
-std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
+#if false
+    for (double factor : {0.2, 0.4, 0.8 }) {
+        KMeansTreeRouterOptions ro = routing_index_options_blueprint;
+        ro.budget *= factor;
+        routing_index_option_vals.push_back(ro);
+    }
+#else
+    for (int64_t budget : { 20'000, 100'000, 200'000, 500'000, 1'000'000, 2'000'000, 5'000'000, 10'000'000 }) {
+        KMeansTreeRouterOptions ro = routing_index_options_blueprint;
+        ro.budget = budget;
+        routing_index_option_vals.push_back(ro);
+    }
+#endif
+
+    auto copy = routing_index_option_vals;
+    routing_index_option_vals.clear();
+    for (auto ro : copy) {
+        for (int min_cluster_size : { 350 }) {
+            ro.min_cluster_size = min_cluster_size;
+            routing_index_option_vals.push_back(ro);
+        }
+    }
+
+    copy = routing_index_option_vals;
+    routing_index_option_vals.clear();
+    for (auto ro : copy) {
+        for (int num_centroids : { 64 }) {
+            ro.num_centroids = num_centroids;
+            routing_index_option_vals.push_back(ro);
+        }
+
+        if (ro.budget >= 5'000'000) {
+            ro.num_centroids = 128;
+            routing_index_option_vals.push_back(ro);
+        }
+    }
+
+    return routing_index_option_vals;
+}
+
+
+std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const Clusters& clusters, int num_shards,
                                                  KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
                                                  int num_neighbors, const std::string& routing_index_file, const std::string& pyramid_index_file,
                                                  const std::string& our_pyramid_index_file) {
     std::vector<RoutingConfig> routes;
 
-    std::vector<KMeansTreeRouterOptions> routing_index_option_vals; {
-#if false
-        for (double factor : {0.2, 0.4, 0.8 }) {
-            KMeansTreeRouterOptions ro = routing_index_options_blueprint;
-            ro.budget *= factor;
-            routing_index_option_vals.push_back(ro);
-        }
-#else
-        for (int64_t budget : { 20'000, 100'000, 200'000, 500'000, 1'000'000, 2'000'000, 5'000'000, 10'000'000 }) {
-            KMeansTreeRouterOptions ro = routing_index_options_blueprint;
-            ro.budget = budget;
-            routing_index_option_vals.push_back(ro);
-        }
-#endif
-
-        auto copy = routing_index_option_vals;
-        routing_index_option_vals.clear();
-        for (auto ro : copy) {
-            for (int min_cluster_size : { 350 }) {
-                ro.min_cluster_size = min_cluster_size;
-                routing_index_option_vals.push_back(ro);
-            }
-        }
-
-        copy = routing_index_option_vals;
-        routing_index_option_vals.clear();
-        for (auto ro : copy) {
-            for (int num_centroids : { 64 }) {
-                ro.num_centroids = num_centroids;
-                routing_index_option_vals.push_back(ro);
-            }
-
-            if (ro.budget >= 5'000'000) {
-                ro.num_centroids = 128;
-                routing_index_option_vals.push_back(ro);
-            }
-        }
-    }
+    std::vector<KMeansTreeRouterOptions> routing_index_option_vals = GenerateRouterConfigs(routing_index_options_blueprint);
 
     for (const KMeansTreeRouterOptions& routing_index_options : routing_index_option_vals) {
         std::cout << "Train router on " << routing_index_options.num_centroids << " centroids " << routing_index_options.min_cluster_size <<
