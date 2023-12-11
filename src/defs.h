@@ -81,19 +81,6 @@ NNVec ConvertTopKToNNVec(TopN& top_k) {
     return res;
 }
 
-int Top1Neighbor(PointSet& P, float* Q) {
-    int best = -1;
-    float best_dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < P.n; ++i) {
-        float new_dist = distance(P.GetPoint(i), Q, P.d);
-        if (new_dist < best_dist) {
-            best_dist = new_dist;
-            best = i;
-        }
-    }
-    return best;
-}
-
 TopN ClosestLeaders(PointSet& points, PointSet& leader_points, uint32_t my_id, int k) {
     TopN top_k(k);
     float* Q = points.GetPoint(my_id);
