@@ -53,6 +53,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);
+    Clusters clusters = ConvertPartitionToClusters(partition);
 
     auto degrees = parlay::delayed_map(knn_graph, [](const auto& neighs) { return neighs.size(); });
 
@@ -76,22 +77,29 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
             break;
         }
 
-        auto filter = [&](size_t i) { return best_moves[i].second == best_affinity; };
+        auto top_gain_nodes = parlay::filter(nodes, [&](uint32_t u) { return best_moves[u].second == best_affinity; });
 
-        // lets make this deterministic instead of with atomics
-        parlay::parallel_for(0, nodes.size(), [&](size_t i) {
+        auto nodes_and_targets = parlay::delayed_map(top_gain_nodes, [&](uint32_t u) { return std::make_pair(best_moves[u].first, u); });
 
-        });
+        auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
 
+        parlay::parallel_for(0, num_clusters, [&](size_t cluster_id) {
+            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+            cluster_sizes[cluster_id] += num_moves_left;
+            // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
+            parlay::parallel_for(0, num_moves_left, [&](size_t j) {
+                uint32_t u = moves_into_cluster[cluster_id][j];
+                cover[u].push_back(cluster_id);
+            });
 
-
-
-
-
+            // not parallel with std::vector unfortunately
+            clusters[cluster_id].insert(
+                clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
+                moves_into_cluster[cluster_id].begin() + num_moves_left);
+        }, 1);
     }
 
-
-    return { };
+    return clusters;
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, double epsilon, double overlap) {
