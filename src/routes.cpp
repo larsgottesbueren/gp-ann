@@ -210,7 +210,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             blueprint.index_trainer = "HierKMeans";
             blueprint.routing_index_options = routing_index_options;
 
-            IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
+            IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, cover);
         }
     }
 
@@ -224,7 +224,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         HNSWRouter hnsw_router(pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = "Pyramid";
-        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
+        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, cover);
     }
 
     if (!our_pyramid_index_file.empty()) {
@@ -237,7 +237,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         HNSWRouter hnsw_router(our_pyramid_index_file, points.d, routing_index_partition);
         RoutingConfig blueprint;
         blueprint.index_trainer = "OurPyramid+KNN";
-        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
+        IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, cover);
     }
 
     return routes;
