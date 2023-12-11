@@ -66,7 +66,8 @@ namespace {
         }
     }
 
-    void SumPointsInClustersL2(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, std::vector<size_t>& cluster_size, size_t start, size_t end) {
+    void SumPointsInClustersL2(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, std::vector<size_t>& cluster_size, size_t start,
+                               size_t end) {
         for (size_t i = start; i < end; ++i) {
             int c = closest_center[i];
             cluster_size[c]++;
@@ -140,18 +141,18 @@ namespace {
             b_centroids.Alloc();
             std::vector<size_t> b_cluster_size(centroids.n, 0);
 
-    #ifdef MIPS_DISTANCE
+#ifdef MIPS_DISTANCE
             std::vector<float> b_norm_sums(centroids.n, 0.f);
             SumPointsInClustersIP(P, b_centroids, closest_center, b_cluster_size, vector_sqrt_norms, b_norm_sums, start, end);
-    #else
+#else
             SumPointsInClustersL2(P, b_centroids, closest_center, b_cluster_size, start, end);
-    #endif
+#endif
 
             for (size_t i = 0; i < cluster_size.size(); ++i) {
                 __atomic_fetch_add(&cluster_size[i], b_cluster_size[i], __ATOMIC_RELAXED);
-    #ifdef MIPS_DISTANCE
+#ifdef MIPS_DISTANCE
                 atomic_fetch_add_float(&norm_sums[i], b_norm_sums[i]);
-    #endif
+#endif
             }
             for (size_t i = 0; i < centroids.n; ++i) {
                 float* BC = b_centroids.GetPoint(i);
@@ -237,9 +238,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
         centroids.n);
 
     std::cout << "cluster norm sums ";
-    for (size_t j = 0; j < cluster_norm_sums.size(); ++j) {
-        std::cout << cluster_norm_sums[j] << " ";
-    }
+    for (size_t j = 0; j < cluster_norm_sums.size(); ++j) { std::cout << cluster_norm_sums[j] << " "; }
     std::cout << std::endl;
     std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0) << std::endl;
 
@@ -330,24 +329,18 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     __atomic_fetch_sub(&cluster_sizes[old_cluster], 1, __ATOMIC_RELAXED); // HORRIBLE contention...
                     __atomic_fetch_add(&cluster_sizes[best], 1, __ATOMIC_RELAXED);
 
+                    float* coords_best = cluster_coordinate_sums.GetPoint(best);
+                    float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
+                    float multiplier = 1.0f;
 #ifdef MIPS_DISTANCE
                     atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -square(vector_sqrt_norms[point_id]));
                     atomic_fetch_add_double(&cluster_norm_sums[best], square(vector_sqrt_norms[point_id]));
-
-                    float multiplier = 1.0f / vector_sqrt_norms[i];
-                    float* coords_best = cluster_coordinate_sums.GetPoint(best);
-                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j] * multiplier); }
-
-                    float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
-                    for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j] * multiplier); }
-#else
-                    // TODO would a second pass that groups by cluster IDs be faster, or even the distributed style version that builds deltas for each cluster
-                     float* coords_best = cluster_coordinate_sums.GetPoint(best);
-                     for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_best + j, p[j]); }
-
-                     float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
-                     for (size_t j = 0; j < points.d; ++j) { atomic_fetch_add_float(coords_old + j, -p[j]); }
+                    multiplier = 1.0f / vector_sqrt_norms[i];
 #endif
+                    for (size_t j = 0; j < points.d; ++j) {
+                        atomic_fetch_add_float(coords_best + j, p[j] * multiplier);
+                        atomic_fetch_add_float(coords_old + j, -p[j] * multiplier);
+                    }
                 }
             });
 
@@ -362,7 +355,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     }
                 } else {
                     float desired_norm = cluster_norm_sums[c] / cluster_sizes[c];
-                    float current_norm = vec_norm(C, centroids.d);
+                    float current_norm = vec_norm(C2, centroids.d);
                     float multiplier = std::sqrt(desired_norm / current_norm);
                     for (size_t j = 0; j < centroids.d; ++j) {
                         C[j] = C2[j] * multiplier;
@@ -373,13 +366,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
             for (size_t c = 0; c < centroids.n; ++c) {
                 float* C = centroids.GetPoint(c);
                 float* C2 = cluster_coordinate_sums.GetPoint(c);
-                for (size_t j = 0; j < centroids.d; ++j) {
-                    if (cluster_sizes[c] == 0) {
-                        C[j] = 0.0;
-                    } else {
-                        C[j] = C2[j] / cluster_sizes[c];
-                    }
-                }
+                for (size_t j = 0; j < centroids.d; ++j) { if (cluster_sizes[c] == 0) { C[j] = 0.0; } else { C[j] = C2[j] / cluster_sizes[c]; } }
             }
 #endif
         }
