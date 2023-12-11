@@ -32,7 +32,7 @@ struct KMeansTreeRouter {
         int num_shards_processed_in_parallel = 8;
 #ifdef MIPS_DISTANCE
         // not for MIPS_DISTANCE (just for text-to-image...)
-        num_shards_processed_in_parallel = 2;
+        num_shards_processed_in_parallel = 4;
 #endif
 
         parlay::parallel_for(0, num_shards, [&](int b) {
