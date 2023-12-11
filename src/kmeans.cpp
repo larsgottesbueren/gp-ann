@@ -230,7 +230,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
 
-    parlay::sequence<double> cluster_norm_sums = parlay::reduce_by_index(
+    auto cluster_norm_sums = parlay::reduce_by_index(
         parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })),
         centroids.n);
 
