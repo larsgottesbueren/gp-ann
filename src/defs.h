@@ -18,6 +18,15 @@ struct PointSet {
 
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points);
 
+// maps a point to one cluster
+using Partition = std::vector<int>;
+
+// maps a cluster ID to its contained points
+using Buckets = std::vector<std::vector<uint32_t>>;
+
+// maps a point to (potentially multiple) clusters
+using Cover = std::vector<std::vector<int>>;
+
 int NumPartsInPartition(const std::vector<int>& partition);
 
 std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition);
