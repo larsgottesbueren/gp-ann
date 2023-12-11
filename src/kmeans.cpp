@@ -47,7 +47,21 @@ namespace {
         }
     }
 
+    void atomic_fetch_add_float(float* addr, float x) {
+        float expected;
+        __atomic_load(addr, &expected, __ATOMIC_RELAXED);
+        float desired = expected + x;
+        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
+    }
+
 #ifdef MIPS_DISTANCE
+
+    void atomic_fetch_add_double(double* addr, double x) {
+        double expected;
+        __atomic_load(addr, &expected, __ATOMIC_RELAXED);
+        double desired = expected + x;
+        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
+    }
 
     void NormalizeCentroidsIP(PointSet& centroids, const std::vector<size_t>& cluster_size, const std::vector<float>& norm_sums) {
         for (size_t c = 0; c < centroids.n; ++c) {
@@ -110,20 +124,6 @@ namespace {
 #endif
         RemoveEmptyClusters(centroids, closest_center, cluster_size);
         return cluster_size;
-    }
-
-    void atomic_fetch_add_float(float* addr, float x) {
-        float expected;
-        __atomic_load(addr, &expected, __ATOMIC_RELAXED);
-        float desired = expected + x;
-        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
-    }
-
-    void atomic_fetch_add_double(double* addr, double x) {
-        double expected;
-        __atomic_load(addr, &expected, __ATOMIC_RELAXED);
-        double desired = expected + x;
-        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
     }
 
     std::vector<size_t> AggregateClustersParallel(PointSet& P, PointSet& centroids, std::vector<int>& closest_center,
