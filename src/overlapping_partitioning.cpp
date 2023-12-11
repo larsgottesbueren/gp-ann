@@ -19,7 +19,12 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     Partition partition = PartitionAdjListGraph(knn_graph, adjusted_num_clusters, adjusted_epsilon);
 
-    // TODO now make it overlapping
+    auto degrees = parlay::delayed_map(knn_graph, [](const auto& neighs) { return neighs.size(); });
+    int max_degree = parlay::reduce(degrees, parlay::maxm<int>());
+
+    for (int incident_cut = max_degree; incident_cut > 0; --incident_cut) {
+
+    }
 
 
     return { };

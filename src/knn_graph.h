@@ -10,7 +10,7 @@
 #include <random>
 
 
-std::vector<int> TopKNeighbors(PointSet& P, uint32_t my_id, int k) {
+inline std::vector<int> TopKNeighbors(PointSet& P, uint32_t my_id, int k) {
 	TopN top_k(k);
 	float* Q = P.GetPoint(my_id);
 	for (uint32_t i = 0; i < P.n; ++i) {
@@ -24,7 +24,7 @@ std::vector<int> TopKNeighbors(PointSet& P, uint32_t my_id, int k) {
 	return y;
 }
 
-AdjGraph BuildKNNGraph(PointSet& P, int k) {
+inline AdjGraph BuildExactKNNGraph(PointSet& P, int k) {
 	AdjGraph graph(P.n);
 	parlay::parallel_for(0, P.n, [&](size_t i) { graph[i] = TopKNeighbors(P, i, k); });
 	return graph;
@@ -241,7 +241,7 @@ struct ApproximateKNNGraphBuilder {
     Timer timer;
 };
 
-void Symmetrize(AdjGraph& graph) {
+inline void Symmetrize(AdjGraph& graph) {
     std::vector<size_t> degrees; degrees.reserve(graph.size());
     for (const auto& n : graph) degrees.push_back(n.size());
     for (size_t u = 0; u < graph.size(); ++u) {
