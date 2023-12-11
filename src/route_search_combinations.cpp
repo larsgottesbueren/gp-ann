@@ -1,6 +1,7 @@
 #include "route_search_combination.h"
 
 #include <map>
+#include <sstream>
 
 #include "routes.h"
 #include "shard_searches.h"
