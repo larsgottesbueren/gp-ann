@@ -55,6 +55,9 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = NumPartsInPartition(partition);
+    Clusters clusters = ConvertPartitionToClusters(partition);
+
+    // TODO support different file types (metis partition file and clusters file)
 
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / requested_num_shards;
@@ -62,7 +65,6 @@ int main(int argc, const char* argv[]) {
     if (part_method == "Pyramid") { pyramid_index_file = partition_file + ".pyramid_routing_index"; }
     if (part_method == "OurPyramid") { our_pyramid_index_file = partition_file + ".our_pyramid_routing_index"; }
 
-    Clusters clusters = ConvertPartitionToClusters(partition);
     std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options,
                                                               ground_truth, num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
