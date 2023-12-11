@@ -190,35 +190,6 @@ PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
     return centroids;
 }
 
-void NearestCentersAccelerated(PointSet& P, PointSet& centroids, std::vector<int>& closest_center) {
-#ifdef MIPS_DISTANCE
-    using SpaceType = hnswlib::InnerProductSpace;
-#else
-    using SpaceType = hnswlib::L2Space;
-#endif
-    SpaceType space(P.d);
-    HNSWParameters hnsw_parameters;
-    hnsw_parameters.M = 16;
-    std::cout << "Num centroids " << centroids.n << std::endl;
-    Timer timer;
-    timer.Start();
-
-    hnswlib::HierarchicalNSW<float> hnsw(&space, centroids.n, hnsw_parameters.M, hnsw_parameters.ef_construction, 555);
-
-    size_t seq_insertion = std::min(1UL << 11, centroids.n);
-    for (size_t i = 0; i < seq_insertion; ++i) { hnsw.addPoint(centroids.GetPoint(i), i); }
-    parlay::parallel_for(seq_insertion, centroids.n, [&](size_t i) { hnsw.addPoint(centroids.GetPoint(i), i); }, 512);
-    std::cout << "Build centroid HNSW took " << timer.Restart() << std::endl;
-
-    hnsw.setEf(128);
-
-    parlay::parallel_for(0, P.n, [&](size_t i) {
-        auto res = hnsw.searchKnn(P.GetPoint(i), 1);
-        closest_center[i] = res.top().second;
-    }, 1024);
-    std::cout << "HNSW closest center assignment took " << timer.Restart() << std::endl;
-}
-
 std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
     if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
     std::vector<int> closest_center(P.n, -1);
