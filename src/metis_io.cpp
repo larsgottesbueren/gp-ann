@@ -53,5 +53,11 @@ Clusters ReadClusters(const std::string& path) {
 }
 
 void WriteClusters(const Clusters& clusters, const std::string& path) {
-
+    std::ofstream out(path);
+    for (const auto& c : clusters) {
+        for (const uint32_t id : c) {
+            out << id << " ";
+        }
+        out << "\n";
+    }
 }
