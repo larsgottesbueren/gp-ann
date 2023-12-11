@@ -6,7 +6,8 @@
 #include "routes.h"
 #include "shard_searches.h"
 
-void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(EmitResult)>& emit) {
+void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+    int num_neighbors, std::function<void(EmitResult)>& emit) {
     size_t total_hits = 0;
     std::vector<int> hits_per_query(num_queries, 0);
     std::vector<double> local_work(num_shards, 0.0);
@@ -26,7 +27,8 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     }
 }
 
-void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards, int num_neighbors, std::function<void(EmitResult)>& emit) {
+void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+    int num_neighbors, std::function<void(EmitResult)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
     size_t total_num_probes = 0;
@@ -47,7 +49,8 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     });
 }
 
-void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int num_neighbors, int num_queries, int num_shards, int num_requested_shards) {
+void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int num_neighbors, int num_queries, int num_shards,
+    int num_requested_shards) {
     std::cout << "k = " << num_neighbors << " nq = " << num_queries << " num shards = " << num_shards << " num requested = " << num_requested_shards << std::endl;
     for (const auto& search : shard_searches) {
         size_t total_hits = 0;
@@ -96,8 +99,8 @@ void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vecto
     }
 }
 
-void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file,
-                                          int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
+void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches,
+    const std::string& output_file, int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
 
     // std::ofstream out(output_file);
     // header
