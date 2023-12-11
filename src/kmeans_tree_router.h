@@ -39,8 +39,7 @@ struct KMeansTreeRouter {
             //for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
             PointSet ps = ExtractPointsInBucket(clusters[b], points);
             KMeansTreeRouterOptions recursive_options = options;
-            recursive_options.budget = double(clusters
-                [b].size() * options.budget) / double(points.n);
+            recursive_options.budget = double(clusters[b].size() * options.budget) / double(points.n);
             TrainRecursive(ps, recursive_options, roots[b], 555 * b);
             // }
         }, num_shards / num_shards_processed_in_parallel);
