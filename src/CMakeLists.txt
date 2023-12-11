@@ -13,3 +13,5 @@ foreach(target IN LISTS TARGETS)
 endforeach()
 
 target_sources(Partition PRIVATE partitioning.cpp)
+
+target_sources(QueryAttribution PRIVATE routes.cpp)

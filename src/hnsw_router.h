@@ -4,7 +4,11 @@
 
 #include "defs.h"
 
+#include <parlay/parallel.h>
+
 #include "../external/hnswlib/hnswlib/hnswlib.h"
+
+#include "metis_io.h"
 
 struct HNSWRouter {
     const std::vector<int>& partition;

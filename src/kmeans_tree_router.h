@@ -1,8 +1,10 @@
 #pragma once
 
 #include "kmeans.h"
+#include "dist.h"
 #include <numeric>
 #include <iostream>
+#include <parlay/parallel.h>
 
 struct TreeNode {
     std::vector<TreeNode> children;
