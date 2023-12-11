@@ -7,40 +7,6 @@
 #include "metis_io.h"
 #include "kmeans_tree_router.h"
 #include "hnsw_router.h"
-
-std::string RoutingConfig::Serialize() const {
-    std::stringstream sb;
-    sb << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " " << routing_time << " " <<
-            std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << " " << routing_index_options.budget << " "
-            << routing_index_options.num_centroids << " " << routing_index_options.min_cluster_size << "\n";
-    for (const auto& visit_order : buckets_to_probe) {
-        for (const int b : visit_order) { sb << b << " "; }
-        sb << "\n";
-    }
-    return sb.str();
-}
-
-RoutingConfig RoutingConfig::Deserialize(std::ifstream& in) {
-    RoutingConfig r;
-    std::string line;
-    std::getline(in, line);
-    std::istringstream iss(line);
-    int num_queries;
-    iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.
-            try_increasing_num_shards >> std::noboolalpha
-            >> num_queries >> r.routing_index_options.budget
-            >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
-    // std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << r.try_increasing_num_shards << std::noboolalpha << " " << num_queries << std::endl;
-    for (int i = 0; i < num_queries; ++i) {
-        std::getline(in, line);
-        std::istringstream line_stream(line);
-        int b = 0;
-        auto& visit_order = r.buckets_to_probe.emplace_back();
-        while (line_stream >> b) { visit_order.push_back(b); }
-    }
-    return r;
-}
-
 double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_to_probe, const std::vector<NNVec>& ground_truth, int num_neighbors,
                                   const std::vector<int>& partition) {
     if (ground_truth.empty()) {
@@ -129,32 +95,6 @@ void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::v
     });
 }
 
-void SerializeRoutes(const std::vector<RoutingConfig>& routes, const std::string& output_file) {
-    std::ofstream out(output_file);
-    out << routes.size() << std::endl;
-    for (const RoutingConfig& r : routes) {
-        out << "R" << std::endl;
-        out << r.Serialize();
-    }
-}
-
-std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
-    std::ifstream in(input_file);
-    size_t num_routes;
-    std::string header;
-    std::getline(in, header);
-    std::istringstream iss(header);
-    iss >> num_routes;
-    std::vector<RoutingConfig> routes;
-    for (size_t i = 0; i < num_routes; ++i) {
-        std::getline(in, header);
-        // std::cout << "i = " << i << " for routes " << std::endl;
-        if (header != "R") std::cout << "routing config doesn't start with marker R. Instead: " << header << std::endl;
-        RoutingConfig r = RoutingConfig::Deserialize(in);
-        routes.push_back(std::move(r));
-    }
-    return routes;
-}
 
 std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
                                                  KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
@@ -284,5 +224,68 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         IterateHNSWRouterConfigs(hnsw_router, queries, routes, blueprint, ground_truth, num_neighbors, partition);
     }
 
+    return routes;
+}
+
+
+
+std::string RoutingConfig::Serialize() const {
+    std::stringstream sb;
+    sb << routing_algorithm << " " << index_trainer << " " << hnsw_num_voting_neighbors << " " << hnsw_ef_search << " " << routing_time << " " <<
+            std::boolalpha << try_increasing_num_shards << std::noboolalpha << " " << buckets_to_probe.size() << " " << routing_index_options.budget << " "
+            << routing_index_options.num_centroids << " " << routing_index_options.min_cluster_size << "\n";
+    for (const auto& visit_order : buckets_to_probe) {
+        for (const int b : visit_order) { sb << b << " "; }
+        sb << "\n";
+    }
+    return sb.str();
+}
+
+RoutingConfig RoutingConfig::Deserialize(std::ifstream& in) {
+    RoutingConfig r;
+    std::string line;
+    std::getline(in, line);
+    std::istringstream iss(line);
+    int num_queries;
+    iss >> r.routing_algorithm >> r.index_trainer >> r.hnsw_num_voting_neighbors >> r.hnsw_ef_search >> r.routing_time >> std::boolalpha >> r.
+            try_increasing_num_shards >> std::noboolalpha
+            >> num_queries >> r.routing_index_options.budget
+            >> r.routing_index_options.num_centroids >> r.routing_index_options.min_cluster_size;
+    // std::cout << r.routing_algorithm << " " << r.index_trainer << " " << r.hnsw_num_voting_neighbors << " " << r.hnsw_ef_search << " " << r.routing_time << " " << std::boolalpha << r.try_increasing_num_shards << std::noboolalpha << " " << num_queries << std::endl;
+    for (int i = 0; i < num_queries; ++i) {
+        std::getline(in, line);
+        std::istringstream line_stream(line);
+        int b = 0;
+        auto& visit_order = r.buckets_to_probe.emplace_back();
+        while (line_stream >> b) { visit_order.push_back(b); }
+    }
+    return r;
+}
+
+
+void SerializeRoutes(const std::vector<RoutingConfig>& routes, const std::string& output_file) {
+    std::ofstream out(output_file);
+    out << routes.size() << std::endl;
+    for (const RoutingConfig& r : routes) {
+        out << "R" << std::endl;
+        out << r.Serialize();
+    }
+}
+
+std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
+    std::ifstream in(input_file);
+    size_t num_routes;
+    std::string header;
+    std::getline(in, header);
+    std::istringstream iss(header);
+    iss >> num_routes;
+    std::vector<RoutingConfig> routes;
+    for (size_t i = 0; i < num_routes; ++i) {
+        std::getline(in, header);
+        // std::cout << "i = " << i << " for routes " << std::endl;
+        if (header != "R") std::cout << "routing config doesn't start with marker R. Instead: " << header << std::endl;
+        RoutingConfig r = RoutingConfig::Deserialize(in);
+        routes.push_back(std::move(r));
+    }
     return routes;
 }

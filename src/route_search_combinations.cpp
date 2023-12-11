@@ -63,7 +63,8 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
     }
 }
 
-void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition, int num_shards) {
+void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vector<NNVec>& ground_truth, int num_neighbors,
+    const std::vector<int>& partition, int num_shards) {
     for (const auto& route : routes) {
         std::vector<size_t> hits(num_shards, 0);
         for (size_t q = 0; q < route.buckets_to_probe.size(); ++q) {
