@@ -15,7 +15,7 @@ struct RatingMap {
 
 // sequential histogram by index and select (or reduce by index) with pre-allocated histogram
 std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const Cover& cover, const Partition& partition,
-    RatingMap& rating_map, const parlay::sequence<int>& cluster_sizes, size_t max_cluster_size) {
+    RatingMap& rating_map, const parlay::sequence<int>& cluster_sizes, int max_cluster_size) {
     for (uint32_t v : neighbors) {
         int part_v = partition[v];
         if (rating_map.ratings[part_v] == 0) {
@@ -54,8 +54,6 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
-
-    auto degrees = parlay::delayed_map(knn_graph, [](const auto& neighs) { return neighs.size(); });
 
     auto cluster_sizes = parlay::histogram_by_index(partition, num_clusters);
 
