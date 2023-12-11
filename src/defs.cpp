@@ -27,7 +27,7 @@ int NumPartsInPartition(const std::vector<int>& partition) {
     return *std::max_element(partition.begin(), partition.end()) + 1;
 }
 
-std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition) {
+std::vector<std::vector<uint32_t>> ConvertPartitionToClusters(const std::vector<int>& partition) {
     int num_buckets = NumPartsInPartition(partition);
     std::vector<std::vector<uint32_t>> buckets(num_buckets);
     for (uint32_t u = 0; u < partition.size(); ++u) {

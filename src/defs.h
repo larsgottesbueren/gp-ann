@@ -27,9 +27,11 @@ using Clusters = std::vector<std::vector<uint32_t>>;
 // maps a point to (potentially multiple) clusters
 using Cover = std::vector<std::vector<int>>;
 
-int NumPartsInPartition(const std::vector<int>& partition);
+int NumPartsInPartition(const Partition& partition);
 
-std::vector<std::vector<uint32_t>> ConvertPartitionToBuckets(const std::vector<int>& partition);
+Clusters ConvertPartitionToClusters(const Partition& partition);
+
+Cover ConvertClustersToCover(const Clusters& clusters);
 
 void RemapPartitionIDs(std::vector<int>& partition);
 

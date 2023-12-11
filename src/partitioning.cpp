@@ -256,7 +256,7 @@ HierarchicalKMeansParlayImpl(PointSet& points, double coarsening_ratio, int dept
         return std::make_pair(level_partition, level_centroids);
     }
 
-    auto clusters = ConvertPartitionToBuckets(level_partition);
+    auto clusters = ConvertPartitionToClusters(level_partition);
 
     auto recursion_results = parlay::map(clusters, [&](const auto& cluster) {
         PointSet cluster_points = ExtractPointsInBucket(cluster, points);
@@ -329,7 +329,7 @@ HierarchicalKMeans(PointSet& points, double coarsening_ratio, int depth = 0) {
         return std::make_pair(level_partition, level_centroids);
     }
 
-    auto clusters = ConvertPartitionToBuckets(level_partition);
+    auto clusters = ConvertPartitionToClusters(level_partition);
 
     std::vector<std::pair<std::vector<int>, PointSet>> recursion_results(clusters.size());
     parlay::parallel_for(0, clusters.size(), [&](size_t i) {

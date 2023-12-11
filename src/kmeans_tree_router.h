@@ -23,7 +23,7 @@ struct KMeansTreeRouter {
     int num_shards;
 
     void Train(PointSet& points, const std::vector<int>& partition, KMeansTreeRouterOptions options) {
-        auto buckets = ConvertPartitionToBuckets(partition);
+        auto buckets = ConvertPartitionToClusters(partition);
         num_shards = buckets.size();
         roots.resize(num_shards);
         dim = points.d;
@@ -49,7 +49,7 @@ struct KMeansTreeRouter {
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
         PointSet centroids = RandomSample(points, std::max(2, std::min<int>(options.num_centroids, options.budget)), seed);
         auto partition = KMeans(points, centroids);
-        auto buckets = ConvertPartitionToBuckets(partition);
+        auto buckets = ConvertPartitionToClusters(partition);
         // std::cout << "num buckets " << buckets.size() << " num centroids " << centroids.n << " num points " << points.n << " options.budget " << options.budget << std::endl;
 
         // check bucket size. stop recursion if small enough. --> partition buckets into those who get a sub-tree and those who don't
