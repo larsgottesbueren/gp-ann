@@ -7,23 +7,30 @@
 #include "metis_io.h"
 #include "kmeans_tree_router.h"
 #include "hnsw_router.h"
+
 double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_to_probe, const std::vector<NNVec>& ground_truth, int num_neighbors,
-                                  const std::vector<int>& partition) {
+                                  const Cover& cover) {
     if (ground_truth.empty()) {
         std::cerr << "Ground truth empty. Max recall calculation during routing not possible (not necessarily an issue).";
         return 555.0;
     }
     size_t hits = 0;
-    for (size_t q = 0; q < buckets_to_probe.size(); ++q) {
+    const size_t num_queries = buckets_to_probe.size();
+    for (size_t q = 0; q < num_queries; ++q) {
         if (buckets_to_probe[q].empty()) continue;
         int probe = buckets_to_probe[q][0];
-        for (int i = 0; i < num_neighbors; ++i) { if (partition[ground_truth[q][i].second] == probe) { hits++; } }
+        for (int i = 0; i < num_neighbors; ++i) {
+            const uint32_t neigh = ground_truth[q][i].second;
+            if (std::find(cover[neigh].begin(), cover[neigh].end(),  probe) != cover[neigh].end()) {
+                hits++;
+            }
+        }
     }
-    return static_cast<double>(hits) / buckets_to_probe.size() / num_neighbors;
+    return static_cast<double>(hits) / num_queries / num_neighbors;
 }
 
 void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
-                                         const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition) {
+                                         const std::vector<NNVec>& ground_truth, int num_neighbors, const Cover& cover) {
     Timer routing_timer;
     for (size_t num_voting_neighbors : { 20, 40, 80, 120, 200, 250, 300, 400, 500 }) {
         std::cout << "num voting neighbors " << num_voting_neighbors << " num queries " << queries.n << std::endl;
@@ -40,7 +47,7 @@ void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& quer
         {
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
             parlay::parallel_for(0, queries.n, [&](size_t i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].RoutingQuery(); });
-            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, partition);
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, cover);
             std::cout << "HNSW routing first shard recall = " << first_shard_recall << std::endl;
 
             routes.push_back(blueprint);
@@ -153,7 +160,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         {
             KMeansTreeRouter router;
 
-            router.Train(points, partition, routing_index_options);
+            router.Train(points, clusters, routing_index_options);
             std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
             // Standard tree-search routing
@@ -167,7 +174,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                 time_routing = routing_timer.Stop();
             });
 
-            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, partition);
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, cover);
             std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query. Max first shard recall = " <<
                     first_shard_recall << std::endl;
             auto& new_route = routes.emplace_back();

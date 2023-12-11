@@ -20,19 +20,19 @@ struct RoutingConfig {
 };
 
 double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_to_probe, const std::vector<NNVec>& ground_truth, int num_neighbors,
-                                  const std::vector<int>& partition);
+                                  const Cover& cover);
 
 void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
-                                         const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition);
+                                         const std::vector<NNVec>& ground_truth, int num_neighbors, const Cover& cover);
 
 void IterateHNSWRouterConfigs(HNSWRouter& hnsw_router, PointSet& queries, std::vector<RoutingConfig>& routes, const RoutingConfig& blueprint,
-                              const std::vector<NNVec>& ground_truth, int num_neighbors, const std::vector<int>& partition);
+                              const std::vector<NNVec>& ground_truth, int num_neighbors, const Cover& cover);
 
 void SerializeRoutes(const std::vector<RoutingConfig>& routes, const std::string& output_file);
 
 std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file);
 
-std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const std::vector<int>& partition, int num_shards,
+std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const Clusters& clusters, int num_shards,
                                                  KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
                                                  int num_neighbors, const std::string& routing_index_file, const std::string& pyramid_index_file,
                                                  const std::string& our_pyramid_index_file);
