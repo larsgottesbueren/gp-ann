@@ -11,7 +11,7 @@ size_t ComputeChunkSize(size_t a, size_t b) {
     return (a+b-1) / b;
 }
 
-PointSet ReadPoints(const std::string& path, int64_t size = -1) {
+PointSet ReadPoints(const std::string& path, int64_t size) {
     uint32_t n, d;
     size_t offset = 0;
     {
