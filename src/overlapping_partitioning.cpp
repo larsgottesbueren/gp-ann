@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <kmeans_tree_router.h>
 
 #include "partitioning.h"
 #include "knn_graph.h"
@@ -10,15 +11,16 @@
 
 #include <parlay/worker_specific.h>
 
+template<typename RatingType>
 struct RatingMap {
-    RatingMap(int num_clusters) : ratings(num_clusters, 0) { }
-    std::vector<int> ratings;
+    explicit RatingMap(int num_clusters) : ratings(num_clusters, 0) { }
+    std::vector<RatingType> ratings;
     std::vector<int> slots;
 };
 
 // sequential histogram by index and select (or reduce by index) with pre-allocated histogram
 std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const Cover& cover, const Partition& partition,
-    RatingMap& rating_map, const parlay::sequence<int>& cluster_sizes, int max_cluster_size) {
+    RatingMap<int>& rating_map, const parlay::sequence<int>& cluster_sizes, int max_cluster_size) {
     for (uint32_t v : neighbors) {
         int part_v = partition[v];
         if (rating_map.ratings[part_v] == 0) {
@@ -104,7 +106,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     auto cluster_sizes = parlay::histogram_by_index(partition, num_clusters);
 
-    parlay::WorkerSpecific<RatingMap> rating_map_ets([&]() { return RatingMap(num_clusters); });
+    parlay::WorkerSpecific<RatingMap<int>> rating_map_ets([&]() { return RatingMap<int>(num_clusters); });
 
     auto nodes = parlay::iota<uint32_t>(points.n);
 
@@ -169,5 +171,53 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, double epsilon, double overlap) {
+    // Step 0 Get kmeans-ish clusters -- BKM or KM
+    Clusters clusters;
+    Partition partition;
+
+    auto cluster_sizes = parlay::histogram_by_index(partition, num_clusters);
+
+    // Step 1 build centroids and associations
+    KMeansTreeRouterOptions kmtr_options {.num_centroids = 32, .min_cluster_size = 350, .budget = 10000, .search_budget = 0};
+    KMeansTreeRouter kmtr;
+    kmtr.Train(points, clusters, kmtr_options);
+    auto [sub_points, sub_part] = kmtr.ExtractPoints();
+
+
+    // Step 2 search closest centroid that is not in the own partition
+    auto point_ids = parlay::iota<uint32_t>(points.n);
+    parlay::WorkerSpecific<RatingMap<float>> rating_map_ets([&]() {
+        RatingMap<float> rm(num_clusters);
+        rm.ratings.assign(num_clusters, std::numeric_limits<float>::max());
+        return rm;
+    });
+
+    auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<std::pair<float, int>> {
+        auto& rating_map = rating_map_ets.get();
+        const int part_u = partition[u];
+        // brute-force so we can more easily support the filter
+        for (size_t j = 0; j < sub_points.n; ++j) {
+            if (sub_part[j] == part_u) {
+                continue;
+            }
+            float dist = distance(points.GetPoint(u), sub_points.GetPoint(j), points.d);
+            const int pv = sub_part[j];
+            auto& r = rating_map.ratings[pv];
+            if (r == std::numeric_limits<float>::max()) {
+                rating_map.slots.push_back(pv);
+            }
+            r = std::min(r, dist);
+        }
+        std::vector<std::pair<float, int>> result;
+        for (int target : rating_map.slots) {
+            result.emplace_back(rating_map.ratings[target], target);
+            rating_map.ratings[target] = std::numeric_limits<float>::max();
+        }
+        std::sort(result.begin(), result.end());
+        return result;
+    });
+
+    // Step 3. don't do the hungarian algorithm :) do something simpler
+
     return { };
 }
