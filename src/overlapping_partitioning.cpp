@@ -1,5 +1,8 @@
 #include "overlapping_partitioning.h"
 
+#include <fstream>
+#include <filesystem>
+
 #include "partitioning.h"
 #include "knn_graph.h"
 
@@ -40,16 +43,54 @@ std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const
     return std::make_pair(best_part, best_affinity);
 }
 
+void WriteGraph(AdjGraph& graph, const std::string& path) {
+    std::ofstream out(path);
+    for (const auto& neigh : graph) {
+        for (int v : neigh) out << v << " ";
+        out << "\n";
+    }
+}
+
+AdjGraph ReadGraph(const std::string& path) {
+    std::cout << "read graph" << std::endl;
+    std::ifstream in(path);
+    int num_nodes;
+    std::string line;
+    {
+        std::getline(in, line);
+        std::istringstream iss(line);
+        iss >> num_nodes;
+    }
+    AdjGraph graph(num_nodes);
+    for (int i = 0; i < num_nodes; ++i) {
+        std::getline(in, line);
+        std::istringstream iss(line);
+        int v;
+        while (iss >> v) graph[i].push_back(v);
+    }
+    return graph;
+}
+
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
-    ApproximateKNNGraphBuilder graph_builder;
-    Timer timer;
-    timer.Start();
-    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-    std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+    std::string dummy_file = "tmp.graph";
+    if (!std::filesystem::exists(dummy_file)) {
+        ApproximateKNNGraphBuilder graph_builder;
+        Timer timer;
+        timer.Start();
+        AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+        std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+
+        WriteGraph(knn_graph, dummy_file);
+    }
+    AdjGraph knn_graph = ReadGraph(dummy_file);
 
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
-    num_clusters = num_clusters * (1.0 + overlap);
+    num_clusters = std::ceil(num_clusters * (1.0 + overlap));
+
+    // TODO this adaptation of epsilon is no bueno
     epsilon = (max_cluster_size * num_clusters / static_cast<double>(points.n)) - 1.0;
+
+    std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);
