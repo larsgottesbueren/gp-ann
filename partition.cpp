@@ -68,6 +68,10 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
 
+    if (part_method == "GP" && overlap != 0.0) {
+        part_method = "OGP";
+    }
+
     const double eps = 0.05;
     std::vector<int> partition;
     Clusters clusters;
