@@ -5,6 +5,7 @@
 #include "points_io.h"
 #include "metis_io.h"
 #include "partitioning.h"
+#include "overlapping_partitioning.h"
 #include "kmeans.h"
 #include <parlay/primitives.h>
 
@@ -60,8 +61,11 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
 
+    double overlap = 0.1;
+
     const double eps = 0.05;
     std::vector<int> partition;
+    Clusters clusters;
     if (part_method == "GP") {
         partition = GraphPartitioning(points, k, eps);
     } else if (part_method == "Pyramid") {
@@ -74,11 +78,16 @@ int main(int argc, const char* argv[]) {
         partition = FlatKMeansCall(points, k, eps);
     } else if (part_method == "OurPyramid") {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
+    } else if (part_method == "OGP") {
+        clusters = OverlappingGraphPartitioning(points, k, eps, overlap);
     } else {
         std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
         std::abort();
     }
     std::cout << "Finished partitioning" << std::endl;
-    PrintImbalance(partition, k);
-    WriteMetisPartition(partition, part_file);
+
+    if (clusters.empty()) {
+        clusters = ConvertPartitionToClusters(partition);
+    }
+    WriteClusters(clusters, part_file);
 }
