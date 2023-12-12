@@ -102,16 +102,15 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
 
-    // TODO this adaptation of epsilon is no bueno
-    // do we want to give the partitioner this much extra freedom, or do we want to use it only for the overlap?
-    // epsilon = (max_cluster_size * num_clusters / static_cast<double>(points.n)) - 1.0;
-
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << std::endl;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 
+    // the current implementation gives
+    // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
+    // instead of the expected 1 * n * overlap. that's fine, we just have to give the other method the same amount
     auto cluster_sizes = parlay::histogram_by_index(partition, num_clusters);
 
     parlay::WorkerSpecific<RatingMap<int>> rating_map_ets([&]() { return RatingMap<int>(num_clusters); });
@@ -179,7 +178,11 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, double epsilon, double overlap) {
+    const size_t n = points.n;
+    const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
+
     // Step 0 Get kmeans-ish clusters -- BKM or KM
+    // TODO just take these as input. it's not like overlapping GP where you also need to build the graph again. taking centroids is fast
     Clusters clusters;
     Partition partition;
 
