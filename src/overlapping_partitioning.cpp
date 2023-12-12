@@ -2,7 +2,8 @@
 
 #include <fstream>
 #include <filesystem>
-#include <kmeans_tree_router.h>
+
+#include "kmeans_tree_router.h"
 
 #include "partitioning.h"
 #include "knn_graph.h"
