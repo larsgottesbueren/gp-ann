@@ -1,6 +1,7 @@
 #include "metis_io.h"
 
 #include <fstream>
+#include <sstream>
 
 std::vector<int> ReadMetisPartition(const std::string& path) {
     std::ifstream in(path);
