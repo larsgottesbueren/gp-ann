@@ -29,17 +29,24 @@ void PrintImbalance(std::vector<int>& partition, int k) {
 }
 
 int main(int argc, const char* argv[]) {
-    if (argc != 5) {
-        std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method" << std::endl;
+    if (argc != 5 && argc != 6) {
+        std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method [overlap]" << std::endl;
         std::abort();
     }
 
     std::string input_file = argv[1];
     std::string output_file = argv[2];
-    std::string k_string = argv[3];
-    int k = std::stoi(k_string);
+    std::string k_str = argv[3];
+    int k = std::stoi(k_str);
     std::string part_method = argv[4];
-    std::string part_file = output_file + ".k=" + std::to_string(k) + "." + part_method;
+    std::string part_file = output_file + ".k=" + k_str + "." + part_method;
+
+    double overlap = 0.0;
+    if (argc == 6) {
+        std::string overlap_str = argv[5];
+        overlap = std::stoi(overlap_str);
+        part_file += ".o=" + overlap_str;
+    }
 
     if (part_method == "Random") {
         uint32_t n;
@@ -60,8 +67,6 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
-
-    double overlap = 0.1;
 
     const double eps = 0.05;
     std::vector<int> partition;
