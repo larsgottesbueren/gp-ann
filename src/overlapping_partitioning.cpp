@@ -45,6 +45,7 @@ std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const
     return std::make_pair(best_part, best_affinity);
 }
 
+#if false
 void WriteGraph(AdjGraph& graph, const std::string& path) {
     std::ofstream out(path);
     out << graph.size() << "\n";
@@ -73,8 +74,10 @@ AdjGraph ReadGraph(const std::string& path) {
     }
     return graph;
 }
+#endif
 
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
+#if false
     std::string dummy_file = "tmp.graph";
     if (!std::filesystem::exists(dummy_file)) {
         ApproximateKNNGraphBuilder graph_builder;
@@ -86,10 +89,14 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         WriteGraph(knn_graph, dummy_file);
     }
     AdjGraph knn_graph = ReadGraph(dummy_file);
+#else
+    ApproximateKNNGraphBuilder graph_builder;
+    Timer timer;
+    timer.Start();
+    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+#endif
 
-    std::cout << "first node's edges ";
-    for (int v : knn_graph[0]) std::cout << v << " ";
-    std::cout << std::endl;
 
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
