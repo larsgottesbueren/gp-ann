@@ -45,6 +45,7 @@ std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const
 
 void WriteGraph(AdjGraph& graph, const std::string& path) {
     std::ofstream out(path);
+    out << graph.size() << "\n";
     for (const auto& neigh : graph) {
         for (int v : neigh) out << v << " ";
         out << "\n";
@@ -84,13 +85,17 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     }
     AdjGraph knn_graph = ReadGraph(dummy_file);
 
+    std::cout << "first node's edges ";
+    for (int v : knn_graph[0]) std::cout << v << " ";
+    std::cout << std::endl;
+
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
 
     // TODO this adaptation of epsilon is no bueno
     epsilon = (max_cluster_size * num_clusters / static_cast<double>(points.n)) - 1.0;
 
-    std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon;
+    std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << std::endl;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);
@@ -102,6 +107,9 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     auto nodes = parlay::iota<uint32_t>(points.n);
 
+    std::cout << "finished partitioning. start big loop" << std::endl;
+
+    int iter = 0;
     while (true) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
            auto& rating_map = rating_map_ets.get();
@@ -111,6 +119,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         auto affinities = parlay::delayed_map(best_moves, [&](const auto& l) { return l.second; });
 
         int best_affinity = parlay::reduce(affinities, parlay::maxm<int>());
+        std::cout << "iter " << iter << " best affinity " << best_affinity << std::endl;
 
         if (best_affinity == 0) {
             break;
