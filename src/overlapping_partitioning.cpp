@@ -93,7 +93,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
 
     // TODO this adaptation of epsilon is no bueno
-    epsilon = (max_cluster_size * num_clusters / static_cast<double>(points.n)) - 1.0;
+    // do we want to give the partitioner this much extra freedom, or do we want to use it only for the overlap?
+    // epsilon = (max_cluster_size * num_clusters / static_cast<double>(points.n)) - 1.0;
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << std::endl;
 
@@ -109,6 +110,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     std::cout << "finished partitioning. start big loop" << std::endl;
 
+    size_t reduction = 0;
     int iter = 0;
     while (true) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
@@ -119,7 +121,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         auto affinities = parlay::delayed_map(best_moves, [&](const auto& l) { return l.second; });
 
         int best_affinity = parlay::reduce(affinities, parlay::maxm<int>());
-        std::cout << "iter " << iter << " best affinity " << best_affinity << std::endl;
+        std::cout << "iter " << ++iter << " best affinity " << best_affinity << std::endl;
 
         if (best_affinity == 0) {
             break;
@@ -130,6 +132,20 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         auto nodes_and_targets = parlay::delayed_map(top_gain_nodes, [&](uint32_t u) { return std::make_pair(best_moves[u].first, u); });
 
         auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
+
+        std::cout << "total num moves " << nodes_and_targets.size() << " num moves into cluster ";
+        for (size_t i = 0; i  < num_clusters; ++i) {
+            std::cout << moves_into_cluster[i].size() << " ";
+        }
+        std::cout << std::endl;
+
+        size_t reduction_this_iteration = 0;
+        for (int cluster_id = 0; cluster_id < num_clusters; ++cluster_id) {
+            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+            reduction_this_iteration += best_affinity * num_moves_left;
+        }
+        reduction += reduction_this_iteration;
+        std::cout << "Reduction this iteration " << reduction_this_iteration << std::endl;
 
         parlay::parallel_for(0, num_clusters, [&](size_t cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
@@ -146,6 +162,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
                 moves_into_cluster[cluster_id].begin() + num_moves_left);
         }, 1);
     }
+
+    std::cout << "Total reduction " << reduction << std::endl;
 
     return clusters;
 }
