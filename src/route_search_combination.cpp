@@ -13,6 +13,17 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     std::vector<std::unordered_set<uint32_t>> unique_neighbors(num_queries);
     for (size_t n_probes = 1; n_probes <= num_shards; ++n_probes) {
         // do this in parallel because the hashing part can be slow
+#if false
+        total_hits = parlay::reduce(
+            parlay::map(parlay::iota(num_queries), [&](size_t q) {
+                int b = route.buckets_to_probe[q][n_probes - 1];
+                for (const uint32_t neighbor : search.neighbors[b][q]) {
+                    unique_neighbors[q].insert(neighbor);
+                }
+                return unique_neighbors[q].size();
+            })
+        );
+#endif
         parlay::parallel_for(0, num_queries, [&](size_t q) {
             int b = route.buckets_to_probe[q][n_probes - 1];
             size_t old_size = unique_neighbors[q].size();
@@ -23,6 +34,7 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
             size_t diff = std::min(new_size - old_size, num_neighbors - new_size);
             __atomic_fetch_add(&total_hits, diff, __ATOMIC_RELAXED);
         });
+
         for (size_t q = 0; q < num_queries; ++q) {
             int b = route.buckets_to_probe[q][n_probes - 1];
             local_work[b] += search.time_query_in_shard[b][q];
