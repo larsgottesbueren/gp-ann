@@ -60,7 +60,6 @@ int main(int argc, const char* argv[]) {
 #else
     Clusters clusters = ReadClusters(partition_file);
     int num_shards = static_cast<int>(clusters.size());
-
 #endif
 
     // TODO support different file types (metis partition file and clusters file)

@@ -18,7 +18,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
     std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
     for (int b = 0; b < num_shards; ++b) {
-        auto& cluster = clusters[b];
+        auto cluster = clusters[b];
 
         std::cout << "Start building HNSW for shard " << b << " of size " << cluster.size() << std::endl;
 

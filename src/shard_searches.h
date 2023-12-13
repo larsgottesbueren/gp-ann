@@ -26,4 +26,4 @@ std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file)
 
 
 std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-                                            std::vector<std::vector<uint32_t>>& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor);
+                                            const Clusters& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor);
