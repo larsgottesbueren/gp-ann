@@ -141,7 +141,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
 
         std::cout << "total num moves " << nodes_and_targets.size() << " num moves into cluster ";
-        for (size_t i = 0; i  < num_clusters; ++i) {
+        for (int i = 0; i < num_clusters; ++i) {
             std::cout << moves_into_cluster[i].size() << " ";
         }
         std::cout << std::endl;
