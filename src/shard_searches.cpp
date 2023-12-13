@@ -59,6 +59,8 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                         const auto top = result.top();
                         result.pop();
                         if (top.first <= distance_to_kth_neighbor[q]) {
+                            // TODO with overlapping shards, this is not ok any more. we have to deduplicate the neighbors
+                            // this means we have to store the found neighbors
                             shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
                         }
                     }
