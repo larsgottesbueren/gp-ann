@@ -53,9 +53,15 @@ int main(int argc, const char* argv[]) {
     std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
+#if false
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = NumPartsInPartition(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
+#else
+    Clusters clusters = ReadClusters(partition_file);
+    int num_shards = static_cast<int>(clusters.size());
+
+#endif
 
     // TODO support different file types (metis partition file and clusters file)
 
