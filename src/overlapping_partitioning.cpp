@@ -179,6 +179,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
     const size_t n = points.n;
     // usually it would be n * overlap, but because the way the GP overlap is implemented, we can make it (1+eps) * as much
     const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
+
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
 
     Clusters clusters = ConvertPartitionToClusters(partition);
@@ -228,6 +229,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         return result;
     });
 
+    size_t num_assignments_left = num_extra_assignments;
     while (true) {
         auto points_and_targets = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
             auto& ranking = cluster_rankings[u];
@@ -250,7 +252,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
             num_moves_left = std::min(num_moves_left, num_extra_assignments);
-            num_extra_assignments -= num_moves_left;
+            num_assignments_left -= num_moves_left;
             cluster_sizes[cluster_id] += num_moves_left;
             // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
             clusters[cluster_id].insert(
