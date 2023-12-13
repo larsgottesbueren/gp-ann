@@ -210,7 +210,7 @@ struct ApproximateKNNGraphBuilder {
 
                 locks[point_id].unlock();
             }
-
+            bucket.clear(); bucket.shrink_to_fit();
         }, 1);
 
         std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
