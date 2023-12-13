@@ -226,6 +226,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
             }
             rating_map.ratings[target] = std::numeric_limits<float>::max();
         }
+        rating_map.slots.clear();
         closest[u] = min_dist;
         std::sort(result.begin(), result.end(), std::greater<>());  // will do pop-back later --> place closest at the end
         return result;
