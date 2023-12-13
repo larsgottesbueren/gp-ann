@@ -98,9 +98,15 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
 std::string ShardSearch::Serialize() const {
     std::stringstream out;
-    out << ef_search << " " << query_hits_in_shard.size() << " " << query_hits_in_shard[0].size() << "\n";
-    for (const auto& qh : query_hits_in_shard) {
-        for (int x : qh) { out << x << " "; }
+    size_t num_shards = neighbors.size();
+    size_t num_queries = neighbors[0].size();
+    out << ef_search << " " << num_shards << " " << num_queries << "\n";
+    for (size_t b = 0; b < num_shards; ++b) {
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (const uint32_t neighbor : neighbors[b][q]) {
+                out << neighbor << " ";
+            }
+        }
         out << "\n";
     }
     for (const auto& tq : time_query_in_shard) {
@@ -117,16 +123,19 @@ ShardSearch ShardSearch::Deserialize(std::ifstream& in) {
     std::getline(in, line);
     std::istringstream iss(line);
     iss >> s.ef_search >> num_shards >> num_queries;
-    for (int i = 0; i < num_shards; ++i) {
-        std::getline(in, line);
-        std::istringstream line_stream(line);
-        s.query_hits_in_shard.emplace_back();
-        int hits;
-        while (line_stream >> hits) { s.query_hits_in_shard.back().push_back(hits); }
-        assert(s.query_hits_in_shard.back().size() == num_queries);
+    s.neighbors.assign(num_shards, std::vector<std::vector<uint32_t>>(num_queries));
+    for (int b = 0; b < num_shards; ++b) {
+        for (int q = 0; q < num_queries; ++q) {
+            std::getline(in, line);
+            std::istringstream line_stream(line);
+            int neighbor;
+            while (line_stream >> neighbor) {
+                s.neighbors[b][q].push_back(neighbor);
+            }
+        }
     }
 
-    for (int i = 0; i < num_shards; ++i) {
+    for (int b = 0; b < num_shards; ++b) {
         std::getline(in, line);
         std::istringstream line_stream(line);
         s.time_query_in_shard.emplace_back();

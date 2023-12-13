@@ -14,7 +14,9 @@ struct ShardSearch {
 
     size_t ef_search = 0;
     // std::vector<std::vector<int>> query_hits_in_shard;
+    // num shards X num queries X num top-k neighbors found
     std::vector<std::vector<std::vector<uint32_t>>> neighbors;
+    // num shards X num queries
     std::vector<std::vector<double>> time_query_in_shard;
 
     std::string Serialize() const;
