@@ -78,6 +78,11 @@ AdjGraph ReadGraph(const std::string& path) {
 #endif
 
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
+    const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
+    num_clusters = std::ceil(num_clusters * (1.0 + overlap));
+
+    std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
+    std::exit(0);
 #if false
     std::string dummy_file = "tmp.graph";
     if (!std::filesystem::exists(dummy_file)) {
@@ -97,12 +102,6 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
 #endif
-
-
-    const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
-    num_clusters = std::ceil(num_clusters * (1.0 + overlap));
-
-    std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << std::endl;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
     Cover cover = ConvertPartitionToCover(partition);

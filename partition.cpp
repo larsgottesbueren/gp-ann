@@ -44,7 +44,7 @@ int main(int argc, const char* argv[]) {
     double overlap = 0.0;
     if (argc == 6) {
         std::string overlap_str = argv[5];
-        overlap = std::stoi(overlap_str);
+        overlap = std::stod(overlap_str);
         part_file += ".o=" + overlap_str;
     }
 
