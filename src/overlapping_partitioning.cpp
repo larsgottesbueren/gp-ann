@@ -186,50 +186,53 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
     auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
+    Timer timer; timer.Start();
     // Step 1 build centroids and associations
-    KMeansTreeRouterOptions kmtr_options {.num_centroids = 32, .min_cluster_size = 350, .budget = 10000, .search_budget = 0};
+    KMeansTreeRouterOptions kmtr_options {.num_centroids = 16, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
     KMeansTreeRouter kmtr;
     kmtr.Train(points, clusters, kmtr_options);
     auto [sub_points, sub_part] = kmtr.ExtractPoints();
 
-    std::cout << "Got reps. " << sub_points.n << " " << sub_part.size() << std::endl;
+    std::cout << "Got reps. " << sub_points.n << " " << sub_part.size() << " Took " << timer.Restart() << " s" << std::endl;
 
 
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
-    parlay::WorkerSpecific<RatingMap<float>> rating_map_ets([&]() {
-        RatingMap<float> rm(clusters.size());
-        rm.ratings.assign(clusters.size(), std::numeric_limits<float>::max());
-        return rm;
+    parlay::WorkerSpecific<std::vector<float>> min_dist_ets([&]() {
+        return std::vector<float>(clusters.size(), std::numeric_limits<float>::max());
     });
 
-    parlay::sequence<float> closest(n);
-
-    auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<std::pair<float, int>> {
-        auto& rating_map = rating_map_ets.get();
+    auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<int> {
+        auto& min_dist = min_dist_ets.get();
+        std::vector<int> targets;
         // brute-force so we can more easily support the filter
         for (size_t j = 0; j < sub_points.n; ++j) {
             float dist = distance(points.GetPoint(u), sub_points.GetPoint(j), points.d);
             const int pv = sub_part[j];
-            auto& r = rating_map.ratings[pv];
-            if (r == std::numeric_limits<float>::max()) {
-                rating_map.slots.push_back(pv);
+            if (min_dist[pv] == std::numeric_limits<float>::max()) {
+                targets.push_back(pv);
             }
-            r = std::min(r, dist);
-        }
-        std::vector<std::pair<float, int>> result;
-        float min_dist = std::numeric_limits<float>::max();
-        for (int target : rating_map.slots) {
-            min_dist = std::min(min_dist, rating_map.ratings[target]);
-            if (target != partition[u]) {
-                result.emplace_back(rating_map.ratings[target], target);
+            if (dist < min_dist[pv]) {
+                min_dist[pv] = dist;
             }
-            rating_map.ratings[target] = std::numeric_limits<float>::max();
         }
-        rating_map.slots.clear();
-        closest[u] = min_dist;
-        std::sort(result.begin(), result.end(), std::greater<>());  // will do pop-back later --> place closest at the end
-        return result;
+
+        // first select top 5
+        int num_keep = 5;
+        std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
+        // reset entries outside the top
+        for (size_t i = num_keep; i < targets.size(); ++i) {
+            min_dist[targets[i]] = std::numeric_limits<float>::max();
+        }
+        // keep only the top
+        min_dist.resize(num_keep);
+        // sort in descending order since we will use pop_back in the next step
+        std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
+        // reset entries from the top
+        for (int t : targets) {
+            min_dist[t] = std::numeric_limits<float>::max();
+        }
+        return targets;
     });
 
     std::cout << "got cluster rankings " << std::endl;
@@ -242,7 +245,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         auto points_and_targets = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
             auto& ranking = cluster_rankings[u];
             while (!ranking.empty()) {
-                int target = ranking.back().second;
+                int target = ranking.back();
                 ranking.pop_back();
                 if (cluster_sizes[target] < max_cluster_size) {
                     return std::make_pair(u, target);
