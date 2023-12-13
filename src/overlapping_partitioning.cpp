@@ -175,17 +175,15 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     return clusters;
 }
 
-Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int initial_num_clusters, double epsilon, double overlap) {
+Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
+    // usually it would be n * overlap, but because the way the GP overlap is implemented, we can make it (1+eps) * as much
     const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
-    const size_t max_cluster_size = (1.0 + epsilon) * points.n / initial_num_clusters;
+    const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
 
-    // Step 0 Get kmeans-ish clusters -- BKM or KM
-    // TODO just take these as input. it's not like overlapping GP where you also need to build the graph again. taking centroids is fast
-    Clusters clusters;
-    Partition partition;
+    Clusters clusters = ConvertPartitionToClusters(partition);
 
-    auto cluster_sizes = parlay::histogram_by_index(partition, initial_num_clusters);
+    auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
     // Step 1 build centroids and associations
     KMeansTreeRouterOptions kmtr_options {.num_centroids = 32, .min_cluster_size = 350, .budget = 10000, .search_budget = 0};
@@ -249,14 +247,17 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int initial_num_cl
 
         auto moves_into_cluster = parlay::group_by_index(points_and_targets, clusters.size());
 
-        parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
+        for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+            num_moves_left = std::min(num_moves_left, num_extra_assignments);
+            num_extra_assignments -= num_moves_left;
             cluster_sizes[cluster_id] += num_moves_left;
             // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
             clusters[cluster_id].insert(
                 clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
                 moves_into_cluster[cluster_id].begin() + num_moves_left);
-        }, 1);
+        }
+
     }
 
     return clusters;
