@@ -82,7 +82,6 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
-    std::exit(0);
 #if false
     std::string dummy_file = "tmp.graph";
     if (!std::filesystem::exists(dummy_file)) {
@@ -179,6 +178,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
     const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
+    const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
 
     // Step 0 Get kmeans-ish clusters -- BKM or KM
     // TODO just take these as input. it's not like overlapping GP where you also need to build the graph again. taking centroids is fast
@@ -202,14 +202,12 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, 
         return rm;
     });
 
+    parlay::sequence<float> closest(n);
+
     auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<std::pair<float, int>> {
         auto& rating_map = rating_map_ets.get();
-        const int part_u = partition[u];
         // brute-force so we can more easily support the filter
         for (size_t j = 0; j < sub_points.n; ++j) {
-            if (sub_part[j] == part_u) {
-                continue;
-            }
             float dist = distance(points.GetPoint(u), sub_points.GetPoint(j), points.d);
             const int pv = sub_part[j];
             auto& r = rating_map.ratings[pv];
@@ -219,15 +217,47 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, 
             r = std::min(r, dist);
         }
         std::vector<std::pair<float, int>> result;
+        float min_dist = std::numeric_limits<float>::max();
         for (int target : rating_map.slots) {
-            result.emplace_back(rating_map.ratings[target], target);
+            min_dist = std::min(min_dist, rating_map.ratings[target]);
+            if (target != partition[u]) {
+                result.emplace_back(rating_map.ratings[target], target);
+            }
             rating_map.ratings[target] = std::numeric_limits<float>::max();
         }
-        std::sort(result.begin(), result.end());
+        closest[u] = min_dist;
+        std::sort(result.begin(), result.end(), std::greater<>());  // will do pop-back later --> place closest at the end
         return result;
     });
 
-    // Step 3. don't do the hungarian algorithm :) do something simpler
+    while (true) {
+        auto points_and_targets = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
+            auto& ranking = cluster_rankings[u];
+            while (!ranking.empty()) {
+                int target = ranking.back().second;
+                ranking.pop_back();
+                if (cluster_sizes[target] < max_cluster_size) {
+                    return std::make_pair(u, target);
+                }
+            }
+            return std::nullopt;
+        });
 
-    return { };
+        if (points_and_targets.empty()) {
+            break;
+        }
+
+        auto moves_into_cluster = parlay::group_by_index(points_and_targets, num_clusters);
+
+        parlay::parallel_for(0, num_clusters, [&](size_t cluster_id) {
+            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+            cluster_sizes[cluster_id] += num_moves_left;
+            // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
+            clusters[cluster_id].insert(
+                clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
+                moves_into_cluster[cluster_id].begin() + num_moves_left);
+        }, 1);
+    }
+
+    return clusters;
 }
