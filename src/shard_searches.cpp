@@ -51,23 +51,35 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                 parlay::sequence<std::priority_queue<std::pair<float, unsigned long>>> results(queries.n);
 
                 hnsw.setEf(ef_search);
-                size_t total_hits = 0;
                 Timer total;
                 total.Start();
-
                 parlay::parallel_for(0, queries.n, [&](size_t q) {
                     results[q] = hnsw.searchKnn(queries.GetPoint(q), num_neighbors);
                 }, 10);
                 const double elapsed = total.Stop();
 
-                for (size_t q = 0; q < queries.n; ++q) {
-
-                    total_hits += shard_searches[ef_search_param_id].query_hits_in_shard[b][q];
+                size_t total_hits = 0;
+                parlay::parallel_for(0, queries.n, [&](size_t q) {
                     // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
                     // want to repeat the query for each probe config (which we don't because it would take forever.
                     // this is the parameter tuning code after all.)
                     shard_searches[ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
-                }
+
+                    // now transfer the neighbors
+                    auto& nn = shard_searches[ef_search_param_id].neighbors[b][q];
+                    auto& pq = results[q];
+                    size_t hits = 0;
+                    while (!pq.empty()) {
+                        auto top = pq.top();
+                        pq.pop();
+                        if (top.first <= distance_to_kth_neighbor[q]) {
+                            hits++;
+                            // only need to record a hit... this actually makes things easier later on
+                            nn.push_back(top.second);
+                        }
+                    }
+                    __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
+                });
 
                 std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits <<
                         " total timer took " << total.total_duration.count() << std::endl;
