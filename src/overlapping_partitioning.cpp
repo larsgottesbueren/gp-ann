@@ -121,7 +121,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     int iter = 0;
     while (true) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
-           auto& rating_map = rating_map_ets.get();
+            auto& rating_map = rating_map_ets.get();
             return TopMove(u, knn_graph[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
         });
 
