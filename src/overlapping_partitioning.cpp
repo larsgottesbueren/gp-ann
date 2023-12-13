@@ -263,18 +263,23 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         auto moves_into_cluster = parlay::group_by_index(targets_and_points, clusters.size());
 
         std::cout << "num moves into cluster ";
+        size_t total_moves = 0;
         for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
-            num_moves_left = std::min(num_moves_left, num_extra_assignments);
+            num_moves_left = std::min(num_moves_left, num_assignments_left);
             std::cout << num_moves_left << " ";
             num_assignments_left -= num_moves_left;
+            total_moves += num_moves_left;
             cluster_sizes[cluster_id] += num_moves_left;
             // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
             clusters[cluster_id].insert(
                 clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
                 moves_into_cluster[cluster_id].begin() + num_moves_left);
+            if (clusters[cluster_id].size() != cluster_sizes[cluster_id]) throw std::runtime_error("cluster size doesnt match");
+            if (cluster_sizes[cluster_id] > max_cluster_size) throw std::runtime_error("max cluster size exceeded");
         }
         std::cout << std::endl;
+        std::cout << "total moves this roudn " << total_moves << std::endl;
 
     }
 
