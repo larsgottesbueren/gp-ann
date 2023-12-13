@@ -218,14 +218,14 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         }
 
         // first select top 5
-        int num_keep = 5;
+        size_t num_keep = 5;
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
         // reset entries outside the top
         for (size_t i = num_keep; i < targets.size(); ++i) {
             min_dist[targets[i]] = std::numeric_limits<float>::max();
         }
         // keep only the top
-        min_dist.resize(num_keep);
+        min_dist.resize(std::min(min_dist.size(), num_keep));
         // sort in descending order since we will use pop_back in the next step
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
         // reset entries from the top
@@ -236,29 +236,31 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
     });
 
     std::cout << "got cluster rankings " << std::endl;
-    std::cout << "assignment loop. num overlap assignments allowed " << num_extra_assignments;
+    std::cout << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
 
     size_t num_assignments_left = num_extra_assignments;
     size_t iter = 0;
     while (num_assignments_left > 0) {
         std::cout << "Iter " << ++iter << " num assignments left " << num_assignments_left << std::endl;
-        auto points_and_targets = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
+        auto targets_and_points = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
             auto& ranking = cluster_rankings[u];
             while (!ranking.empty()) {
                 int target = ranking.back();
                 ranking.pop_back();
                 if (cluster_sizes[target] < max_cluster_size) {
-                    return std::make_pair(u, target);
+                    return std::make_pair(target, u);
                 }
             }
             return std::nullopt;
         });
 
-        if (points_and_targets.empty()) {
+        std::cout << "# primary moves " << targets_and_points.size() << std::endl;;
+
+        if (targets_and_points.empty()) {
             break;
         }
 
-        auto moves_into_cluster = parlay::group_by_index(points_and_targets, clusters.size());
+        auto moves_into_cluster = parlay::group_by_index(targets_and_points, clusters.size());
 
         std::cout << "num moves into cluster ";
         for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
@@ -275,6 +277,8 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         std::cout << std::endl;
 
     }
+
+    std::cout << "Finished" << std::endl;
 
     return clusters;
 }
