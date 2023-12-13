@@ -9,14 +9,22 @@
 void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
     int num_neighbors, std::function<void(EmitResult)>& emit) {
     size_t total_hits = 0;
-    std::vector<int> hits_per_query(num_queries, 0);
     std::vector<double> local_work(num_shards, 0.0);
+    std::vector<std::unordered_set<uint32_t>> unique_neighbors(num_queries);
     for (size_t n_probes = 1; n_probes <= num_shards; ++n_probes) {
+        // do this in parallel because the hashing part can be slow
+        parlay::parallel_for(0, num_queries, [&](size_t q) {
+            int b = route.buckets_to_probe[q][n_probes - 1];
+            size_t old_size = unique_neighbors[q].size();
+            for (const uint32_t neighbor : search.neighbors[b][q]) {
+                unique_neighbors[q].insert(neighbor);
+            }
+            size_t new_size = unique_neighbors[q].size();
+            size_t diff = std::min(new_size - old_size, num_neighbors - new_size);
+            __atomic_fetch_add(&total_hits, diff, __ATOMIC_RELAXED);
+        });
         for (size_t q = 0; q < num_queries; ++q) {
             int b = route.buckets_to_probe[q][n_probes - 1];
-            int diff = std::min(search.query_hits_in_shard[b][q], num_neighbors - hits_per_query[q]);
-            hits_per_query[q] += diff;
-            total_hits += diff;
             local_work[b] += search.time_query_in_shard[b][q];
         }
         emit(EmitResult{
@@ -32,15 +40,21 @@ void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, co
     std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
     size_t total_num_probes = 0;
-    for (size_t q = 0; q < num_queries; ++q) {
-        total_num_probes += route.buckets_to_probe[q].size();
-        int hits = 0;
+    parlay::parallel_for(0, num_queries, [&](size_t q) {
+        std::unordered_set<uint32_t> unique_neighbors;
         for (int b : route.buckets_to_probe[q]) {
-            hits += search.query_hits_in_shard[b][q];
+            for (const uint32_t neighbor : search.neighbors[b][q]) {
+                unique_neighbors.insert(neighbor);
+            }
+        }
+        size_t hits = std::min<size_t>(unique_neighbors.size(), num_neighbors);
+        __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
+        __atomic_fetch_add(&total_num_probes, route.buckets_to_probe[q].size(), __ATOMIC_RELAXED);
+    });
+    for (size_t q = 0; q < num_queries; ++q) {
+        for (int b : route.buckets_to_probe[q]) {
             local_work[b] += search.time_query_in_shard[b][q];
         }
-        hits = std::min(hits, num_neighbors);
-        total_hits += hits;
     }
     emit(EmitResult{
             .local_work = local_work,
@@ -54,7 +68,7 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
     std::cout << "k = " << num_neighbors << " nq = " << num_queries << " num shards = " << num_shards << " num requested = " << num_requested_shards << std::endl;
     for (const auto& search : shard_searches) {
         size_t total_hits = 0;
-        for (int q = 0; q < num_queries; ++q) {
+        parlay::parallel_for(0, num_queries, [&](size_t q) {
             std::unordered_set<uint32_t> unique_neighbors;
             // iter over shards
             for (const auto& b : search.neighbors) {
@@ -62,8 +76,8 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
                     unique_neighbors.insert(neighbor);
                 }
             }
-            total_hits += std::min<size_t>(num_neighbors, unique_neighbors.size());
-        }
+            __atomic_fetch_add(&total_hits, std::min<size_t>(num_neighbors, unique_neighbors.size()), __ATOMIC_RELAXED);
+        });
         double recall = double(total_hits) / double(num_queries) / num_neighbors;
         std::cout << "Search with ef_search = " << search.ef_search << " scored " << recall << " total recall" << std::endl;
     }
