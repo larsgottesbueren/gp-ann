@@ -175,7 +175,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     return clusters;
 }
 
-Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, double epsilon, double overlap) {
+Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int initial_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
     const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
@@ -247,9 +247,9 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int num_clusters, 
             break;
         }
 
-        auto moves_into_cluster = parlay::group_by_index(points_and_targets, num_clusters);
+        auto moves_into_cluster = parlay::group_by_index(points_and_targets, clusters.size());
 
-        parlay::parallel_for(0, num_clusters, [&](size_t cluster_id) {
+        parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
             cluster_sizes[cluster_id] += num_moves_left;
             // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
