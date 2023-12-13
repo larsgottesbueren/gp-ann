@@ -55,11 +55,14 @@ void MaxShardSearchRecall(const std::vector<ShardSearch>& shard_searches, int nu
     for (const auto& search : shard_searches) {
         size_t total_hits = 0;
         for (int q = 0; q < num_queries; ++q) {
-            int hits = 0;
-            for (const auto& s : search.query_hits_in_shard) {
-                hits += s[q];
+            std::unordered_set<uint32_t> unique_neighbors;
+            // iter over shards
+            for (const auto& b : search.neighbors) {
+                for (const uint32_t neighbor : b[q]) {
+                    unique_neighbors.insert(neighbor);
+                }
             }
-            total_hits += std::min(num_neighbors, hits);
+            total_hits += std::min<size_t>(num_neighbors, unique_neighbors.size());
         }
         double recall = double(total_hits) / double(num_queries) / num_neighbors;
         std::cout << "Search with ef_search = " << search.ef_search << " scored " << recall << " total recall" << std::endl;
