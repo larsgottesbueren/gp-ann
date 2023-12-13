@@ -72,6 +72,7 @@ int main(int argc, const char* argv[]) {
         part_method = "OGP";
     }
 
+
     const double eps = 0.05;
     std::vector<int> partition;
     Clusters clusters;
@@ -89,6 +90,17 @@ int main(int argc, const char* argv[]) {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else if (part_method == "OGP") {
         clusters = OverlappingGraphPartitioning(points, k, eps, overlap);
+    } else if (part_method == "OKM") {
+        // leave the same num clusters, since k-means will use more than requested anyways
+        auto kmp = KMeansPartitioning(points, k, eps);
+        clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
+    } else if (part_method == "OBKM") {
+        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        // use adjusted num clusters for BKM call
+        auto bkm = BalancedKMeansCall(points, adjusted_num_clusters, eps);
+        // but use the original number for the overlap call, so that it chooses the correct max cluster size. The code can handle the case
+        // that NumPartsInPartition(bkm) != k
+        clusters = OverlappingKMeansPartitioningSPANN(points, bkm, k, eps, overlap);
     } else {
         std::cout << "Unsupported partitioning method " << part_method << " . The supported options are [GP, Pyramid, KMeans]" << std::endl;
         std::abort();
