@@ -100,6 +100,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     timer.Start();
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+    points.Drop();
+    std::cout << "Dropping points took " << timer.Stop() << std::endl;
 #endif
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
