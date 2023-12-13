@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 #include <parlay/parallel.h>
+#include <parlay/sequence.h>
 
 std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
                                             const Clusters& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor) {
@@ -47,23 +48,15 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
         parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
             size_t ef_search_param_id = 0;
             for (const size_t ef_search : ef_search_param_values) {
+                parlay::sequence<std::priority_queue<std::pair<float, unsigned long>>> results(queries.n);
+
                 hnsw.setEf(ef_search);
                 size_t total_hits = 0;
                 Timer total;
                 total.Start();
 
                 parlay::parallel_for(0, queries.n, [&](size_t q) {
-                    float* Q = queries.GetPoint(q);
-                    auto result = hnsw.searchKnn(Q, num_neighbors);
-                    while (!result.empty()) {
-                        const auto top = result.top();
-                        result.pop();
-                        if (top.first <= distance_to_kth_neighbor[q]) {
-                            // TODO with overlapping shards, this is not ok any more. we have to deduplicate the neighbors
-                            // this means we have to store the found neighbors
-                            shard_searches[ef_search_param_id].query_hits_in_shard[b][q]++;
-                        }
-                    }
+                    results[q] = hnsw.searchKnn(queries.GetPoint(q), num_neighbors);
                 }, 10);
                 const double elapsed = total.Stop();
 
