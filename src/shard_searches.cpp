@@ -61,6 +61,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                 const double elapsed = total.Stop();
 
                 for (size_t q = 0; q < queries.n; ++q) {
+
                     total_hits += shard_searches[ef_search_param_id].query_hits_in_shard[b][q];
                     // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
                     // want to repeat the query for each probe config (which we don't because it would take forever.

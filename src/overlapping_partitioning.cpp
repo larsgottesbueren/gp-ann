@@ -178,14 +178,14 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int initial_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
     const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
-    const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
+    const size_t max_cluster_size = (1.0 + epsilon) * points.n / initial_num_clusters;
 
     // Step 0 Get kmeans-ish clusters -- BKM or KM
     // TODO just take these as input. it's not like overlapping GP where you also need to build the graph again. taking centroids is fast
     Clusters clusters;
     Partition partition;
 
-    auto cluster_sizes = parlay::histogram_by_index(partition, num_clusters);
+    auto cluster_sizes = parlay::histogram_by_index(partition, initial_num_clusters);
 
     // Step 1 build centroids and associations
     KMeansTreeRouterOptions kmtr_options {.num_centroids = 32, .min_cluster_size = 350, .budget = 10000, .search_budget = 0};
@@ -197,8 +197,8 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, int initial_num_cl
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
     parlay::WorkerSpecific<RatingMap<float>> rating_map_ets([&]() {
-        RatingMap<float> rm(num_clusters);
-        rm.ratings.assign(num_clusters, std::numeric_limits<float>::max());
+        RatingMap<float> rm(clusters.size());
+        rm.ratings.assign(clusters.size(), std::numeric_limits<float>::max());
         return rm;
     });
 
