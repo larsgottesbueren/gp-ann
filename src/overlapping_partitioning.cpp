@@ -192,6 +192,8 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
     kmtr.Train(points, clusters, kmtr_options);
     auto [sub_points, sub_part] = kmtr.ExtractPoints();
 
+    std::cout << "Got reps. " << sub_points.n << " " << sub_part.size() << std::endl;
+
 
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
@@ -229,8 +231,13 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         return result;
     });
 
+    std::cout << "got cluster rankings " << std::endl;
+    std::cout << "assignment loop. num overlap assignments allowed " << num_extra_assignments;
+
     size_t num_assignments_left = num_extra_assignments;
-    while (true) {
+    size_t iter = 0;
+    while (num_assignments_left > 0) {
+        std::cout << "Iter " << ++iter << " num assignments left " << num_assignments_left << std::endl;
         auto points_and_targets = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
             auto& ranking = cluster_rankings[u];
             while (!ranking.empty()) {
@@ -249,9 +256,11 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
         auto moves_into_cluster = parlay::group_by_index(points_and_targets, clusters.size());
 
+        std::cout << "num moves into cluster ";
         for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
             num_moves_left = std::min(num_moves_left, num_extra_assignments);
+            std::cout << num_moves_left << " ";
             num_assignments_left -= num_moves_left;
             cluster_sizes[cluster_id] += num_moves_left;
             // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
@@ -259,6 +268,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
                 clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
                 moves_into_cluster[cluster_id].begin() + num_moves_left);
         }
+        std::cout << std::endl;
 
     }
 
