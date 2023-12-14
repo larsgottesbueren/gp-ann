@@ -242,6 +242,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         for (int t : targets) {
             min_dist[t] = std::numeric_limits<float>::max();
         }
+        targets.shrink_to_fit();
         return targets;
     });
 
