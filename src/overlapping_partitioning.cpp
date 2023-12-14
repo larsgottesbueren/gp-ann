@@ -186,6 +186,10 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
     Clusters clusters = ConvertPartitionToClusters(partition);
 
+    // if there are any empty clusters, remove them
+    auto it = std::remove_if(clusters.begin(), clusters.end(), [&](const auto& cluster) { return cluster.empty(); });
+    clusters.erase(it, clusters.end());
+
     auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
     std::cout << "num clusters = " << clusters.size() << " cluster sizes ";
