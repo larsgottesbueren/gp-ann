@@ -188,6 +188,10 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
     auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
+    std::cout << "num clusters = " << clusters.size() << " cluster sizes ";
+    for (size_t cs : cluster_sizes) std::cout << cs << " ";
+    std::cout << std::endl;
+
     Timer timer; timer.Start();
     // Step 1 build centroids and associations
     KMeansTreeRouterOptions kmtr_options {.num_centroids = 16, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
