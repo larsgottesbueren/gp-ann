@@ -106,7 +106,7 @@ std::vector<KMeansTreeRouterOptions> GenerateRouterConfigs(KMeansTreeRouterOptio
     std::vector<KMeansTreeRouterOptions> routing_index_option_vals;
 
 #if false
-    for (double factor : {0.2, 0.4, 0.8 }) {
+    for (double factor : {0.2, 0.4, 0.8, 1.0 }) {
         KMeansTreeRouterOptions ro = routing_index_options_blueprint;
         ro.budget *= factor;
         routing_index_option_vals.push_back(ro);

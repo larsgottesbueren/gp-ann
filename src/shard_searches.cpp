@@ -72,6 +72,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                     while (!pq.empty()) {
                         auto top = pq.top();
                         pq.pop();
+                        // TODO Triple check this. Clearly something is broken here
                         if (top.first <= distance_to_kth_neighbor[q]) {
                             hits++;
                             // only need to record a hit... this actually makes things easier later on

@@ -5,7 +5,13 @@
 #include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
+    std::string file = argv[1];
+    Partition partition = ReadMetisPartition(file);
+    Clusters clusters = ConvertPartitionToClusters(partition);
+    std::string out_file = argv[2];
+    WriteClusters(clusters, out_file);
 
+#if false
     std::string file = argv[1];
     std::string str_num_points = argv[2];
     int num_points = std::stoi(str_num_points);
@@ -13,6 +19,7 @@ int main(int argc, const char* argv[]) {
 
     std::string out_file = argv[3];
     WritePoints(points, out_file);
+#endif
 
 #if false
     if (argc != 7) {

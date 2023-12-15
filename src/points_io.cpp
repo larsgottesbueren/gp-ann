@@ -89,3 +89,23 @@ std::vector<NNVec> ReadGroundTruth(const std::string& path) {
 
     return gt;
 }
+
+
+void WriteGroundTruth(const std::string& path, const std::vector<NNVec>& ground_truth) {
+    uint32_t num_queries = ground_truth.size();
+    uint32_t num_neighbors = ground_truth[0].size();
+    std::ofstream out(path, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(&num_queries), sizeof(uint32_t));
+    out.write(reinterpret_cast<const char*>(&num_neighbors), sizeof(uint32_t));
+    for (uint32_t q = 0; q < num_queries; ++q) {
+        for (uint32_t j = 0; j < num_neighbors; ++j) {
+            out.write(reinterpret_cast<const char*>(&ground_truth[q][j].second), sizeof(uint32_t));
+        }
+    }
+
+    for (uint32_t q = 0; q < num_queries; ++q) {
+        for (uint32_t j = 0; j < num_neighbors; ++j) {
+            out.write(reinterpret_cast<const char*>(&ground_truth[q][j].first), sizeof(float));
+        }
+    }
+}

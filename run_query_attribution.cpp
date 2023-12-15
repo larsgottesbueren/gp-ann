@@ -49,6 +49,7 @@ int main(int argc, const char* argv[]) {
         std::cout << "start computing ground truth" << std::endl;
         ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
         std::cout << "computed ground truth" << std::endl;
+        WriteGroundTruth(ground_truth_file, ground_truth);
     }
     std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
@@ -63,7 +64,7 @@ int main(int argc, const char* argv[]) {
 #endif
 
     // TODO support different file types (metis partition file and clusters file)
-
+#if false
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / requested_num_shards;
     std::string pyramid_index_file, our_pyramid_index_file;
@@ -75,13 +76,14 @@ int main(int argc, const char* argv[]) {
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
-
+#endif
     std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards,
                                                                  distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
-
+#if false
     SerializeShardSearches(shard_searches, output_file + ".searches");
 
     PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
+#endif
 }
