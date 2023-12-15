@@ -12,7 +12,7 @@
 int main(int argc, const char* argv[]) {
     // TODO parse parameters
     if (argc != 6 && argc != 10) {
-        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition [centroids min-cluster-size tree-budget search-budget]" << std::endl;
+        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition" << std::endl;
         std::abort();
     }
 
