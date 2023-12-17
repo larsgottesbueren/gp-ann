@@ -1,18 +1,18 @@
-#include <iostream>
-#include <filesystem>
-#include <map>
-
-#include "points_io.h"
-#include "metis_io.h"
-#include "recall.h"
-#include "route_search_combination.h"
-
 #include <mpi.h>
 #include "distributed_query_benchmark.h"
 
+#include "points_io.h"
+#include "metis_io.h"
+
+namespace {
+    size_t ComputeChunkSize(size_t a, size_t b) {
+        return (a+b-1) / b;
+    }
+}
+
 int main(int argc, const char* argv[]) {
-    if (argc != 9) {
-        std::cerr << "Usage ./QueryAttribution input-points queries ground-truth-file num_neighbors partition-file output-file partition_method requested-num-shards" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage ./DistributedBench input-points queries ground-truth-file num_neighbors partition-file router-file" << std::endl;
         std::abort();
     }
 
@@ -21,9 +21,7 @@ int main(int argc, const char* argv[]) {
     std::string ground_truth_file = argv[3];
     std::string k_string = argv[4];
     std::string partition_file = argv[5];
-    std::string output_file = argv[6];
-    std::string part_method = argv[7];
-    std::string router_file = argv[8];
+    std::string router_file = argv[6];
 
     MPI_Init(nullptr, nullptr);
 
@@ -40,11 +38,6 @@ int main(int argc, const char* argv[]) {
     PointSet queries = ReadPoints(query_file);
     std::vector<int> query_ids(queries.n);
     std::iota(query_ids.begin(), query_ids.end(), 0);
-    #if false
-    int seed = 555;
-    std::mt19937 prng(seed);
-    std::shuffle(query_ids.begin(), query_ids.end());
-    #endif
     size_t chunk_size = ComputeChunkSize(query_ids.size(), comm_size);
     std::vector<int> my_query_ids(query_ids.begin() + rank * chunk_size, query_ids.begin() + std::min(query_ids.size(), (rank + 1) * chunk_size));
 

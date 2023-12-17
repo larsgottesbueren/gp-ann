@@ -90,6 +90,10 @@ int main(int argc, const char* argv[]) {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else if (part_method == "OGP") {
         clusters = OverlappingGraphPartitioning(points, k, eps, overlap);
+    } else if (part_method == "OGPS") {
+        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        auto kmp = GraphPartitioning(points, adjusted_num_clusters, eps);
+        clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OKM") {
         // leave the same num clusters, since k-means will use more than requested anyways
         auto kmp = KMeansPartitioning(points, k, eps);
