@@ -20,7 +20,8 @@ struct RatingMap {
 };
 
 // sequential histogram by index and select (or reduce by index) with pre-allocated histogram
-std::pair<int, int> TopMove(uint32_t u, const std::vector<int>& neighbors, const Cover& cover, const Partition& partition,
+template<typename NeighborRange>
+std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Cover& cover, const Partition& partition,
     RatingMap<int>& rating_map, const parlay::sequence<int>& cluster_sizes, int max_cluster_size) {
     for (uint32_t v : neighbors) {
         int part_v = partition[v];
@@ -77,6 +78,23 @@ AdjGraph ReadGraph(const std::string& path) {
 }
 #endif
 
+auto Transpose(const AdjGraph& graph) {
+    auto rev = parlay::delayed_tabulate(graph.size(), [&](size_t i) {
+            const auto& neighbors = graph[i];
+            return parlay::delayed_map(neighbors, [&](int neigh) {
+                return std::pair<int,int>(neigh, i);
+            });
+        });
+    auto rev_edges = parlay::flatten(rev);
+    auto grouped = parlay::group_by_index(rev_edges);
+
+    return parlay::map(grouped, [&](const auto& group) {
+       return parlay::map(group, [&](const std::pair<int, int>& neigh_pair) {
+          return neigh_pair.second;
+       });
+    });
+}
+
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
@@ -108,6 +126,19 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 
+    // Idea so far.
+    // place node with plurality of its neighbors. --> query for node finds the neighbors
+
+    // instead. place neighbors with node? --> query for node finds the shard
+    // do this by minimizing cut on the transposed directed graph? how many edges are symmetric even?
+
+    timer.Start();
+    auto transpose = Transpose(knn_graph);
+    std::cout << "transpose took " << timer.Stop() << std::endl;
+
+
+
+
     // the current implementation gives
     // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
     // instead of the expected 1 * n * overlap. that's fine, we just have to give the other method the same amount
@@ -124,7 +155,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     while (true) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
             auto& rating_map = rating_map_ets.get();
-            return TopMove(u, knn_graph[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
+            return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
         });
 
         auto affinities = parlay::delayed_map(best_moves, [&](const auto& l) { return l.second; });
