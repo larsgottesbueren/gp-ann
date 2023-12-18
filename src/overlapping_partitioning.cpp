@@ -23,7 +23,7 @@ struct RatingMap {
 template<typename NeighborRange>
 std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Cover& cover, const Partition& partition,
     RatingMap<int>& rating_map, const parlay::sequence<int>& cluster_sizes, int max_cluster_size) {
-    for (uint32_t v : neighbors) {
+    for (auto v : neighbors) {
         int part_v = partition[v];
         if (rating_map.ratings[part_v] == 0) {
             rating_map.slots.push_back(part_v);
@@ -43,8 +43,6 @@ std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Co
         }
     }
     rating_map.slots.clear();
-
-    // TODO for transposed graph. what happens if there is nothing to return.
 
     return std::make_pair(best_part, best_affinity);
 }
@@ -83,7 +81,7 @@ AdjGraph ReadGraph(const std::string& path) {
 auto Transpose(const AdjGraph& graph) {
     auto rev = parlay::delayed_tabulate(graph.size(), [&](int i) {
             const auto& neighbors = graph[i];
-            return parlay::delayed_map(neighbors, [&](int neigh) -> std::pair<int,int> {
+            return parlay::delayed_map(neighbors, [i](int neigh) -> std::pair<int,int> {
                 return std::make_pair(neigh, i);
             });
         });
@@ -97,7 +95,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
-#if true
+#if false
     std::string dummy_file = "tmp.graph";
     if (!std::filesystem::exists(dummy_file)) {
         ApproximateKNNGraphBuilder graph_builder;
@@ -116,20 +114,21 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     points.Drop();
     std::cout << "Dropping points took " << timer.Stop() << std::endl;
 #endif
-
-    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
-    Cover cover = ConvertPartitionToCover(partition);
-    Clusters clusters = ConvertPartitionToClusters(partition);
-
     // Idea so far.
     // place node with plurality of its neighbors. --> query for node finds the neighbors
 
-    // instead. place neighbors with node? --> query for node finds the shard
+    // instead. place neighbors with node? --> query for node finds the shard of the node and thus also the neighbors
+    // was the write-up imprecise here? at some point we had more details, but I feel like they got cut
+
     // do this by minimizing cut on the transposed directed graph? how many edges are symmetric even?
 
     timer.Start();
     auto transpose = Transpose(knn_graph);
     std::cout << "transpose took " << timer.Stop() << std::endl;
+
+    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
+    Cover cover = ConvertPartitionToCover(partition);
+    Clusters clusters = ConvertPartitionToClusters(partition);
 
     // the current implementation gives
     // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
@@ -150,7 +149,11 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
             return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
         });
 
+        std::cout << "Computed best moves" << std::endl;
+
         auto affinities = parlay::delayed_map(best_moves, [&](const auto& l) { return l.second; });
+
+        std::cout << "Computed affinities" << std::endl;
 
         int best_affinity = parlay::reduce(affinities, parlay::maxm<int>());
         std::cout << "iter " << ++iter << " best affinity " << best_affinity << std::endl;
