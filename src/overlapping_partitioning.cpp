@@ -44,10 +44,12 @@ std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Co
     }
     rating_map.slots.clear();
 
+    // TODO for transposed graph. what happens if there is nothing to return.
+
     return std::make_pair(best_part, best_affinity);
 }
 
-#if false
+#if true
 void WriteGraph(AdjGraph& graph, const std::string& path) {
     std::ofstream out(path);
     out << graph.size() << "\n";
@@ -94,21 +96,20 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     num_clusters = std::ceil(num_clusters * (1.0 + overlap));
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
-#if false
+    Timer timer;
+#if true
     std::string dummy_file = "tmp.graph";
     if (!std::filesystem::exists(dummy_file)) {
         ApproximateKNNGraphBuilder graph_builder;
-        Timer timer;
         timer.Start();
         AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-        std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+        std::cout << "Built KNN graph. Took " << timer.Stop() << std::endl;
 
         WriteGraph(knn_graph, dummy_file);
     }
     AdjGraph knn_graph = ReadGraph(dummy_file);
 #else
     ApproximateKNNGraphBuilder graph_builder;
-    Timer timer;
     timer.Start();
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
@@ -129,9 +130,6 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     timer.Start();
     auto transpose = Transpose(knn_graph);
     std::cout << "transpose took " << timer.Stop() << std::endl;
-
-
-
 
     // the current implementation gives
     // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
@@ -205,7 +203,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
     // usually it would be n * overlap, but because the way the GP overlap is implemented, we can make it (1+eps) * as much
-    const size_t num_extra_assignments = (1.0 + epsilon) * n * overlap;
+    const size_t num_max_assignments = (1.0 + epsilon) * n * (1.0 + overlap);
+    const size_t num_extra_assignments = num_max_assignments - partition.size();
 
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
 
