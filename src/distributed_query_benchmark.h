@@ -287,31 +287,15 @@ public:
 
         auto split_requests = [&](message_queue::MPIBuffer<float> auto const& buf, message_queue::PEID buffer_origin,
                     message_queue::PEID my_rank)  {
-            return buf | std::ranges::views::take(dim + 1) |
-                std::ranges::views::transform([&, buffer_origin = buffer_origin, my_rank = my_rank](auto&& chunk) {
-#ifdef MESSAGE_QUEUE_SPLIT_VIEW_IS_LAZY
-                    auto size = std::ranges::distance(chunk);
-                    auto sized_chunk = std::span(chunk.begin().base(), size);
-#else
-                    auto sized_chunk = std::move(chunk);
-#endif
-
-                    Request r;
-                    r.query_id = sized_chunk[0];
-                    for (int j = 0; j < dim; ++j) {
-                        // TODO parse coords
-                    }
-                   return message_queue::MessageEnvelope{
-                       .message = std::move(r), .sender = buffer_origin, .receiver = my_rank, .tag = 0};
-               });
 
             //std::vector<Request> incoming_requests;
             //Request r;
 
-            //std::vector<message_queue::MessageEnvelope<>> envelopes;
+            std::vector<message_queue::MessageEnvelope<std::vector<Request>>> envelopes;
             //return envelopes;
             //return message_queue::MessageEnvelope{
             //    .message = std::move(message), .sender = buffer_origin, .receiver = my_rank, .tag = tag};
+            return envelopes;
         };
 
         auto printing_cleaner = [](auto& buf, message_queue::PEID receiver) {

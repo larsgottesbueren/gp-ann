@@ -49,9 +49,6 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> partition = ReadMetisPartition(partition_file);
     int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
-    double oracle_recall = OracleRecall(ground_truth, partition);
-    std::cout << "Computed oracle recall: " << oracle_recall << std::endl;
-
 
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
     std::vector<NNVec> neighbors_by_query(queries.n);
