@@ -296,10 +296,13 @@ public:
                 }
                 requests.push_back(std::move(request));
             }
-            return {
+            auto envelope =
                 message_queue::MessageEnvelope{
-                    .message = std::move(requests), .sender = buffer_origin, .receiver = my_rank, .tag = default_tag }
-            };
+                    .message = std::move(requests), .sender = buffer_origin, .receiver = my_rank, .tag = default_tag };
+
+            std::vector<decltype(envelope)> envelopes;
+            envelopes.emplace_back(std::move(envelope));
+            return envelopes;
         };
 
         auto printing_cleaner = [](auto& buf, message_queue::PEID receiver) {
