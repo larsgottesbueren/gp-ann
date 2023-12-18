@@ -287,21 +287,19 @@ public:
         static constexpr int default_tag = 0;
         auto split_requests = [&](message_queue::MPIBuffer<float> auto const& buf, message_queue::PEID buffer_origin,
                     message_queue::PEID my_rank)  {
-
-            std::vector<message_queue::MessageEnvelope<std::vector<Request>>> envelopes;
+            std::vector<Request> requests;
             for (size_t i = 0; i < buf.size(); ) {
                 Request request;
                 request.query_id = static_cast<int>(buf[i++]);
                 for (int j = 0; j < dim; ++j, ++i) {
                     request.coordinates.push_back(buf[i]);
                 }
-
-                // TODO it compiles, but this is super ineficient. ask Niklas about this part.
-                envelopes.push_back(
-                    message_queue::MessageEnvelope{ .message = std::vector<Request>(1, request), .sender = buffer_origin, .receiver = my_rank, .tag = default_tag }
-                );
+                requests.push_back(std::move(request));
             }
-            return envelopes;
+            return {
+                message_queue::MessageEnvelope{
+                    .message = std::move(requests), .sender = buffer_origin, .receiver = my_rank, .tag = default_tag }
+            };
         };
 
         auto printing_cleaner = [](auto& buf, message_queue::PEID receiver) {
