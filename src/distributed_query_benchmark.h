@@ -272,29 +272,35 @@ public:
 
         struct Request {
             int query_id = -1;
-            // std::vector<float> coordinates;
+            std::vector<float> coordinates;
         };
         auto merge_requests = [](auto& buf, message_queue::PEID buffer_destination, message_queue::PEID my_rank,
                     message_queue::Envelope auto msg) {
             for (const auto& request : msg.message) {
                 buf.push_back(static_cast<float>(request.query_id));    // encode int as float
+                for (float x : request.coordinates) {
+                    buf.push_back(x);
+                }
             }
-
-            //for (float x : msg.message.coordinates) {
-            //    buf.push_back(x);
-            //}
         };
 
+        static constexpr int default_tag = 0;
         auto split_requests = [&](message_queue::MPIBuffer<float> auto const& buf, message_queue::PEID buffer_origin,
                     message_queue::PEID my_rank)  {
 
-            //std::vector<Request> incoming_requests;
-            //Request r;
-
             std::vector<message_queue::MessageEnvelope<std::vector<Request>>> envelopes;
-            //return envelopes;
-            //return message_queue::MessageEnvelope{
-            //    .message = std::move(message), .sender = buffer_origin, .receiver = my_rank, .tag = tag};
+            for (size_t i = 0; i < buf.size(); ) {
+                Request request;
+                request.query_id = static_cast<int>(buf[i++]);
+                for (int j = 0; j < dim; ++j, ++i) {
+                    request.coordinates.push_back(buf[i]);
+                }
+
+                // TODO it compiles, but this is super ineficient. ask Niklas about this part.
+                envelopes.push_back(
+                    message_queue::MessageEnvelope{ .message = std::vector<Request>(1, request), .sender = buffer_origin, .receiver = my_rank, .tag = default_tag }
+                );
+            }
             return envelopes;
         };
 
