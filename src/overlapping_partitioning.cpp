@@ -44,8 +44,6 @@ std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Co
     }
     rating_map.slots.clear();
 
-    // TODO for transposed graph. what happens if there is nothing to return.
-
     return std::make_pair(best_part, best_affinity);
 }
 
