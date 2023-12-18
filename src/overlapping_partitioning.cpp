@@ -79,20 +79,14 @@ AdjGraph ReadGraph(const std::string& path) {
 #endif
 
 auto Transpose(const AdjGraph& graph) {
-    auto rev = parlay::delayed_tabulate(graph.size(), [&](size_t i) {
+    auto rev = parlay::delayed_tabulate(graph.size(), [&](int i) {
             const auto& neighbors = graph[i];
-            return parlay::delayed_map(neighbors, [&](int neigh) {
-                return std::pair<int,int>(neigh, i);
+            return parlay::delayed_map(neighbors, [&](int neigh) -> std::pair<int,int> {
+                return std::make_pair(neigh, i);
             });
         });
     auto rev_edges = parlay::flatten(rev);
-    auto grouped = parlay::group_by_index(rev_edges);
-
-    return parlay::map(grouped, [&](const auto& group) {
-       return parlay::map(group, [&](const std::pair<int, int>& neigh_pair) {
-          return neigh_pair.second;
-       });
-    });
+    return parlay::group_by_index(rev_edges, graph.size());
 }
 
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
@@ -306,6 +300,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
         std::cout << "num moves into cluster ";
         size_t total_moves = 0;
+        // TODO implement something that doesn't prefer the first clusters if there is not enough budget for everything
         for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
             size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
             num_moves_left = std::min(num_moves_left, num_assignments_left);
