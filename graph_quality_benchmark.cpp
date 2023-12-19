@@ -100,7 +100,7 @@ int main(int argc, const char* argv[]) {
             double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, num_neighbors);
             nni++;
 
-            Partition partition = PartitionAdjListGraph(approximate_graph, num_clusters, epsilon);
+            Partition partition = PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, true);
 
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
 

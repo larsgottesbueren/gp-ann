@@ -6,7 +6,7 @@ Partition RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size,
 
 Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon);
 
-Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon);
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, bool quiet=false);
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "");
 

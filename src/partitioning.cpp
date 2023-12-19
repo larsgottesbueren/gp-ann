@@ -97,12 +97,15 @@ CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
     return csr;
 }
 
-Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
+Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, bool quiet) {
     size_t num_nodes = graph.xadj.size() - 1;
     std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
     auto context = kaminpar::shm::create_default_context();
     context.partition.epsilon = epsilon;
-    kaminpar::KaMinPar shm(std::min<size_t>(32, parlay::num_workers()), context);
+    kaminpar::KaMinPar shm(1, context);
+    if (quiet) {
+        shm.set_output_level(kaminpar::OutputLevel::QUIET);
+    }
     shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
@@ -114,7 +117,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon) {
     return partition;
 }
 
-Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon) {
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, bool quiet=false) {
     auto copy = adj_graph;
     Timer timer;
     timer.Start();
@@ -124,7 +127,7 @@ Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, dou
     std::cout << "Convert to CSR took " << timer.Stop() << std::endl;
     copy.clear();
     copy.shrink_to_fit();
-    return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
+    return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, quiet);
 }
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
@@ -171,7 +174,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
     // partition
-    Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon);
+    Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, true);
     WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
 
     // Assign points to the partition of the closest point in the aggregate set
@@ -401,7 +404,7 @@ Partition OurPyramidPartitioning(PointSet& points, int num_clusters, double epsi
     for (int cluster_id : routing_clusters)
         knn_csr.node_weights[cluster_id]++;
 
-    Partition knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon);
+    Partition knn_partition = PartitionGraphWithKaMinPar(knn_csr, num_clusters, epsilon, true);
 
     WriteMetisPartition(knn_partition, routing_index_path + ".knn.routing_index_partition");
 
