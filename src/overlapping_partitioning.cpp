@@ -207,11 +207,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
-    // usually it would be n * overlap, but because the way the GP overlap is implemented, we can make it (1+eps) * as much
-    const size_t num_extra_assignments = overlap * points.n;
-
-
-    const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
+    const size_t num_extra_assignments = overlap * n;
+    const size_t max_cluster_size = (1.0 + epsilon) * n / requested_num_clusters;
 
     Clusters clusters = ConvertPartitionToClusters(partition);
 
@@ -310,7 +307,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
         if (total_num_moves > num_assignments_left) {
             double fraction_to_keep = num_assignments_left / total_num_moves;
-            num_moves_into_cluster = parlay::map(num_moves_into_cluster, [&](size_t num_moves) {
+            num_moves_into_cluster = parlay::map(num_moves_into_cluster, [&](size_t num_moves) -> size_t {
                 return std::floor(num_moves * fraction_to_keep);
             });
             total_num_moves = parlay::reduce(num_moves_into_cluster);
