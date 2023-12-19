@@ -116,20 +116,28 @@ int main(int argc, const char* argv[]) {
     std::cout << "num configs " << total_num_configs << " num graph builders " << graph_builders.size() << std::endl;
 
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
+        std::cout << "build graph" << std::endl;
         AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
-
+        std::cout << "build graph finished" << std::endl;
         std::stringstream stream;
 
         int nni = 0;
         for (int degree : num_degree_values) {
+            std::cout << "graph recall. degree " << degree << std::endl;
             double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, degree);
+            std::cout << "graph recall. degree " << degree << " finished " << std::endl;
             nni++;
 
+            std::cout << "partition " << std::endl;
             Partition partition = PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, true);
+            std::cout << "partition finished" << std::endl;
 
+            std::cout << "first shard recall" << std::endl;
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
+            std::cout << "first shard recall finished" << std::endl;
 
             stream << FormatOutput(graph_builder, oracle_recall, graph_recall, degree) << "\n";
+            std::cout << "finish format" << std::endl;
         }
 
         return stream.str();
