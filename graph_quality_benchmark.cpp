@@ -117,7 +117,7 @@ int main(int argc, const char* argv[]) {
 
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
         std::cout << "build graph" << std::endl;
-        AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
+        const AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
         std::cout << "build graph finished" << std::endl;
         std::stringstream stream;
 
