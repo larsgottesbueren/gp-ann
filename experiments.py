@@ -1,20 +1,20 @@
 import os
 import subprocess
 
-data_path = 'data'
+data_path = '/global_data/gottesbueren/anns'
 
 datasets = [
     ('turing', 'L2'),
-    ('deep', 'L2'),
-    ('text-to-image', 'mips')
+    #('deep', 'L2'),
+    #('text-to-image', 'mips')
 ]
 
 partitioning_methods = [
     #'GP', 
     #'KMeans',
     #'BalancedKMeans',
-    #'OGP',
-    'OGPS',
+    'OGP',
+    #'OGPS',
     #'OBKM',
     #'OKM',
     #'Pyramid',
@@ -23,7 +23,7 @@ partitioning_methods = [
 
 num_shards_vals = [40]  # , 20, 10]
 
-overlap_values = [0.0, 0.2]
+overlap_values = [0.2, 0.0]
 
 overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM']
 
@@ -73,6 +73,9 @@ def compute_all_partitions():
     for dataset, metric in datasets:
         for part_method in partitioning_methods:
             for num_shards in num_shards_vals:
+                if part_method == 'OGPS' and dataset == 'turing':
+                    print('skipping', part_method, dataset)
+                    continue
                 compute_partition(dataset, metric, part_method, num_shards)
 
 
@@ -97,7 +100,7 @@ def run_queries_on_all_datasets():
     for dataset, metric in datasets:
         for part_method in partitioning_methods:
             for num_shards in num_shards_vals:
-                if part_method in overlapping_algos:
+                if part_method not in overlapping_algos:
                     run_query_set(dataset, metric, part_method, num_shards, 0.0)
                 else:
                     for overlap in overlap_values:
@@ -122,5 +125,5 @@ def run_all_pareto_filters():
                 pareto_filter(dataset, part_method, num_shards)
 
 
-compute_all_partitions()
-#run_queries_on_all_datasets()
+#compute_all_partitions()
+run_queries_on_all_datasets()

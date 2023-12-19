@@ -19,7 +19,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 add_subdirectory(external/parlaylib)
 add_subdirectory(external/KaMinPar)
 add_subdirectory(external/hnswlib)
-add_subdirectory(external/message-queue)
+#add_subdirectory(external/message-queue)
 
 include_directories("src")
 
@@ -47,7 +47,7 @@ endforeach()
 
 target_link_libraries(Partition PUBLIC kaminpar_shm)
 target_link_libraries(GraphQualityBench PUBLIC kaminpar_shm)
-target_link_libraries(DistributedBench PUBLIC message-queue kassert::kassert)
+#target_link_libraries(DistributedBench PUBLIC message-queue kassert::kassert)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)
