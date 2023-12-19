@@ -14,13 +14,13 @@ std::vector<ApproximateKNNGraphBuilder> InstantiateGraphBuilders() {
     ApproximateKNNGraphBuilder blueprint;
     blueprint.quiet = true;
     std::vector<ApproximateKNNGraphBuilder> configs;
-    for (int reps : { 2, 3 }) {
+    for (int reps : { 2, 3, 5, 8, 10}) {
         blueprint.REPETITIONS = reps;
         configs.push_back(blueprint);
     }
     auto copy = configs;
     configs.clear();
-    for (int fanout : { 2, 3 }) {
+    for (int fanout : { 2, 3, 5, 8, 10 }) {
         for (auto c : copy) {
             c.FANOUT = fanout;
             configs.push_back(c);
