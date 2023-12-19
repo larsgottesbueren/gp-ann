@@ -79,23 +79,17 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
-    points.Resize(10000);
-
     int max_degree = 100;
     int num_query_neighbors = 10;
     int num_clusters = 16;
     double epsilon = 0.05;
     std::vector<int> num_degree_values = { 100, 80, 50, 20, 10, 8, 5, 3 };
 
-#if false
     if (!std::filesystem::exists(ground_truth_file)) {
         throw std::runtime_error("Ground truth file does not exist.");
     }
     std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
     std::cout << "Read ground truth file" << std::endl;
-#else
-    std::vector<NNVec> ground_truth = ComputeGroundTruth(points, queries, num_query_neighbors);
-#endif
 
     Timer timer;
     timer.Start();
