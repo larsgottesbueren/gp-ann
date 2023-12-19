@@ -93,6 +93,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     const size_t num_extra_assignments = overlap * points.n;
     // previously const size_t num_extra_assignments = (1.0 + epsilon) * n * (1.0 + overlap) - n
+    size_t num_assignments_remaining = num_extra_assignments;
     const size_t num_total_assignments = points.n + num_extra_assignments;
     num_clusters = std::ceil(num_total_assignments / max_cluster_size);
 
@@ -146,7 +147,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     size_t reduction = 0;
     int iter = 0;
-    while (true) {
+    while (num_assignments_remaining > 0) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
             auto& rating_map = rating_map_ets.get();
             return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
@@ -172,33 +173,30 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
         auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
 
-        std::cout << "total num moves " << nodes_and_targets.size() << " num moves into cluster ";
-        for (int i = 0; i < num_clusters; ++i) {
-            std::cout << moves_into_cluster[i].size() << " ";
-        }
-        std::cout << std::endl;
+        auto num_moves_into_cluster = parlay::tabulate(clusters.size(), [&](size_t cluster_id) {
+            return std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+        });
 
-        size_t reduction_this_iteration = 0;
+        size_t total_num_moves = parlay::reduce(num_moves_into_cluster);
+
         for (int cluster_id = 0; cluster_id < num_clusters; ++cluster_id) {
-            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
-            reduction_this_iteration += best_affinity * num_moves_left;
+            num_moves_into_cluster[cluster_id] = std::min(num_assignments_remaining, num_moves_into_cluster[cluster_id]);
+            num_assignments_remaining -= num_moves_into_cluster[cluster_id];
         }
-        reduction += reduction_this_iteration;
-        std::cout << "Reduction this iteration " << reduction_this_iteration << std::endl;
+        total_num_moves = parlay::reduce(num_moves_into_cluster);
 
-        parlay::parallel_for(0, num_clusters, [&](size_t cluster_id) {
-            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
-            cluster_sizes[cluster_id] += num_moves_left;
-            // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
-            parlay::parallel_for(0, num_moves_left, [&](size_t j) {
+        std::cout << "total num moves this round " << total_num_moves << std::endl;
+
+        parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
+            size_t num_moves = num_moves_into_cluster[cluster_id];
+            cluster_sizes[cluster_id] += num_moves;
+            parlay::parallel_for(0, num_moves, [&](size_t j) {
                 uint32_t u = moves_into_cluster[cluster_id][j];
                 cover[u].push_back(cluster_id);
             });
-
-            // not parallel with std::vector unfortunately
             clusters[cluster_id].insert(
                 clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
-                moves_into_cluster[cluster_id].begin() + num_moves_left);
+                moves_into_cluster[cluster_id].begin() + num_moves);
         }, 1);
     }
 
