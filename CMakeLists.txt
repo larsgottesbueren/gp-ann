@@ -28,6 +28,7 @@ add_executable(Partition partition.cpp)
 add_executable(QueryAttribution run_query_attribution.cpp)
 add_executable(OracleRecall oracle_recall.cpp)
 add_executable(DistributedBench distributed_bench.cpp)
+add_executable(GraphQualityBench graph_quality_benchmark.cpp)
 
 set(TARGETS
 		RunQueries
@@ -36,6 +37,7 @@ set(TARGETS
 		QueryAttribution
 		OracleRecall
 		DistributedBench
+		GraphQualityBench
 )
 
 foreach(target IN LISTS TARGETS)

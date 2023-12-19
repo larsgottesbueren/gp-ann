@@ -226,17 +226,17 @@ struct ApproximateKNNGraphBuilder {
 
 
     int seed = 555;
-    static constexpr double FRACTION_LEADERS = 0.005;
-    static constexpr size_t TOP_LEVEL_NUM_LEADERS = 950;
-    static constexpr size_t MAX_NUM_LEADERS = 1500;
-    static constexpr size_t MAX_CLUSTER_SIZE = 5000;
-    static constexpr size_t MIN_CLUSTER_SIZE = 50;
-    static constexpr size_t MAX_MERGED_CLUSTER_SIZE = 2500;
-    static constexpr int REPETITIONS = 3;
-    static constexpr int FANOUT = 3;
-    static constexpr int MAX_DEPTH = 14;
-    static constexpr int CONCERNING_DEPTH = 10;
-    static constexpr double TOO_SMALL_SHRINKAGE_FRACTION = 0.8;
+    double FRACTION_LEADERS = 0.005;
+    size_t TOP_LEVEL_NUM_LEADERS = 950;
+    size_t MAX_NUM_LEADERS = 1500;
+    size_t MAX_CLUSTER_SIZE = 5000;
+    size_t MIN_CLUSTER_SIZE = 50;
+    size_t MAX_MERGED_CLUSTER_SIZE = 2500;
+    int REPETITIONS = 3;
+    int FANOUT = 3;
+    int MAX_DEPTH = 14;
+    int CONCERNING_DEPTH = 10;
+    double TOO_SMALL_SHRINKAGE_FRACTION = 0.8;
 
     Timer timer;
 };
