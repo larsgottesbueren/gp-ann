@@ -122,9 +122,9 @@ Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, dou
     Timer timer;
     timer.Start();
     Symmetrize(copy);
-    std::cout << "Symmetrize took " << timer.Restart() << std::endl;
+    if (!quiet) std::cout << "Symmetrize took " << timer.Restart() << std::endl;
     CSR csr = ConvertAdjGraphToCSR(copy);
-    std::cout << "Convert to CSR took " << timer.Stop() << std::endl;
+    if (!quiet) std::cout << "Convert to CSR took " << timer.Stop() << std::endl;
     copy.clear();
     copy.shrink_to_fit();
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, quiet);

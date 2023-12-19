@@ -80,8 +80,9 @@ struct ApproximateKNNGraphBuilder {
         leaders.clear(); leaders.shrink_to_fit();
         leader_points.Drop();
 
-        if (depth == 0 && !quiet) {
-            std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
+        if (depth == 0) {
+            double time = timer.Stop();
+            if (!quiet) std::cout << "Closest leaders on top level took " << time << std::endl;
         }
 
         std::vector<Bucket> buckets;

@@ -11,7 +11,22 @@
 #include "recall.h"
 
 std::vector<ApproximateKNNGraphBuilder> InstantiateGraphBuilders() {
-    return {};
+    ApproximateKNNGraphBuilder blueprint;
+    blueprint.quiet = true;
+    std::vector<ApproximateKNNGraphBuilder> configs;
+    for (int reps : { 2, 3 }) {
+        blueprint.REPETITIONS = reps;
+        configs.push_back(blueprint);
+    }
+    auto copy = configs;
+    configs.clear();
+    for (int fanout : { 2, 3 }) {
+        for (auto c : copy) {
+            c.FANOUT = fanout;
+            configs.push_back(c);
+        }
+    }
+    return configs;
 }
 
 std::string Header() {
@@ -64,18 +79,23 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
-    if (!std::filesystem::exists(ground_truth_file)) {
-        throw std::runtime_error("Ground truth file does not exist.");
-    }
-    std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
-    std::cout << "Read ground truth file" << std::endl;
-
+    points.Resize(10000);
 
     int max_degree = 100;
     int num_query_neighbors = 10;
     int num_clusters = 16;
     double epsilon = 0.05;
     std::vector<int> num_degree_values = { 100, 80, 50, 20, 10, 8, 5, 3 };
+
+#if false
+    if (!std::filesystem::exists(ground_truth_file)) {
+        throw std::runtime_error("Ground truth file does not exist.");
+    }
+    std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
+    std::cout << "Read ground truth file" << std::endl;
+#else
+    std::vector<NNVec> ground_truth = ComputeGroundTruth(points, queries, num_query_neighbors);
+#endif
 
     Timer timer;
     timer.Start();
@@ -93,6 +113,7 @@ int main(int argc, const char* argv[]) {
     auto graph_builders = InstantiateGraphBuilders();
 
     size_t total_num_configs = graph_builders.size() * num_degree_values.size();
+    std::cout << "num configs " << total_num_configs << " num graph builders " << graph_builders.size() << std::endl;
 
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
         AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
@@ -116,8 +137,10 @@ int main(int argc, const char* argv[]) {
 
     std::ofstream out(output_file);
     out << Header() << "\n";
+    std::cout << Header() << std::endl;
     for (const std::string& outputs : output_lines) {
         out << outputs;
+        std::cout << outputs << std::flush;
     }
     out << std::flush;
 }
