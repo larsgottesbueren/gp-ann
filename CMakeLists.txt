@@ -6,6 +6,7 @@ cmake_policy(SET CMP0076 NEW)
 
 option(KAMINPAR_64BIT_WEIGHTS "Enable 64 bit weights in KaMinPar" ON)
 option(KAMINPAR_64BIT_EDGE_IDS "Enable 64 bit edge IDs in KaMinPar" ON)
+option(KAMINPAR_ENABLE_TIMERS "Enable KaMinPar running time measurements (disable to call the library in parallel)" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 

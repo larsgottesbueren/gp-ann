@@ -109,7 +109,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, bool qui
     shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
-    shm.compute_partition(555, k, kaminpar_partition.data());
+    shm.compute_partition(k, kaminpar_partition.data());
     Partition partition(num_nodes);
     for (size_t i = 0; i < partition.size(); ++i) {
         partition[i] = kaminpar_partition[i]; // convert unsigned int partition ID to signed int partition ID
