@@ -80,7 +80,7 @@ struct ApproximateKNNGraphBuilder {
         leaders.clear(); leaders.shrink_to_fit();
         leader_points.Drop();
 
-        if (depth == 0) {
+        if (depth == 0 && !quiet) {
             std::cout << "Closest leaders on top level took " << timer.Stop() << std::endl;
         }
 
@@ -133,14 +133,14 @@ struct ApproximateKNNGraphBuilder {
         std::iota(all_ids.begin(), all_ids.end(), 0);
         std::vector<Bucket> buckets;
         for (int rep = 0; rep < REPETITIONS; ++rep) {
-            std::cout << "Sketching rep " << rep << std::endl;
+            if (!quiet) std::cout << "Sketching rep " << rep << std::endl;
             Timer timer2;
             timer2.Start();
             std::vector<Bucket> new_buckets = RecursivelySketch(points, all_ids, 0, FANOUT);
-            std::cout << "Finished sketching rep. It took " << timer2.Stop() << " seconds."  << std::endl;
+            if (!quiet) std::cout << "Finished sketching rep. It took " << timer2.Stop() << " seconds."  << std::endl;
             buckets.insert(buckets.end(), new_buckets.begin(), new_buckets.end());
         }
-        std::cout << "Start bucket brute force" << std::endl;
+        if (!quiet) std::cout << "Start bucket brute force" << std::endl;
         return BruteForceBuckets(points, buckets, num_neighbors);
     }
 
@@ -171,7 +171,7 @@ struct ApproximateKNNGraphBuilder {
         std::vector<SpinLock> locks(points.n);
         std::vector<NNVec> top_neighbors(points.n);
 
-
+        if (!quiet)
         {
             std::cout << "Number of buckets to crunch " << buckets.size() << std::endl;
             std::vector<size_t> bucket_sizes(buckets.size());
@@ -213,7 +213,7 @@ struct ApproximateKNNGraphBuilder {
             bucket.clear(); bucket.shrink_to_fit();
         }, 1);
 
-        std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
+        if (!quiet) std::cout << "Brute forcing buckets took " << timer.Stop() << std::endl;
 
         AdjGraph graph(points.n);
         parlay::parallel_for(0, points.n, [&](size_t i) {
@@ -237,6 +237,8 @@ struct ApproximateKNNGraphBuilder {
     int MAX_DEPTH = 14;
     int CONCERNING_DEPTH = 10;
     double TOO_SMALL_SHRINKAGE_FRACTION = 0.8;
+
+    bool quiet = false;
 
     Timer timer;
 };

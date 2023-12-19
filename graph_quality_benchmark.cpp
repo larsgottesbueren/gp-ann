@@ -15,11 +15,14 @@ std::vector<ApproximateKNNGraphBuilder> InstantiateGraphBuilders() {
 }
 
 std::string Header() {
-    return "";
+    return "fanout,repetitions,clustersize,degree,graph-recall,oracle-recall";
 }
 
 std::string FormatOutput(const ApproximateKNNGraphBuilder& gb, double oracle_recall, double graph_recall, int num_neighbors) {
-    return "";
+    std::stringstream str;
+    str << gb.FANOUT << "," << gb.REPETITIONS << "," << gb.MAX_CLUSTER_SIZE << ",";
+    str << num_neighbors << "," << graph_recall << "," << oracle_recall;
+    return str.str();
 }
 
 using AdjHashGraph = parlay::sequence<std::unordered_set<int>>;
