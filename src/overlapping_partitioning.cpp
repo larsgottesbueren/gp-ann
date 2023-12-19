@@ -303,26 +303,31 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
 
         auto moves_into_cluster = parlay::group_by_index(targets_and_points, clusters.size());
 
-        std::cout << "num moves into cluster ";
-        size_t total_moves = 0;
-        // TODO implement something that doesn't prefer the first clusters if there is not enough budget for everything
-        for (size_t cluster_id = 0; cluster_id < clusters.size(); ++cluster_id) {
-            size_t num_moves_left = std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
-            num_moves_left = std::min(num_moves_left, num_assignments_left);
-            std::cout << num_moves_left << " ";
-            num_assignments_left -= num_moves_left;
-            total_moves += num_moves_left;
-            cluster_sizes[cluster_id] += num_moves_left;
-            // apply the first 'num_moves_left' from moves_into_cluster[cluster_id]
+        auto num_moves_into_cluster = parlay::tabulate(clusters.size(), [&](size_t cluster_id) {
+            return std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
+        });
+
+        size_t total_num_moves = parlay::reduce(num_moves_into_cluster);
+
+        if (total_num_moves > num_assignments_left) {
+            double fraction_to_keep = num_assignments_left / total_num_moves;
+            num_moves_into_cluster = parlay::map(num_moves_into_cluster, [&](size_t num_moves) {
+                return std::floor(num_moves * fraction_to_keep);
+            });
+            total_num_moves = parlay::reduce(num_moves_into_cluster);
+        }
+
+        std::cout << "total num moves this round " << total_num_moves << std::endl;
+
+        num_assignments_left -= total_num_moves;
+
+        parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
+            size_t num_moves = num_moves_into_cluster[cluster_id];
+            cluster_sizes[cluster_id] += num_moves;
             clusters[cluster_id].insert(
                 clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
-                moves_into_cluster[cluster_id].begin() + num_moves_left);
-            if (clusters[cluster_id].size() != cluster_sizes[cluster_id]) throw std::runtime_error("cluster size doesnt match");
-            if (cluster_sizes[cluster_id] > max_cluster_size) throw std::runtime_error("max cluster size exceeded");
-        }
-        std::cout << std::endl;
-        std::cout << "total moves this roudn " << total_moves << std::endl;
-
+                moves_into_cluster[cluster_id].begin() + num_moves);
+        });
     }
 
     std::cout << "Finished" << std::endl;
