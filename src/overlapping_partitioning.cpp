@@ -91,7 +91,10 @@ auto Transpose(const AdjGraph& graph) {
 
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
-    num_clusters = std::ceil(num_clusters * (1.0 + overlap));
+    const size_t num_extra_assignments = overlap * points.n;
+    // previously const size_t num_extra_assignments = (1.0 + epsilon) * n * (1.0 + overlap) - n
+    const size_t num_total_assignments = points.n + num_extra_assignments;
+    num_clusters = std::ceil(num_total_assignments / max_cluster_size);
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
@@ -206,8 +209,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
     const size_t n = points.n;
     // usually it would be n * overlap, but because the way the GP overlap is implemented, we can make it (1+eps) * as much
-    const size_t num_max_assignments = (1.0 + epsilon) * n * (1.0 + overlap);
-    const size_t num_extra_assignments = num_max_assignments - partition.size();
+    const size_t num_extra_assignments = overlap * points.n;
+
 
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
 
