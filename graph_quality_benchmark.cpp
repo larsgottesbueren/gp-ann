@@ -126,7 +126,8 @@ int main(int argc, const char* argv[]) {
             double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, degree);
             nni++;
 
-            Partition partition = PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, true);
+            Partition partition =
+                PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 4), true);
 
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
 
