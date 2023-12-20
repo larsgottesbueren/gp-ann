@@ -119,21 +119,18 @@ int main(int argc, const char* argv[]) {
         std::cout << "Num GB configs finished " << my_num_gb << " / " << graph_builders.size() << std::endl;
         cout_lock.unlock();
 
-        std::stringstream stream;
-        int nni = 0;
-        // TODO run these in parallel too?
-        for (int degree : num_degree_values) {
+        auto outputs = parlay::tabulate(num_degree_values.size(), [&](size_t nni) {
+            int degree = num_degree_values[nni];
             double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, degree);
-            nni++;
-
             Partition partition =
                 PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 4), true);
-
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
+            return FormatOutput(graph_builder, oracle_recall, graph_recall, degree);
+        });
 
-            stream << FormatOutput(graph_builder, oracle_recall, graph_recall, degree) << "\n";
-        }
 
+        std::stringstream stream;
+        for (const std::string& o : outputs) stream << o << "\n";
         return stream.str();
     });
 
