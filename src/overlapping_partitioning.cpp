@@ -165,7 +165,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
         if (best_affinity > degree) {
             // in the beginning, let's accept more moves at once
-            best_affinity = degree
+            best_affinity = degree;
         }
 
         if (best_affinity == 0) {
@@ -190,6 +190,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
             num_assignments_remaining -= num_moves_into_cluster[cluster_id];
         }
         total_num_moves = parlay::reduce(num_moves_into_cluster);
+        reduction += total_num_moves * std::min(best_affinity, degree); // we're not counting some guys here, but that's fine
 
         std::cout << "total num moves this round " << total_num_moves << std::endl;
 
