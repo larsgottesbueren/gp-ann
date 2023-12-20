@@ -130,7 +130,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     auto transpose = Transpose(knn_graph);
     std::cout << "transpose took " << timer.Stop() << std::endl;
 
-    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon);
+    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false);
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 
