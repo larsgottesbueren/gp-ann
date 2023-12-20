@@ -113,7 +113,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 #else
     ApproximateKNNGraphBuilder graph_builder;
     timer.Start();
-    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
+    static constexpr int degree = 10;
+    AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, degree);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
     points.Drop();
     std::cout << "Dropping points took " << timer.Stop() << std::endl;
@@ -161,6 +162,11 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
         int best_affinity = parlay::reduce(affinities, parlay::maxm<int>());
         std::cout << "iter " << ++iter << " best affinity " << best_affinity << std::endl;
+
+        if (best_affinity > degree) {
+            // in the beginning, let's accept more moves at once
+            best_affinity = degree
+        }
 
         if (best_affinity == 0) {
             break;
