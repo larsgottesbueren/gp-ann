@@ -85,11 +85,14 @@ int main(int argc, const char* argv[]) {
     double epsilon = 0.05;
     std::vector<int> num_degree_values = { 100, 80, 50, 20, 10, 8, 5, 3 };
 
+    std::vector<NNVec> ground_truth;
     if (!std::filesystem::exists(ground_truth_file)) {
-        throw std::runtime_error("Ground truth file does not exist.");
+        ground_truth = ComputeGroundTruth(points, queries, num_query_neighbors);
+    } else {
+        ground_truth = ReadGroundTruth(ground_truth_file);
+        std::cout << "Read ground truth file" << std::endl;
     }
-    std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
-    std::cout << "Read ground truth file" << std::endl;
+
 
     Timer timer;
     timer.Start();
@@ -111,7 +114,6 @@ int main(int argc, const char* argv[]) {
     size_t num_gb_configs_processed = 0;
     SpinLock cout_lock;
 
-
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
         const AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
         cout_lock.lock();
@@ -123,16 +125,16 @@ int main(int argc, const char* argv[]) {
             int degree = num_degree_values[nni];
             double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, degree);
             Partition partition =
-                PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 4), true);
+                PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 1), true);
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
             return FormatOutput(graph_builder, oracle_recall, graph_recall, degree);
-        });
+        }, 1);
 
 
         std::stringstream stream;
         for (const std::string& o : outputs) stream << o << "\n";
         return stream.str();
-    });
+    }, 1);
 
     std::ofstream out(output_file);
     out << Header() << "\n";
