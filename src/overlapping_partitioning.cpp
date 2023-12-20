@@ -151,7 +151,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     while (num_assignments_remaining > 0) {
         auto best_moves = parlay::map(nodes, [&](uint32_t u) {
             auto& rating_map = rating_map_ets.get();
-            return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
+            // return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
+            return TopMove(u, knn_graph[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
         });
 
         std::cout << "Computed best moves" << std::endl;

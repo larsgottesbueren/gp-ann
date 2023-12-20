@@ -93,7 +93,6 @@ int main(int argc, const char* argv[]) {
         std::cout << "Read ground truth file" << std::endl;
     }
 
-
     Timer timer;
     timer.Start();
     AdjGraph exact_graph = BuildExactKNNGraph(points, max_degree);
