@@ -95,7 +95,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     // previously const size_t num_extra_assignments = (1.0 + epsilon) * n * (1.0 + overlap) - n
     size_t num_assignments_remaining = num_extra_assignments;
     const size_t num_total_assignments = points.n + num_extra_assignments;
-    num_clusters = std::ceil(num_total_assignments / max_cluster_size);
+    num_clusters = std::ceil(static_cast<double>(num_total_assignments) / max_cluster_size);
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
