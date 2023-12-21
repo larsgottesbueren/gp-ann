@@ -26,6 +26,14 @@ std::vector<ApproximateKNNGraphBuilder> InstantiateGraphBuilders() {
             configs.push_back(c);
         }
     }
+    copy = configs;
+    configs.clear();
+    for (int cluster_size : { 500, 1000, 2000, 5000, 10000 }) {
+        for (auto c : copy) {
+            c.MAX_CLUSTER_SIZE = cluster_size;
+            configs.push_back(c);
+        }
+    }
     return configs;
 }
 
@@ -113,6 +121,7 @@ int main(int argc, const char* argv[]) {
     size_t num_gb_configs_processed = 0;
     SpinLock cout_lock;
 
+    timer.Start();
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
         const AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
         cout_lock.lock();
@@ -134,6 +143,7 @@ int main(int argc, const char* argv[]) {
         for (const std::string& o : outputs) stream << o << "\n";
         return stream.str();
     }, 1);
+    std::cout << "All Approx builders took " << timer.Stop() << std::endl;
 
     std::ofstream out(output_file);
     out << Header() << "\n";
