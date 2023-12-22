@@ -1,11 +1,9 @@
 #include <iostream>
 #include <filesystem>
-#include <map>
 
 #include "points_io.h"
 
 #include "metis_io.h"
-#include "recall.h"
 
 
 int main(int argc, const char* argv[]) {
@@ -19,32 +17,30 @@ int main(int argc, const char* argv[]) {
     int num_neighbors = std::stoi(k_string);
     std::string partition_file = argv[3];
 
-    auto partition = ReadMetisPartition(partition_file);
+    auto clusters = ReadClusters(partition_file);
     std::cout << "Finished reading partition file" << std::endl;
-
-    int num_parts = NumPartsInPartition(partition);
-    std::cout << "num parts in partition: " << num_parts << std::endl;
-    std::cout << "shard sizes ";
-    std::vector<int> cluster_size(num_parts, 0);
-    for (int x : partition) cluster_size[x]++;
-    for (int i = 0; i < num_parts; ++i) { std::cout << cluster_size[i] << " (" << 100.0 * cluster_size[i] / partition.size() << ")%  "; }
-    std::cout << std::endl;
-
-    std::cout << "max desired % " << 100.0 * (1.05 / 16) << std::endl;
+    Cover cover = ConvertClustersToCover(clusters);
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
         std::cout << "Read ground truth file" << std::endl;
     } else {
-        std::string point_file = argv[4];
-        std::string query_file = argv[5];
-        PointSet points = ReadPoints(point_file);
-        PointSet queries = ReadPoints(query_file);
-        std::cout << "start computing ground truth" << std::endl;
-        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
-        std::cout << "computed ground truth" << std::endl;
+        throw std::runtime_error("ground truth file doesnt exist");
     }
 
-    OracleRecall(ground_truth, partition, num_neighbors);
+
+    size_t hits = 0;
+    std::vector<int> cluster_distribution(clusters.size(), 0);
+    for (const NNVec& nn : ground_truth) {
+        std::vector<int> freq(clusters.size(), 0);
+        for (int j = 0; j < num_neighbors; ++j) {
+            for (int c : cover[nn[j].second]) {
+                cluster_distribution[c]++;
+                freq[c]++;
+            }
+        }
+        hits += *std::max_element(freq.begin(), freq.end());
+    }
+    std::cout << "First probe hits : " << hits << ". First probe recall " << static_cast<double>(hits) / ground_truth.size() / num_neighbors << std::endl;
 }
