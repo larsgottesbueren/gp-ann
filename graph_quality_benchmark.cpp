@@ -38,7 +38,7 @@ std::vector<ApproximateKNNGraphBuilder> InstantiateGraphBuilders() {
 }
 
 std::string Header() {
-    return "fanout,repetitions,clustersize,degree,graph-recall,oracle-recall";
+    return "approximate,fanout,repetitions,clustersize,degree,graph-recall,oracle-recall";
 }
 
 std::string FormatOutput(const ApproximateKNNGraphBuilder& gb, double oracle_recall, double graph_recall, int degree) {
@@ -50,19 +50,19 @@ std::string FormatOutput(const ApproximateKNNGraphBuilder& gb, double oracle_rec
 
 using AdjHashGraph = parlay::sequence<std::unordered_set<int>>;
 
-double GraphRecall(const AdjHashGraph& exact_graph, const AdjGraph& approximate_graph, int degree) {
+double GraphRecall(const AdjHashGraph& exact_graph, const AdjGraph& approximate_graph) {
     auto hits = parlay::delayed_tabulate(approximate_graph.size(), [&](size_t i) {
         const auto& exact_neighbors = exact_graph[i];
         const auto& neighbors = approximate_graph[i];
         int my_hits = 0;
-        for (int j = 0; j < std::min<int>(degree, neighbors.size()); ++j) {
-            if (exact_neighbors.contains(neighbors[j])) {
+        for (int v : neighbors) {
+            if (exact_neighbors.contains(v)) {
                 my_hits++;
             }
         }
         return my_hits;
     });
-    return static_cast<double>(parlay::reduce(hits)) / (approximate_graph.size() * degree);
+    return static_cast<double>(parlay::reduce(hits)) / (approximate_graph.size() * exact_graph[0].size());
 }
 
 double FirstShardOracleRecall(const std::vector<NNVec>& ground_truth, const Partition& partition, int num_query_neighbors) {
@@ -107,11 +107,11 @@ int main(int argc, const char* argv[]) {
     std::cout << "Building exact graph took " << timer.Stop() << std::endl;
 
     timer.Start();
-    auto exact_graph_hashes = parlay::map(num_degree_values, [&](int degree) {
-        return parlay::map(exact_graph, [degree](const std::vector<int>& neighbors) {
-            return std::unordered_set<int>(neighbors.begin(), neighbors.begin() + std::min<int>(degree, neighbors.size()));
+    auto exact_graph_hash =
+        parlay::map(exact_graph, [num_query_neighbors](const std::vector<int>& neighbors) {
+            return std::unordered_set<int>(neighbors.begin(),
+                neighbors.begin() + std::min<int>(num_query_neighbors, neighbors.size()));
         });
-    });
     std::cout << "Convert to hash took " << timer.Stop() << std::endl;
 
     auto graph_builders = InstantiateGraphBuilders();
@@ -125,17 +125,22 @@ int main(int argc, const char* argv[]) {
     auto output_lines = parlay::map(graph_builders, [&](ApproximateKNNGraphBuilder& graph_builder) -> std::string {
         const AdjGraph approximate_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, max_degree);
         cout_lock.lock();
-        size_t my_num_gb = 1 + __atomic_fetch_add(&num_gb_configs_processed, 1, __ATOMIC_RELAXED);
-        std::cout << "Num GB configs finished " << my_num_gb << " / " << graph_builders.size() << std::endl;
+        num_gb_configs_processed++;
+        std::cout << "Num GB configs finished " << num_gb_configs_processed << " / " << graph_builders.size() << std::endl;
         cout_lock.unlock();
 
         auto outputs = parlay::tabulate(num_degree_values.size(), [&](size_t nni) {
             int degree = num_degree_values[nni];
-            double graph_recall = GraphRecall(exact_graph_hashes[nni], approximate_graph, degree);
+            AdjGraph degree_constrained_graph(approximate_graph.size());
+            for (size_t i = 0; i < approximate_graph.size(); ++i) {
+                degree_constrained_graph[i] = std::vector<int>(approximate_graph[i].begin(), approximate_graph[i].begin() + degree);
+            }
+
+            double graph_recall = GraphRecall(exact_graph_hash, degree_constrained_graph);
             Partition partition =
-                PartitionAdjListGraph(approximate_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 1), true);
+                PartitionAdjListGraph(degree_constrained_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 1), true);
             double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
-            return FormatOutput(graph_builder, oracle_recall, graph_recall, degree);
+            return "approximate," + FormatOutput(graph_builder, oracle_recall, graph_recall, degree);
         }, 1);
 
 
@@ -144,6 +149,24 @@ int main(int argc, const char* argv[]) {
         return stream.str();
     }, 1);
     std::cout << "All Approx builders took " << timer.Stop() << std::endl;
+
+    auto exact_outputs = parlay::map(num_degree_values, [&](int degree) {
+        AdjGraph degree_constrained_graph(exact_graph.size());
+        for (size_t i = 0; i < exact_graph.size(); ++i) {
+            degree_constrained_graph[i] = std::vector<int>(exact_graph[i].begin(), exact_graph[i].begin() + degree);
+        }
+        double graph_recall = GraphRecall(exact_graph_hash, degree_constrained_graph);
+        Partition partition =
+                PartitionAdjListGraph(degree_constrained_graph, num_clusters, epsilon, std::min<int>(parlay::num_workers(), 1), true);
+        double oracle_recall = FirstShardOracleRecall(ground_truth, partition, num_query_neighbors);
+        ApproximateKNNGraphBuilder gb;
+        gb.FANOUT = 0;
+        gb.REPETITIONS = 1;
+        gb.MAX_CLUSTER_SIZE = exact_graph.size();
+        return "exact," + FormatOutput(gb, oracle_recall, graph_recall, degree);
+    });
+
+    output_lines.append(exact_outputs);
 
     std::ofstream out(output_file);
     out << Header() << "\n";
