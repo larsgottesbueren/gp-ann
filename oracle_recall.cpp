@@ -43,4 +43,7 @@ int main(int argc, const char* argv[]) {
         hits += *std::max_element(freq.begin(), freq.end());
     }
     std::cout << "First probe hits : " << hits << ". First probe recall " << static_cast<double>(hits) / ground_truth.size() / num_neighbors << std::endl;
+    std::cout << "Cluster distribution ";
+    for (int x : cluster_distribution) std::cout << x << " ";
+    std::cout << std::endl;
 }
