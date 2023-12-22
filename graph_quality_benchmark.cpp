@@ -153,7 +153,8 @@ int main(int argc, const char* argv[]) {
     auto exact_outputs = parlay::map(num_degree_values, [&](int degree) {
         AdjGraph degree_constrained_graph(exact_graph.size());
         for (size_t i = 0; i < exact_graph.size(); ++i) {
-            degree_constrained_graph[i] = std::vector<int>(exact_graph[i].begin(), exact_graph[i].begin() + degree);
+            degree_constrained_graph[i] =
+                std::vector<int>(exact_graph[i].begin(), exact_graph[i].begin() + std::min<int>(exact_graph[i].size(), degree));
         }
         double graph_recall = GraphRecall(exact_graph_hash, degree_constrained_graph);
         Partition partition =
