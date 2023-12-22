@@ -129,11 +129,11 @@ int main(int argc, const char* argv[]) {
         std::cout << "Num GB configs finished " << num_gb_configs_processed << " / " << graph_builders.size() << std::endl;
         cout_lock.unlock();
 
-        auto outputs = parlay::tabulate(num_degree_values.size(), [&](size_t nni) {
-            int degree = num_degree_values[nni];
+        auto outputs = parlay::map(num_degree_values, [&](int degree) {
             AdjGraph degree_constrained_graph(approximate_graph.size());
             for (size_t i = 0; i < approximate_graph.size(); ++i) {
-                degree_constrained_graph[i] = std::vector<int>(approximate_graph[i].begin(), approximate_graph[i].begin() + degree);
+                degree_constrained_graph[i] = std::vector<int>(approximate_graph[i].begin(),
+                    approximate_graph[i].begin() + std::min<int>(approximate_graph[i].size(), degree));
             }
 
             double graph_recall = GraphRecall(exact_graph_hash, degree_constrained_graph);
