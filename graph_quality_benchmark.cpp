@@ -163,7 +163,7 @@ int main(int argc, const char* argv[]) {
         gb.FANOUT = 0;
         gb.REPETITIONS = 1;
         gb.MAX_CLUSTER_SIZE = exact_graph.size();
-        return "exact," + FormatOutput(gb, oracle_recall, graph_recall, degree);
+        return "exact," + FormatOutput(gb, oracle_recall, graph_recall, degree) + "\n";
     });
 
     output_lines.append(exact_outputs);
