@@ -91,7 +91,10 @@ int main(int argc, const char* argv[]) {
     } else if (part_method == "OGP") {
         clusters = OverlappingGraphPartitioning(points, k, eps, overlap);
     } else if (part_method == "OGPS") {
-        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        const size_t max_cluster_size = (1.0 + eps) * points.n / k;
+        const size_t num_extra_assignments = overlap * points.n;
+        const size_t num_total_assignments = points.n + num_extra_assignments;
+        int adjusted_num_clusters = std::ceil(static_cast<double>(num_total_assignments) / max_cluster_size);
         auto kmp = GraphPartitioning(points, adjusted_num_clusters, eps);
         clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OKM") {
