@@ -136,6 +136,8 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
     clusters.erase(it, clusters.end());
     auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
+    Cover cover = ConvertClustersToCover(clusters);
+
     Timer timer; timer.Start();
     // Step 1 build centroids and associations
     KMeansTreeRouterOptions kmtr_options {.num_centroids = 16, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
@@ -165,12 +167,22 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
             }
         }
 
+        // To prevent duplicate assignments, we set their distance to infinity, and filter the target list down
+        for (int c : cover[u]) {
+            min_dist[c] = std::numeric_limits<float>::max();
+        }
+        auto new_end = std::remove_if(targets.begin(), targets.end(), [&](int target) {
+            return min_dist[target] == std::numeric_limits<float>::max();
+        });
+        targets.erase(new_end, targets.end());
+
         size_t num_keep = 5;
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
         for (size_t i = num_keep; i < targets.size(); ++i) {
             min_dist[targets[i]] = std::numeric_limits<float>::max();
         }
-        min_dist.resize(std::min(min_dist.size(), num_keep));
+        targets.resize(std::min(targets.size(), num_keep));
+        // sort increasingly, since we will do pop_back in the extraction loop
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
         for (int t : targets) {
             min_dist[t] = std::numeric_limits<float>::max();

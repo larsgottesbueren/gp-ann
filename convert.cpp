@@ -1,4 +1,5 @@
 #include <iostream>
+#include <parlay/primitives.h>
 
 #include "points_io.h"
 #include "metis_io.h"
@@ -6,10 +7,21 @@
 
 int main(int argc, const char* argv[]) {
     std::string file = argv[1];
+    Clusters clusters = ReadClusters(file);
+    for (size_t c = 0; c < clusters.size(); ++c) {
+        size_t old_size = clusters[c].size();
+        auto uniques = parlay::remove_duplicates(clusters[c]);
+        size_t dupes = old_size - uniques.size();
+        std::cout << "Cluster " << c << " has " << dupes << " duplicates out of " << old_size << " total entries." << std::endl;
+    }
+
+#if false
+    std::string file = argv[1];
     Partition partition = ReadMetisPartition(file);
     Clusters clusters = ConvertPartitionToClusters(partition);
     std::string out_file = argv[2];
     WriteClusters(clusters, out_file);
+#endif
 
 #if false
     std::string file = argv[1];
