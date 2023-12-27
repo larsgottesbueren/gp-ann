@@ -49,14 +49,24 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
             size_t ef_search_param_id = 0;
             for (const size_t ef_search : ef_search_param_values) {
                 parlay::sequence<std::priority_queue<std::pair<float, unsigned long>>> results(queries.n);
-
                 hnsw.setEf(ef_search);
-                Timer total;
-                total.Start();
                 parlay::parallel_for(0, queries.n, [&](size_t q) {
                     results[q] = hnsw.searchKnn(queries.GetPoint(q), num_neighbors);
                 }, 10);
-                const double elapsed = total.Stop();
+
+                std::vector<double> time_measurements;
+                size_t num_reps = 5;
+                for (size_t r = 0; r < num_reps; ++r) {
+                    Timer total;
+                    total.Start();
+                    parlay::parallel_for(0, queries.n,
+                        [&](size_t q) { hnsw.searchKnn(queries.GetPoint(q), num_neighbors); }, 10);
+                    const double elapsed = total.Stop();
+                    time_measurements.push_back(elapsed);
+                    std::cout << "Rep " << r << " took " << elapsed << std::endl;
+                }
+                std::sort(time_measurements.begin(), time_measurements.end());
+                double elapsed = time_measurements[time_measurements.size() / 2];   // take median
 
                 size_t total_hits = 0;
                 parlay::parallel_for(0, queries.n, [&](size_t q) {
@@ -82,7 +92,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                 });
 
                 std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits <<
-                        " total timer took " << total.total_duration.count() << std::endl;
+                        " median time " << elapsed << std::endl;
 
                 ef_search_param_id++;
             }
