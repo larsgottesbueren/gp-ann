@@ -75,7 +75,7 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                         if (top.first <= distance_to_kth_neighbor[q]) {
                             hits++;
                             // only need to record a hit... this actually makes things easier later on
-                            nn.push_back(top.second);
+                            nn.push_back(cluster[top.second]);
                         }
                     }
                     __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
