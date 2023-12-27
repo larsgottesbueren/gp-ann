@@ -47,48 +47,6 @@ std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Co
     return std::make_pair(best_part, best_affinity);
 }
 
-#if true
-void WriteGraph(AdjGraph& graph, const std::string& path) {
-    std::ofstream out(path);
-    out << graph.size() << "\n";
-    for (const auto& neigh : graph) {
-        for (int v : neigh) out << v << " ";
-        out << "\n";
-    }
-}
-
-AdjGraph ReadGraph(const std::string& path) {
-    std::cout << "read graph" << std::endl;
-    std::ifstream in(path);
-    int num_nodes;
-    std::string line;
-    {
-        std::getline(in, line);
-        std::istringstream iss(line);
-        iss >> num_nodes;
-    }
-    AdjGraph graph(num_nodes);
-    for (int i = 0; i < num_nodes; ++i) {
-        std::getline(in, line);
-        std::istringstream iss(line);
-        int v;
-        while (iss >> v) graph[i].push_back(v);
-    }
-    return graph;
-}
-#endif
-
-auto Transpose(const AdjGraph& graph) {
-    auto rev = parlay::delayed_tabulate(graph.size(), [&](int i) {
-            const auto& neighbors = graph[i];
-            return parlay::delayed_map(neighbors, [i](int neigh) -> std::pair<int,int> {
-                return std::make_pair(neigh, i);
-            });
-        });
-    auto rev_edges = parlay::flatten(rev);
-    return parlay::group_by_index(rev_edges, graph.size());
-}
-
 Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     const size_t num_extra_assignments = overlap * points.n;
@@ -99,37 +57,11 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
-#if false
-    std::string dummy_file = "tmp.graph";
-    if (!std::filesystem::exists(dummy_file)) {
-        ApproximateKNNGraphBuilder graph_builder;
-        timer.Start();
-        AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-        std::cout << "Built KNN graph. Took " << timer.Stop() << std::endl;
-
-        WriteGraph(knn_graph, dummy_file);
-    }
-    AdjGraph knn_graph = ReadGraph(dummy_file);
-#else
     ApproximateKNNGraphBuilder graph_builder;
     timer.Start();
     static constexpr int degree = 10;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, degree);
     std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
-    points.Drop();
-    std::cout << "Dropping points took " << timer.Stop() << std::endl;
-#endif
-    // Idea so far.
-    // place node with plurality of its neighbors. --> query for node finds the neighbors
-
-    // instead. place neighbors with node? --> query for node finds the shard of the node and thus also the neighbors
-    // was the write-up imprecise here? at some point we had more details, but I feel like they got cut
-
-    // do this by minimizing cut on the transposed directed graph? how many edges are symmetric even?
-
-    timer.Start();
-    auto transpose = Transpose(knn_graph);
-    std::cout << "transpose took " << timer.Stop() << std::endl;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false);
     Cover cover = ConvertPartitionToCover(partition);
@@ -154,44 +86,26 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
             // return TopMove(u, transpose[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
             return TopMove(u, knn_graph[u], cover, partition, rating_map, cluster_sizes, max_cluster_size);
         });
-
-        std::cout << "Computed best moves" << std::endl;
-
         auto affinities = parlay::delayed_map(best_moves, [&](const auto& l) { return l.second; });
-
-        std::cout << "Computed affinities" << std::endl;
-
         int best_affinity = parlay::reduce(affinities, parlay::maxm<int>());
         std::cout << "iter " << ++iter << " best affinity " << best_affinity << std::endl;
-
-        if (best_affinity > degree) {
-            // in the beginning, let's accept more moves at once
-            best_affinity = degree;
-        }
-
         if (best_affinity == 0) {
             break;
         }
-
-        // TODO we could apply all moves with affinity >= num_neighbors directly as well, which should save a ton of iterations in the transpose case
+        if (best_affinity <= 2) { break; }
         auto top_gain_nodes = parlay::filter(nodes, [&](uint32_t u) { return best_moves[u].second == best_affinity; });
-
         auto nodes_and_targets = parlay::delayed_map(top_gain_nodes, [&](uint32_t u) { return std::make_pair(best_moves[u].first, u); });
-
         auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
-
         auto num_moves_into_cluster = parlay::tabulate(clusters.size(), [&](size_t cluster_id) {
             return std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
         });
-
         size_t total_num_moves = parlay::reduce(num_moves_into_cluster);
-
         for (int cluster_id = 0; cluster_id < num_clusters; ++cluster_id) {
             num_moves_into_cluster[cluster_id] = std::min(num_assignments_remaining, num_moves_into_cluster[cluster_id]);
             num_assignments_remaining -= num_moves_into_cluster[cluster_id];
         }
         total_num_moves = parlay::reduce(num_moves_into_cluster);
-        reduction += total_num_moves * std::min(best_affinity, degree); // we're not counting some guys here, but that's fine
+        reduction += total_num_moves * std::min(best_affinity, degree);
 
         std::cout << "total num moves this round " << total_num_moves << std::endl;
 
@@ -208,27 +122,19 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         }, 1);
     }
 
-    std::cout << "Total reduction " << reduction << std::endl;
+    std::cout << "Finished loop. Total reduction " << reduction << " Num assignments remaining " << num_assignments_remaining << std::endl;
+    if (num_assignments_remaining > 0) {
+        std::cout << "Fill up with distance-based overlap method" << std::endl;
+        MakeOverlappingWithCentroids(points, clusters, max_cluster_size, num_assignments_remaining);
+    }
 
     return clusters;
 }
 
-Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
-    const size_t n = points.n;
-    const size_t num_extra_assignments = overlap * n;
-    const size_t max_cluster_size = (1.0 + epsilon) * n / requested_num_clusters;
-
-    Clusters clusters = ConvertPartitionToClusters(partition);
-
-    // if there are any empty clusters, remove them
+void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t max_cluster_size, size_t num_extra_assignments) {
     auto it = std::remove_if(clusters.begin(), clusters.end(), [&](const auto& cluster) { return cluster.empty(); });
     clusters.erase(it, clusters.end());
-
     auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
-
-    std::cout << "num clusters = " << clusters.size() << " cluster sizes ";
-    for (size_t cs : cluster_sizes) std::cout << cs << " ";
-    std::cout << std::endl;
 
     Timer timer; timer.Start();
     // Step 1 build centroids and associations
@@ -236,9 +142,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
     KMeansTreeRouter kmtr;
     kmtr.Train(points, clusters, kmtr_options);
     auto [sub_points, sub_part] = kmtr.ExtractPoints();
-
     std::cout << "Got reps. " << sub_points.n << " " << sub_part.size() << " Took " << timer.Restart() << " s" << std::endl;
-
 
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
@@ -261,18 +165,13 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
             }
         }
 
-        // first select top 5
         size_t num_keep = 5;
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
-        // reset entries outside the top
         for (size_t i = num_keep; i < targets.size(); ++i) {
             min_dist[targets[i]] = std::numeric_limits<float>::max();
         }
-        // keep only the top
         min_dist.resize(std::min(min_dist.size(), num_keep));
-        // sort in descending order since we will use pop_back in the next step
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
-        // reset entries from the top
         for (int t : targets) {
             min_dist[t] = std::numeric_limits<float>::max();
         }
@@ -280,8 +179,7 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
         return targets;
     });
 
-    std::cout << "got cluster rankings " << std::endl;
-    std::cout << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
+    std::cout << "got cluster rankings " << std::endl << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
 
     size_t num_assignments_left = num_extra_assignments;
     size_t iter = 0;
@@ -333,8 +231,12 @@ Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& p
                 moves_into_cluster[cluster_id].begin() + num_moves);
         });
     }
+}
 
-    std::cout << "Finished" << std::endl;
-
+Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
+    const size_t num_extra_assignments = overlap * points.n;
+    const size_t max_cluster_size = (1.0 + epsilon) * points.n / requested_num_clusters;
+    Clusters clusters = ConvertPartitionToClusters(partition);
+    MakeOverlappingWithCentroids(points, clusters, max_cluster_size, num_extra_assignments);
     return clusters;
 }
