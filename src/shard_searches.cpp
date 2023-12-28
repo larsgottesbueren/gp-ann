@@ -63,7 +63,6 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
                         [&](size_t q) { hnsw.searchKnn(queries.GetPoint(q), num_neighbors); }, 10);
                     const double elapsed = total.Stop();
                     time_measurements.push_back(elapsed);
-                    std::cout << "Rep " << r << " took " << elapsed << std::endl;
                 }
                 std::sort(time_measurements.begin(), time_measurements.end());
                 double elapsed = time_measurements[time_measurements.size() / 2];   // take median
