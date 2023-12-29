@@ -18,4 +18,6 @@ target_sources(Partition PRIVATE partitioning.cpp overlapping_partitioning.cpp k
 
 target_sources(QueryAttribution PRIVATE routes.cpp shard_searches.cpp route_search_combination.cpp kmeans_tree_router.cpp)
 
+target_sources(Convert PRIVATE routes.cpp shard_searches.cpp route_search_combination.cpp kmeans_tree_router.cpp)
+
 target_sources(GraphQualityBench PRIVATE partitioning.cpp)
