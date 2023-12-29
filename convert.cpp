@@ -6,6 +6,7 @@
 #include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
+#if false
     std::string file = argv[1];
     Clusters clusters = ReadClusters(file);
     for (size_t c = 0; c < clusters.size(); ++c) {
@@ -14,7 +15,7 @@ int main(int argc, const char* argv[]) {
         size_t dupes = old_size - uniques.size();
         std::cout << "Cluster " << c << " has " << dupes << " duplicates out of " << old_size << " total entries." << std::endl;
     }
-
+#endif
 #if false
     std::string file = argv[1];
     Partition partition = ReadMetisPartition(file);
@@ -33,7 +34,7 @@ int main(int argc, const char* argv[]) {
     WritePoints(points, out_file);
 #endif
 
-#if false
+#if true
     if (argc != 7) {
         std::cerr << "Usage ./Convert routes searches output part-method part-file query-file" << std::endl;
         std::abort();
@@ -52,8 +53,8 @@ int main(int argc, const char* argv[]) {
     std::string part_file = argv[5];
     std::string query_file = argv[6];
 
-    auto partition = ReadMetisPartition(part_file);
-    int num_actual_shards = NumPartsInPartition(partition);
+    Clusters clusters = ReadClusters(part_file);
+    int num_actual_shards = clusters.size();
 
     auto queries = ReadPoints(query_file);
     int num_queries = queries.n;
