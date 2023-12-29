@@ -8,9 +8,15 @@
 
 void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
     int num_neighbors, std::function<void(EmitResult)>& emit) {
+    std::cout << "num shards " << num_shards << " num queries " << num_queries << std::endl;
     std::vector<double> local_work(num_shards, 0.0);
     std::vector<std::unordered_set<uint32_t>> unique_neighbors(num_queries);
     for (size_t n_probes = 1; n_probes <= num_shards; ++n_probes) {
+        for (size_t q = 0; q < num_queries; ++q) {
+            const int b = route.buckets_to_probe.at(q).at(n_probes - 1);
+            local_work[b] += search.time_query_in_shard[b][q];
+        }
+
         size_t total_hits = 0;
         // do this in parallel because the hashing part can be slow
 #if false
@@ -25,17 +31,15 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
         );
 #endif
         parlay::parallel_for(0, num_queries, [&](size_t q) {
-            const int b = route.buckets_to_probe[q][n_probes - 1];
+            const int b = route.buckets_to_probe[q].at(n_probes - 1);
             for (const uint32_t neighbor : search.neighbors[b][q]) {
                 unique_neighbors[q].insert(neighbor);
             }
             __atomic_fetch_add(&total_hits, std::min<size_t>(unique_neighbors[q].size(), num_neighbors), __ATOMIC_RELAXED);
         });
 
-        for (size_t q = 0; q < num_queries; ++q) {
-            const int b = route.buckets_to_probe[q][n_probes - 1];
-            local_work[b] += search.time_query_in_shard[b][q];
-        }
+        std::cout << "total hits " << total_hits << " num probes " << n_probes << std::endl;
+
         emit(EmitResult{
                 .local_work = local_work,
                 .total_hits = total_hits,
