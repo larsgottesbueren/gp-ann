@@ -134,7 +134,6 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
 void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t max_cluster_size, size_t num_extra_assignments) {
     auto it = std::remove_if(clusters.begin(), clusters.end(), [&](const auto& cluster) { return cluster.empty(); });
     clusters.erase(it, clusters.end());
-    auto cluster_sizes = parlay::map(clusters, [&](const auto& c) { return c.size(); });
 
     Cover cover = ConvertClustersToCover(clusters);
 
@@ -149,7 +148,14 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
 
-    auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<int> {
+    struct Rating {
+        float dist;
+        int target_cluster;
+        uint32_t point_id;
+        bool operator<(const Rating& other) const { return dist < other.dist; }
+    };
+
+    auto cluster_rankings_per_point = parlay::map(point_ids, [&](uint32_t u) -> std::vector<Rating> {
         std::vector<float> min_dist(clusters.size(), std::numeric_limits<float>::max());
         // brute-force so we can more easily support the filter
         for (size_t j = 0; j < sub_points.n; ++j) {
@@ -167,80 +173,38 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
 
         std::vector<int> targets;
         for (int c = 0; c < clusters.size(); ++c) {
-            if (min_dist[c] != std::numeric_limits<float>::max()) {
+            if (min_dist[c] != std::numeric_limits<float>::max() && clusters[c].size() < max_cluster_size) {
                 targets.push_back(c);
             }
         }
 
         size_t num_keep = 5;
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
-        for (size_t i = num_keep; i < targets.size(); ++i) {
-            min_dist[targets[i]] = std::numeric_limits<float>::max();
-        }
         targets.resize(std::min(targets.size(), num_keep));
-        targets.shrink_to_fit();
-        // sort increasingly, since we will do pop_back in the extraction loop
-        std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
-        return targets;
+        std::vector<Rating> ratings;
+        for (int t : targets) {
+            ratings.push_back(Rating{ .dist = min_dist[t], .target_cluster = t, .point_id = u });
+        }
+        return ratings;
     });
 
-    std::cout  << "got cluster rankings. Took " << timer.Restart() << std::endl
-                << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
+    std::cout  << "got cluster rankings. Took " << timer.Restart() << std::endl;
+
+    auto cluster_rankings = parlay::flatten(cluster_rankings_per_point);
+
+    parlay::sort_inplace(cluster_rankings);
+
+    std::cout << "Flatten and sort took " << timer.Restart();
 
     size_t num_assignments_left = num_extra_assignments;
-    size_t iter = 0;
-    while (num_assignments_left > 0) {
-        std::cout << "Iter " << ++iter << " num assignments left " << num_assignments_left << std::endl;
-
-        auto targets_and_points = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
-            auto& ranking = cluster_rankings[u];
-            while (!ranking.empty()) {
-                int target = ranking.back();
-                ranking.pop_back();
-                if (cluster_sizes[target] < max_cluster_size) {
-                    return std::make_pair(target, u);
-                }
-            }
-            return std::nullopt;
-        });
-
-        std::cout << "# primary moves " << targets_and_points.size() << std::endl;;
-
-        if (targets_and_points.empty()) {
+    for (const Rating& r : cluster_rankings) {
+        if (clusters[r.target_cluster].size() < max_cluster_size) {
+            --num_assignments_left;
+            clusters[r.target_cluster].push_back(r.point_id);
+        }
+        if (num_assignments_left == 0) {
             break;
         }
-
-        auto moves_into_cluster = parlay::group_by_index(targets_and_points, clusters.size());
-
-        auto num_moves_into_cluster = parlay::tabulate(clusters.size(), [&](size_t cluster_id) {
-            return std::min(max_cluster_size - cluster_sizes[cluster_id], moves_into_cluster[cluster_id].size());
-        });
-
-        size_t total_num_moves = parlay::reduce(num_moves_into_cluster);
-
-        if (total_num_moves > num_assignments_left) {
-            double fraction_to_keep = static_cast<double>(num_assignments_left) / total_num_moves;
-            num_moves_into_cluster = parlay::map(num_moves_into_cluster, [&](size_t num_moves) -> size_t {
-                return std::floor(num_moves * fraction_to_keep);
-            });
-            total_num_moves = parlay::reduce(num_moves_into_cluster);
-        }
-
-        std::cout << "total num moves this round " << total_num_moves << std::endl;
-
-        if (total_num_moves == 0) {
-            break;
-        }
-
-        num_assignments_left -= total_num_moves;
-
-        parlay::parallel_for(0, clusters.size(), [&](size_t cluster_id) {
-            size_t num_moves = num_moves_into_cluster[cluster_id];
-            cluster_sizes[cluster_id] += num_moves;
-            clusters[cluster_id].insert(
-                clusters[cluster_id].end(), moves_into_cluster[cluster_id].begin(),
-                moves_into_cluster[cluster_id].begin() + num_moves);
-        });
     }
 }
 
