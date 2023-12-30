@@ -50,8 +50,7 @@ int main(int argc, const char* argv[]) {
 
     std::string output_file = argv[3];
     std::string part_method = argv[4];
-    std::string part_file = argv[5];
-    std::string query_file = argv[6];
+    std::string query_file = argv[5];
 
     int num_actual_shards = searches.front().neighbors.size();
     std::cout << "num actual shards = " << num_actual_shards << std::endl;
