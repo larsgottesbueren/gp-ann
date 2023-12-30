@@ -214,6 +214,25 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         }
     }
 
+
+    {   // Random routing -- saves runtime when all shards are probed anyways
+        RoutingConfig rc;
+        rc.index_trainer = "None";
+        rc.routing_algorithm = "Random";
+        rc.routing_time = 0;
+        rc.try_increasing_num_shards = true;
+        std::vector<std::vector<int>> buckets_to_probe(queries.n);
+        std::mt19937 prng(555);
+        for (size_t q = 0; q < queries.n; ++q) {
+            std::vector<int> probes(num_shards);
+            std::iota(probes.begin(), probes.end(), 0);
+            std::shuffle(probes.begin(), probes.end(), prng);
+            buckets_to_probe[q] = std::move(probes);
+        }
+        rc.buckets_to_probe = std::move(buckets_to_probe);
+        routes.push_back(rc);
+    }
+
     if (!pyramid_index_file.empty()) {
         if (!std::filesystem::exists(pyramid_index_file)) {
             std::cerr << "Tried to open " << pyramid_index_file << " but it doesnt exist-..." << std::endl;

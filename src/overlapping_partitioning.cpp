@@ -191,6 +191,7 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
     size_t iter = 0;
     while (num_assignments_left > 0) {
         std::cout << "Iter " << ++iter << " num assignments left " << num_assignments_left << std::endl;
+
         auto targets_and_points = parlay::map_maybe(point_ids, [&](uint32_t u) -> std::optional<std::pair<int, int>> {
             auto& ranking = cluster_rankings[u];
             while (!ranking.empty()) {
