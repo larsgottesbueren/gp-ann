@@ -19,17 +19,6 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
 
         size_t total_hits = 0;
         // do this in parallel because the hashing part can be slow
-#if false
-        total_hits = parlay::reduce(
-            parlay::map(parlay::iota(num_queries), [&](size_t q) {
-                int b = route.buckets_to_probe[q][n_probes - 1];
-                for (const uint32_t neighbor : search.neighbors[b][q]) {
-                    unique_neighbors[q].insert(neighbor);
-                }
-                return unique_neighbors[q].size();
-            })
-        );
-#endif
         parlay::parallel_for(0, num_queries, [&](size_t q) {
             const int b = route.buckets_to_probe[q].at(n_probes - 1);
             for (const uint32_t neighbor : search.neighbors[b][q]) {
