@@ -63,7 +63,6 @@ int main(int argc, const char* argv[]) {
     int num_shards = static_cast<int>(clusters.size());
 #endif
 
-    // TODO support different file types (metis partition file and clusters file)
     KMeansTreeRouterOptions router_options;
     router_options.budget = points.n / requested_num_shards;
     std::string pyramid_index_file, our_pyramid_index_file;
@@ -75,6 +74,7 @@ int main(int argc, const char* argv[]) {
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
+
     std::cout << "Start shard searches" << std::endl;
     std::vector<ShardSearch> shard_searches = RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards,
                                                                  distance_to_kth_neighbor);
