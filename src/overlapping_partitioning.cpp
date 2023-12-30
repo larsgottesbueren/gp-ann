@@ -139,7 +139,9 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
 
     Timer timer; timer.Start();
     // Step 1 build centroids and associations
-    KMeansTreeRouterOptions kmtr_options {.num_centroids = 64, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
+    size_t num_centroids = 64;
+    KMeansTreeRouterOptions kmtr_options {.num_centroids = num_centroids, .min_cluster_size = 350, .budget = clusters.size() * num_centroids, .search_budget =
+     0};
     KMeansTreeRouter kmtr;
     kmtr.Train(points, clusters, kmtr_options);
     auto [sub_points, sub_part] = kmtr.ExtractPoints();
