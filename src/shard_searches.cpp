@@ -115,8 +115,8 @@ std::string ShardSearch::Serialize() const {
             for (const uint32_t neighbor : neighbors[b][q]) {
                 out << neighbor << " ";
             }
+            out << "\n";
         }
-        out << "\n";
     }
     for (const auto& tq : time_query_in_shard) {
         for (double x : tq) { out << x << " "; }
@@ -144,12 +144,14 @@ ShardSearch ShardSearch::Deserialize(std::ifstream& in) {
         }
     }
 
+    s.time_query_in_shard.assign(num_shards, std::vector<double>());
     for (int b = 0; b < num_shards; ++b) {
         std::getline(in, line);
         std::istringstream line_stream(line);
-        s.time_query_in_shard.emplace_back();
         double time;
-        while (line_stream >> time) { s.time_query_in_shard.back().push_back(time); }
+        while (line_stream >> time) {
+            s.time_query_in_shard[b].push_back(time);
+        }
     }
     return s;
 }
