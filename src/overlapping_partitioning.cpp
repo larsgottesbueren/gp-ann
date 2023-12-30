@@ -148,20 +148,13 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
 
     // Step 2 search closest centroid that is not in the own partition
     auto point_ids = parlay::iota<uint32_t>(points.n);
-    parlay::WorkerSpecific<std::vector<float>> min_dist_ets([&]() {
-        return std::vector<float>(clusters.size(), std::numeric_limits<float>::max());
-    });
 
     auto cluster_rankings = parlay::map(point_ids, [&](uint32_t u) -> std::vector<int> {
-        auto& min_dist = min_dist_ets.get();
-        std::vector<int> targets;
+        std::vector<float> min_dist(clusters.size(), std::numeric_limits<float>::max());
         // brute-force so we can more easily support the filter
         for (size_t j = 0; j < sub_points.n; ++j) {
             float dist = distance(points.GetPoint(u), sub_points.GetPoint(j), points.d);
             const int pv = sub_part[j];
-            if (min_dist[pv] == std::numeric_limits<float>::max()) {
-                targets.push_back(pv);
-            }
             if (dist < min_dist[pv]) {
                 min_dist[pv] = dist;
             }
@@ -171,10 +164,13 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
         for (int c : cover[u]) {
             min_dist[c] = std::numeric_limits<float>::max();
         }
-        auto new_end = std::remove_if(targets.begin(), targets.end(), [&](int target) {
-            return min_dist[target] == std::numeric_limits<float>::max();
-        });
-        targets.erase(new_end, targets.end());
+
+        std::vector<int> targets;
+        for (int c = 0; c < clusters.size(); ++c) {
+            if (min_dist[c] != std::numeric_limits<float>::max()) {
+                targets.push_back(c);
+            }
+        }
 
         size_t num_keep = 5;
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
@@ -182,12 +178,9 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
             min_dist[targets[i]] = std::numeric_limits<float>::max();
         }
         targets.resize(std::min(targets.size(), num_keep));
+        targets.shrink_to_fit();
         // sort increasingly, since we will do pop_back in the extraction loop
         std::sort(targets.begin(), targets.end(), [&](int l, int r) { return min_dist[l] > min_dist[r]; });
-        for (int t : targets) {
-            min_dist[t] = std::numeric_limits<float>::max();
-        }
-        targets.shrink_to_fit();
         return targets;
     });
 
