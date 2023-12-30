@@ -197,17 +197,20 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
     std::cout << "Flatten and sort took " << timer.Restart() << std::endl;
 
     size_t num_assignments_left = num_extra_assignments;
+    size_t steps = 0;
     for (const Rating& r : cluster_rankings) {
         if (clusters[r.target_cluster].size() < max_cluster_size) {
             --num_assignments_left;
             clusters[r.target_cluster].push_back(r.point_id);
         }
+        ++steps;
         if (num_assignments_left == 0) {
             break;
         }
     }
 
-    std::cout << "Finished overlap partitioning. " << num_assignments_left << " possible assignments unused. Time " << timer.Stop() << std::endl;
+    std::cout << "Finished overlap partitioning. " << num_assignments_left << " possible assignments unused. Moves inspected: "
+                << steps << " Time " << timer.Stop() << std::endl;
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
