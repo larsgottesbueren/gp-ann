@@ -8,7 +8,6 @@
 
 void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
     int num_neighbors, std::function<void(EmitResult)>& emit) {
-    std::cout << "num shards " << num_shards << " num queries " << num_queries << std::endl;
     std::vector<double> local_work(num_shards, 0.0);
     std::vector<std::unordered_set<uint32_t>> unique_neighbors(num_queries);
     for (size_t n_probes = 1; n_probes <= num_shards; ++n_probes) {
@@ -26,8 +25,6 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
             }
             __atomic_fetch_add(&total_hits, std::min<size_t>(unique_neighbors[q].size(), num_neighbors), __ATOMIC_RELAXED);
         });
-
-        std::cout << "total hits " << total_hits << " num probes " << n_probes << std::endl;
 
         emit(EmitResult{
                 .local_work = local_work,
