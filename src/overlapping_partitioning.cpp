@@ -140,7 +140,7 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
 
     Timer timer; timer.Start();
     // Step 1 build centroids and associations
-    KMeansTreeRouterOptions kmtr_options {.num_centroids = 16, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
+    KMeansTreeRouterOptions kmtr_options {.num_centroids = 64, .min_cluster_size = 350, .budget = 16 * clusters.size(), .search_budget = 0};
     KMeansTreeRouter kmtr;
     kmtr.Train(points, clusters, kmtr_options);
     auto [sub_points, sub_part] = kmtr.ExtractPoints();
@@ -184,7 +184,8 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
         return targets;
     });
 
-    std::cout << "got cluster rankings " << std::endl << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
+    std::cout  << "got cluster rankings. Took " << timer.Restart() << std::endl
+                << "assignment loop. num overlap assignments allowed " << num_extra_assignments << std::endl;
 
     size_t num_assignments_left = num_extra_assignments;
     size_t iter = 0;
@@ -225,6 +226,10 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
         }
 
         std::cout << "total num moves this round " << total_num_moves << std::endl;
+
+        if (total_num_moves == 0) {
+            break;
+        }
 
         num_assignments_left -= total_num_moves;
 
