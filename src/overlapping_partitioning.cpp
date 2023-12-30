@@ -194,7 +194,7 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
 
     parlay::sort_inplace(cluster_rankings);
 
-    std::cout << "Flatten and sort took " << timer.Restart();
+    std::cout << "Flatten and sort took " << timer.Restart() << std::endl;
 
     size_t num_assignments_left = num_extra_assignments;
     for (const Rating& r : cluster_rankings) {
@@ -206,6 +206,8 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
             break;
         }
     }
+
+    std::cout << "Finished overlap partitioning. " << num_assignments_left << " possible assignments unused. Time " << timer.Stop() << std::endl;
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {
