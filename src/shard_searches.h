@@ -28,6 +28,7 @@ void SerializeShardSearches(const std::vector<ShardSearch>& shard_searches, cons
 
 std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file);
 
+std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& input_file);
 
 std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
                                             const Clusters& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor);

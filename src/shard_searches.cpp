@@ -181,3 +181,64 @@ std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file)
     }
     return shard_searches;
 }
+
+ShardSearch DeserializeOldFormat(std::ifstream& in) {
+    ShardSearch s;
+    int num_shards, num_queries;
+    std::string line;
+    std::getline(in, line);
+    std::istringstream iss(line);
+    iss >> s.ef_search >> num_shards >> num_queries;
+    s.neighbors.assign(num_shards, std::vector<std::vector<uint32_t>>(num_queries));
+    for (int b = 0; b < num_shards; ++b) {
+        std::getline(in, line);
+        std::istringstream line_stream(line);
+        int hits;
+        int q = 0;
+        while (line_stream >> hits) {
+            // old format only stored number of hits, not neighbor ids. this was fine for non-overlapping clusters, but doesn't work with overlap.
+            // for the comparisons we make, we are only interested in the number of hits, so to bring the two formats together, just create fake ids for the hits
+            int fake_neighbor_id = 0;
+            for (int b2 = b - 1; b2 >= 0; --b2) {
+                if (!s.neighbors[b2][q].empty()) {
+                    fake_neighbor_id = s.neighbors[b2][q].back() + 1;
+                    break;
+                }
+            }
+            for (int h = 0; h < hits; ++h, ++fake_neighbor_id) {
+                s.neighbors[b][q].push_back(fake_neighbor_id);
+            }
+            q++;
+        }
+    }
+
+    s.time_query_in_shard.assign(num_shards, std::vector<double>());
+    for (int b = 0; b < num_shards; ++b) {
+        std::getline(in, line);
+        std::istringstream line_stream(line);
+        double time;
+        while (line_stream >> time) {
+            s.time_query_in_shard[b].push_back(time);
+        }
+    }
+    return s;
+}
+
+
+std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& input_file) {
+    std::ifstream in(input_file);
+    size_t num_searches;
+    std::string header;
+    std::getline(in, header);
+    std::istringstream iss(header);
+    iss >> num_searches;
+    std::vector<ShardSearch> shard_searches;
+    for (size_t i = 0; i < num_searches; ++i) {
+        std::getline(in, header);
+        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
+        ShardSearch s = ShardSearch::Deserialize(in);
+        shard_searches.push_back(std::move(s));
+    }
+    return shard_searches;
+
+}
