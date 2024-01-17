@@ -129,7 +129,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
     struct Desc {
         std::string format_string;
         double recall;
-        double QPS_per_host;
+        double QPS;
     };
 
     std::vector<Desc> outputs;
@@ -171,7 +171,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
 
                         // out << str.str() << std::flush;
                         // std::cout << str.str() << std::flush;
-                        outputs.push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS_per_host = QPS_per_host });
+                        outputs.push_back(Desc{ .format_string = str.str(), .recall = recall, .QPS = QPS });
                     }
 
                     // assign one more replica to the slowest shard
@@ -189,7 +189,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
 
     std::vector<Desc> pareto;
 
-    auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall <= r.recall && l.QPS_per_host <= r.QPS_per_host; };
+    auto dominates = [](const Desc& l, const Desc& r) -> bool { return l.recall <= r.recall && l.QPS <= r.QPS; };
 
     for (const auto& c : outputs) {
         bool insert_new = true;
@@ -211,7 +211,7 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
     std::cout << "Pareto size " << pareto.size() << std::endl;
 
     std::sort(pareto.begin(), pareto.end(), [](const Desc& l, const Desc& r) {
-       return l.QPS_per_host > r.QPS_per_host;
+       return l.QPS > r.QPS;
     });
 
     std::ofstream pareto_out(output_file + ".pareto");
