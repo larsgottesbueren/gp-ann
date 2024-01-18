@@ -45,8 +45,6 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Finished loading searches" << std::endl;
 
-    std::exit(0);
-
     std::string routes_file = argv[1];
     auto routes = DeserializeRoutes(routes_file);
 
