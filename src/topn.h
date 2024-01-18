@@ -10,7 +10,9 @@ struct TopN {
     std::priority_queue<value_type> pq;
 
     void Add(value_type e) {
-        if (pq.size() < n) { pq.push(e); } else if (pq.top() > e) {
+        if (pq.size() < n) {
+            pq.push(e);
+        } else if (pq.top() > e) {
             pq.pop();
             pq.push(e);
         }
