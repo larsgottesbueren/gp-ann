@@ -16,6 +16,7 @@ struct InvertedIndex {
         }
         for (size_t i = 2; i < num_shards+1; ++i) offsets[i] += offsets[i-1];
         size_t num_inserts = offsets.back();
+        permutation.resize(num_inserts);
 
         clustered_points.n = num_inserts; clustered_points.d = points.d;
         clustered_points.coordinates.resize(num_inserts * points.d);
