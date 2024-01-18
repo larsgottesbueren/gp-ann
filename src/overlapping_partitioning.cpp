@@ -92,7 +92,7 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         if (best_affinity == 0) {
             break;
         }
-        if (best_affinity <= 2) { break; }
+        // if (best_affinity <= 2) { break; }
         auto top_gain_nodes = parlay::filter(nodes, [&](uint32_t u) { return best_moves[u].second == best_affinity; });
         auto nodes_and_targets = parlay::delayed_map(top_gain_nodes, [&](uint32_t u) { return std::make_pair(best_moves[u].first, u); });
         auto moves_into_cluster = parlay::group_by_index(nodes_and_targets, num_clusters);
@@ -123,11 +123,12 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     }
 
     std::cout << "Finished loop. Total reduction " << reduction << " Num assignments remaining " << num_assignments_remaining << std::endl;
+    #if false
     if (num_assignments_remaining > 0) {
         std::cout << "Fill up with distance-based overlap method" << std::endl;
         MakeOverlappingWithCentroids(points, clusters, max_cluster_size, num_assignments_remaining);
     }
-
+    #endif
     return clusters;
 }
 
