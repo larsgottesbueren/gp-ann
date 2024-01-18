@@ -9,10 +9,16 @@
 #include "inverted_index.h"
 #include "inverted_index_hnsw.h"
 
+void L2Normalize(PointSet& points) {
+    parlay::parallel_for(points.n, [&](size_t i) {
+        L2Normalize(points.GetPoint(i), points.d);
+    });
+}
+
 int main(int argc, const char* argv[]) {
     // TODO parse parameters
     if (argc != 6 && argc != 10) {
-        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition" << std::endl;
+        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition normalize" << std::endl;
         std::abort();
     }
 
@@ -33,11 +39,12 @@ int main(int argc, const char* argv[]) {
         options.search_budget = std::stoi(argv[9]);
     }
 
-    #ifdef MIPS_DISTANCE
-    Normalize(points);
-    Normalize(queries);
-    #endif
-
+    std::string str_normalize = argv[8];
+    if (str_normalize == "True") {
+        L2Normalize(points);
+        L2Normalize(queries);
+    }
+    
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -47,20 +54,22 @@ int main(int argc, const char* argv[]) {
         std::cout << "computed ground truth" << std::endl;
     }
 
-    std::vector<int> partition = ReadMetisPartition(partition_file);
-    int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+    Clusters clusters = ReadClusters(partition_file);
+    int num_shards = clusters.size();
 
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
     std::vector<NNVec> neighbors_by_query(queries.n);
 
     KMeansTreeRouter router;
-    auto tx = std::chrono::high_resolution_clock::now();
-    router.Train(points, partition, options);
-    auto ty = std::chrono::high_resolution_clock::now();
-    double time_training = (ty-tx).count() / 1e6;
-    std::cout << "Training the router took " << time_training << " ms" << std::endl;
+    router.Train(points, clusters, options);
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    Timer timer;
+    
+    // TODO
+    // run routing. KMTR router, HNSW router 
+    
+    // run in-shard searches brute-force (InvertedIndex) --> recall curve per shards probed
+
     parlay::parallel_for(0, queries.n, [&](size_t i) {
     //for (size_t i = 0; i < queries.n; ++i) {
         buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), options.search_budget);
