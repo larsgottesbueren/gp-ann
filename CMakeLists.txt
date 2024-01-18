@@ -23,7 +23,7 @@ add_subdirectory(external/hnswlib)
 
 include_directories("src")
 
-add_executable(RunQueries run_queries.cpp)
+add_executable(SmallScaleQueries small_scale_queries.cpp)
 add_executable(Convert convert.cpp)
 add_executable(Partition partition.cpp)
 add_executable(QueryAttribution run_query_attribution.cpp)
@@ -32,7 +32,7 @@ add_executable(DistributedBench distributed_bench.cpp)
 add_executable(GraphQualityBench graph_quality_benchmark.cpp)
 
 set(TARGETS
-		RunQueries
+		SmallScaleQueries
 		Convert
 		Partition
 		QueryAttribution
