@@ -106,3 +106,5 @@ inline auto idiv_ceil(T1 a, T2 b) {
 inline std::pair<size_t, size_t> bounds(size_t i, size_t n, size_t chunk_size) {
     return std::make_pair(std::min(n, i * chunk_size), std::min(n, (i+1) * chunk_size));
 }
+
+inline bool DoubleEquals(double x, double y, double eps = 1e-12) { return std::abs(x - y) < eps; }

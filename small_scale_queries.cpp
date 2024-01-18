@@ -12,15 +12,9 @@
 
 #include "inverted_index_hnsw.h"
 
-void L2Normalize(PointSet& points) {
-    parlay::parallel_for(0, points.n, [&](size_t i) {
-        L2Normalize(points.GetPoint(i), points.d);
-    });
-}
-
 int main(int argc, const char* argv[]) {
-    if (argc != 7) {
-        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition normalize" << std::endl;
+    if (argc != 6) {
+        std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition" << std::endl;
         std::abort();
     }
 
@@ -33,11 +27,6 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
     Clusters clusters = ReadClusters(partition_file);
-    std::string str_normalize = argv[6];
-    if (str_normalize == "True") {
-        L2Normalize(points);
-        L2Normalize(queries);
-    }
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) { ground_truth = ReadGroundTruth(ground_truth_file); } else {

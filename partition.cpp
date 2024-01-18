@@ -7,6 +7,7 @@
 #include "partitioning.h"
 #include "overlapping_partitioning.h"
 #include "kmeans.h"
+
 #include <parlay/primitives.h>
 
 std::vector<int> BalancedKMeansCall(PointSet& points, int k, double eps) {

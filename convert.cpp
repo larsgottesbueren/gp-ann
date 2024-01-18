@@ -4,6 +4,7 @@
 #include "points_io.h"
 #include "metis_io.h"
 #include "route_search_combination.h"
+#include "dist.h"
 
 int main(int argc, const char* argv[]) {
 #if false
@@ -35,6 +36,31 @@ int main(int argc, const char* argv[]) {
 #endif
 
 #if true
+    std::string file = argv[1];
+    PointSet points = ReadPoints(file);
+    size_t num_normalized = parlay::count_if(parlay::iota(points.n), [&](size_t i) {
+        float* P = points.GetPoint(i);
+        float norm = vec_norm(P, points.d);
+        return DoubleEquals(norm, 1.0, 1e-6);
+    });
+    if (num_normalized == points.n) {
+        std::cout << "already normalized. don't do anything" << std::endl;
+    } else {
+        std::cout << num_normalized << " / " << points.n << " are normalized. normalize and write out to disk" << std::endl;
+        parlay::parallel_for(0, points.n, [&](size_t i) { L2Normalize(points.GetPoint(i), points.d); });
+        std::string out_file = argv[2];
+        WritePoints(points, out_file);
+
+        num_normalized = parlay::count_if(parlay::iota(points.n), [&](size_t i) {
+            float* P = points.GetPoint(i);
+            float norm = vec_norm(P, points.d);
+            return DoubleEquals(norm, 1.0, 1e-6);
+        });
+        std::cout << "Now " << num_normalized << " / " << points.n << " are normalized" << std::endl;
+    }
+#endif
+
+#if false
     if (argc != 6) {
         std::cerr << "Usage ./Convert routes searches output part-method query-file" << std::endl;
         std::abort();
