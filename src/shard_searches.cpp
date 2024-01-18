@@ -236,7 +236,7 @@ std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& in
     for (size_t i = 0; i < num_searches; ++i) {
         std::getline(in, header);
         if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
-        ShardSearch s = ShardSearch::Deserialize(in);
+        ShardSearch s = DeserializeOldFormat(in);
         shard_searches.push_back(std::move(s));
     }
     return shard_searches;
