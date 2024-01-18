@@ -1,6 +1,8 @@
 #include <iostream>
 #include <filesystem>
 
+#include <parlay/primitives.h>
+
 #include "points_io.h"
 #include "metis_io.h"
 #include "recall.h"
@@ -16,8 +18,7 @@ void L2Normalize(PointSet& points) {
 }
 
 int main(int argc, const char* argv[]) {
-    // TODO parse parameters
-    if (argc != 6 && argc != 10) {
+    if (argc != 7) {
         std::cerr << "Usage ./RunQueries input-points queries ground-truth-file k partition normalize" << std::endl;
         std::abort();
     }
@@ -31,20 +32,12 @@ int main(int argc, const char* argv[]) {
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
 
-    KMeansTreeRouterOptions options;
-    if (argc != 6) {
-        options.num_centroids = std::stoi(argv[6]);
-        options.min_cluster_size = std::stoi(argv[7]);
-        options.budget = std::stoi(argv[8]);
-        options.search_budget = std::stoi(argv[9]);
-    }
-
-    std::string str_normalize = argv[8];
+    std::string str_normalize = argv[6];
     if (str_normalize == "True") {
         L2Normalize(points);
         L2Normalize(queries);
     }
-    
+
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
         ground_truth = ReadGroundTruth(ground_truth_file);
@@ -60,30 +53,38 @@ int main(int argc, const char* argv[]) {
     std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
     std::vector<NNVec> neighbors_by_query(queries.n);
 
+    Timer timer;
+    timer.Start();
+    KMeansTreeRouterOptions options { .num_centroids = 32, .min_cluster_size = 200, .budget = 50000, .search_budget = 5000 };
     KMeansTreeRouter router;
     router.Train(points, clusters, options);
+    std::cout << "Training KMTR took " << timer.Stop() << " seconds." << std::endl;
 
-    Timer timer;
-    
-    // TODO
-    // run routing. KMTR router, HNSW router 
-    
-    // run in-shard searches brute-force (InvertedIndex) --> recall curve per shards probed
+    auto [routing_points, routing_index_partition] = router.ExtractPoints();
 
-    parlay::parallel_for(0, queries.n, [&](size_t i) {
-    //for (size_t i = 0; i < queries.n; ++i) {
-        buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), options.search_budget);
-    }
-    );
-    auto t2 = std::chrono::high_resolution_clock::now();
-    double time_routing = (t2-t1).count() / 1e6;
-    std::cout << "Routing took " << time_routing << " ms overall, and " << time_routing / queries.n << " per query" << std::endl;
+    timer.Start();
+    HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition, HNSWParameters{ .M = 32, .ef_construction = 200, .ef_search = 200 });
+    hnsw_router.Train(routing_points);
+    std::cout << "Training HNSW router took " << timer.Stop() << " seconds." << std::endl;
+
+    timer.Start();
+    auto buckets_to_probe_kmtr = parlay::tabulate(queries.n, [&](size_t q) {
+        return router.Query(queries.GetPoint(q), options.search_budget);
+    });
+    double time = timer.Stop();
+    std::cout << "KMTR routing took " << time << " seconds. That's " << 1000.0 * time / queries.n
+              << "ms per query, or " << queries.n / time << " QPS" << std::endl;
+
+    timer.Start();
+    auto buckets_to_probe_hnsw = parlay::tabulate(queries.n, [&](size_t q) {
+        return hnsw_router.Query(queries.GetPoint(q), 120).RoutingQuery();
+    });
+    time = timer.Stop();
+    std::cout << "HSNW routing took " << time << " seconds. That's " << 1000.0 * time / queries.n
+              << "ms per query, or " << queries.n / time << " QPS" << std::endl;
 
 
-    std::vector<double> time_per_num_probes(num_shards, 0.0);
-    std::vector<double> recall_per_num_probes(num_shards, 0.0);
-
-    InvertedIndexHNSW inverted_index(points, partition);
+    InvertedIndexHNSW inverted_index(points, std::ranges::partition);
 
     std::cout << "Finished building inverted index" << std::endl;
 
