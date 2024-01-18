@@ -46,7 +46,6 @@ struct InvertedIndex {
 
         auto result = top_k.Take();
         // remap the IDs
-        // TODO remap broken after refactor...
         for (auto& x : result) { x.second = permutation[x.second]; }
         return result;
     }
