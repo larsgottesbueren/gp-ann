@@ -50,8 +50,6 @@ int main(int argc, const char* argv[]) {
     Clusters clusters = ReadClusters(partition_file);
     int num_shards = clusters.size();
 
-    std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
-    std::vector<NNVec> neighbors_by_query(queries.n);
 
     Timer timer;
     timer.Start();
@@ -84,29 +82,26 @@ int main(int argc, const char* argv[]) {
               << "ms per query, or " << queries.n / time << " QPS" << std::endl;
 
 
-    InvertedIndexHNSW inverted_index(points, std::ranges::partition);
+    // NOTE with IVF-HNSW and IVF deduplicating the resulting neighbors is not supported yet.
+    // This is because the same top-K data structure is shared across multiple clusters.
+    timer.Start();
+    InvertedIndexHNSW ivf_hnsw(points, clusters);
+    std::cout << "Building IVF-HNSW took " << timer.Restart() << " seconds." << std::endl;
+    InvertedIndex ivf(points, clusters);
+    std::cout << "Building IVF took " << timer.Stop() << " seconds." << std::endl;
 
-    std::cout << "Finished building inverted index" << std::endl;
+    std::cout << "Finished building IVFs" << std::endl;
 
     for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
-
-        auto t3 = std::chrono::high_resolution_clock::now();
         parlay::parallel_for(0, queries.n, [&](size_t i) {
-        // for (size_t i = 0; i < queries.n; ++i) {
             float* Q = queries.GetPoint(i);
-            neighbors_by_query[i] = inverted_index.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
-        }
-        );
-        auto t4 = std::chrono::high_resolution_clock::now();
-        std::cout << "finished query. now compute recall" << std::endl;
-        double recall = Recall(neighbors_by_query, distance_to_kth_neighbor, k);
-        double time_probes = (t4-t3).count() / 1e6;
-        std::cout << "Probing " << num_probes << " took " << time_probes << "ms overall, and " << time_probes / queries.n << " per query. Recall achieved " << recall << std::endl;
+            neighbors_by_query[i] = ivf.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
+        });
 
-        recall_per_num_probes[num_probes-1] = recall;
-        time_per_num_probes[num_probes-1] = time_probes / queries.n;
+        parlay::parallel_for(0, queries.n, [&](size_t i) {
+            float* Q = queries.GetPoint(i);
+            neighbors_by_query[i] = ivf_hnsw.Query(Q, k, buckets_to_probe_by_query[i], num_probes);
+        });
+
     }
-
-    // TODO parsable output
-
 }
