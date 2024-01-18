@@ -4,61 +4,41 @@
 #include "topn.h"
 
 struct InvertedIndex {
-    PointSet reordered_P;
+    PointSet clustered_points;
     std::vector<int> offsets;
-    std::vector<int> permutation;
+    std::vector<uint32_t> permutation;
 
-    InvertedIndex(PointSet& P, const std::vector<int>& partition)
-    {
-        int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+    InvertedIndex(PointSet& points, const Clusters& clusters) {
+        size_t num_shards = clusters.size();
         offsets.assign(num_shards+1, 0);
-        for (int b : partition) offsets[b+1]++;
-        for (int i = 2; i < num_shards+1; ++i) offsets[i] += offsets[i-1];
-        auto off = offsets;     // copy we can destroy
-        permutation.resize(P.n);
-        std::vector<int> inverse_permutation(P.n);
-        for (size_t i = 0; i < P.n; ++i) {
-            int b = partition[i];
-            inverse_permutation[i] = off[b];
-            permutation[off[b]++] = i;
+        for (size_t b = 0; b < clusters.size(); b++) {
+            offsets[b+1] = clusters[b].size();
         }
+        for (size_t i = 2; i < num_shards+1; ++i) offsets[i] += offsets[i-1];
+        size_t num_inserts = offsets.back();
 
-        reordered_P.n = P.n; reordered_P.d = P.d;
-        reordered_P.coordinates.reserve(P.coordinates.size());
-        for (size_t i = 0; i < P.n; ++i) {
-            float* p = P.GetPoint(permutation[i]);
-            for (size_t j = 0; j < P.d; ++j) {
-                reordered_P.coordinates.push_back(p[j]);
-            }
-        }
+        clustered_points.n = num_inserts; clustered_points.d = points.d;
+        clustered_points.coordinates.resize(num_inserts * points.d);
 
-        for (size_t i = 0; i < P.n; ++i) {
-            float* p = P.GetPoint(i);
-            float* q = reordered_P.GetPoint(inverse_permutation[i]);
-            for (size_t j = 0; j < P.d; ++j) {
-                if (p[j] != q[j]) {
-                    std::cerr << "permutation bad? " << p[j] << " " << q[j] << " " << j << " " << i << " " << inverse_permutation[i] << std::endl;
+        parlay::parallel_for(0, clusters.size(), [&](size_t b) {
+            parlay::parallel_for(0, clusters[b].size(), [&](size_t i_local) {
+                const uint32_t point_id = clusters[b][i_local];
+                permutation[offsets[b] + i_local] = point_id;
+                float* P = clustered_points.GetPoint(offsets[b] + i_local);
+                float* O = points.GetPoint(point_id);
+                for (uint32_t j = 0; j < points.d; ++j) {
+                    P[j] = O[j];
                 }
-            }
-
-            p = P.GetPoint(permutation[i]);
-            q = reordered_P.GetPoint(i);
-            for (size_t j = 0; j < P.d; ++j) {
-                if (p[j] != q[j]) {
-                    std::cerr << "inverse permutation bad? " << p[j] << " " << q[j] << " " << j << " " << i << " " << inverse_permutation[i] << std::endl;
-                }
-            }
-        }
-
+            });
+        }, 1);
     }
 
-    NNVec Query(float* Q, int k, std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
+    NNVec Query(float* Q, int k, const std::vector<int>& buckets_to_probe, size_t num_buckets_to_probe) {
         TopN top_k(k);
         for (size_t j = 0; j < num_buckets_to_probe; ++j) {
             int b = buckets_to_probe[j];
             for (int i = offsets[b]; i < offsets[b+1]; ++i) {
-                // TODO optimize?
-                float new_dist = distance(reordered_P.GetPoint(i), Q, reordered_P.d);
+                float new_dist = distance(clustered_points.GetPoint(i), Q, clustered_points.d);
                 auto x = std::make_pair(new_dist, i);
                 top_k.Add(x);
             }
@@ -66,6 +46,7 @@ struct InvertedIndex {
 
         auto result = top_k.Take();
         // remap the IDs
+        // TODO remap broken after refactor...
         for (auto& x : result) { x.second = permutation[x.second]; }
         return result;
     }

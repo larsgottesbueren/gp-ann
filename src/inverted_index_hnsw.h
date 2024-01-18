@@ -62,5 +62,6 @@ struct InvertedIndexHNSW {
             }
         }
         return top_k.Take();
+        // TODO remap
     }
 };
