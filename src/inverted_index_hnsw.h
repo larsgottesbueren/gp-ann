@@ -39,7 +39,7 @@ struct InvertedIndexHNSW {
         parlay::parallel_for(0, clusters.size(), [&](size_t b) {
             parlay::parallel_for(0, clusters[b].size(), [&](size_t i_local) {
                 float* p = points.GetPoint(clusters[b][i_local]);
-                bucket_hnsws[b]->addPoint(p, i_local);
+                bucket_hnsws[b]->addPoint(p, clusters[b][i_local]);
                 size_t x1 = __atomic_fetch_add(&x, 1, __ATOMIC_RELAXED);
                 if (x1 % 50000 == 0) {
                     std::cout << "finished " << x1 << " / " << total_insertions << " HNSW insertions" << std::endl;
@@ -62,6 +62,5 @@ struct InvertedIndexHNSW {
             }
         }
         return top_k.Take();
-        // TODO remap
     }
 };
