@@ -8,53 +8,47 @@
 #include <parlay/parallel.h>
 
 struct InvertedIndexHNSW {
-    #ifdef MIPS_DISTANCE
+#ifdef MIPS_DISTANCE
     hnswlib::InnerProductSpace space;
-    #else
+#else
     hnswlib::L2Space space;
-    #endif
+#endif
 
-    std::vector<hnswlib::HierarchicalNSW<float>* > bucket_hnsws;
+    std::vector<hnswlib::HierarchicalNSW<float> *> bucket_hnsws;
 
 
     HNSWParameters hnsw_parameters;
 
-    InvertedIndexHNSW(PointSet& points, const std::vector<int>& partition) : space(points.d)
-    {
-        int num_shards = *std::max_element(partition.begin(), partition.end()) + 1;
+    InvertedIndexHNSW(PointSet& points, const Clusters& clusters) : space(points.d) {
+        size_t num_shards = clusters.size();
         bucket_hnsws.resize(num_shards);
-        std::vector<size_t> bucket_size(num_shards, 0);
-        for (int x : partition) bucket_size[x]++;
-
+        size_t total_insertions = 0;
         for (int b = 0; b < num_shards; ++b) {
             bucket_hnsws[b] = new hnswlib::HierarchicalNSW<float>(
-                    &space, bucket_size[b],
-                    hnsw_parameters.M, hnsw_parameters.ef_construction,
-                    /* random_seed = */ 555 + b);
+                &space, clusters[b].size(),
+                hnsw_parameters.M, hnsw_parameters.ef_construction,
+                /* random_seed = */ 555 + b);
 
             bucket_hnsws[b]->setEf(hnsw_parameters.ef_search);
+            total_insertions += clusters[b].size();
         }
 
         std::cout << "start HNSW insertions" << std::endl;
 
         size_t x = 0;
-
-        parlay::parallel_for(0, points.n, [&](size_t i) {
-            float* p = points.GetPoint(i);
-            bucket_hnsws[partition[i]]->addPoint(p, i);
-            size_t x1 = __atomic_fetch_add(&x, 1, __ATOMIC_RELAXED);
-            if (x1 % 50000 == 0) {
-                std::cout << "finished " << x1 << " / " << points.n << " HNSW insertions" << std::endl;
-            }
-
+        parlay::parallel_for(0, clusters.size(), [&](size_t b) {
+            parlay::parallel_for(0, clusters[b].size(), [&](size_t i_local) {
+                float* p = points.GetPoint(clusters[b][i_local]);
+                bucket_hnsws[b]->addPoint(p, i_local);
+                size_t x1 = __atomic_fetch_add(&x, 1, __ATOMIC_RELAXED);
+                if (x1 % 50000 == 0) {
+                    std::cout << "finished " << x1 << " / " << total_insertions << " HNSW insertions" << std::endl;
+                }
+            });
         });
     }
 
-    ~InvertedIndexHNSW() {
-        for (size_t i = 0; i < bucket_hnsws.size(); ++i) {
-            delete bucket_hnsws[i];
-        }
-    }
+    ~InvertedIndexHNSW() { for (size_t i = 0; i < bucket_hnsws.size(); ++i) { delete bucket_hnsws[i]; } }
 
     NNVec Query(float* Q, int num_neighbors, const std::vector<int>& buckets_to_probe, int num_probes) const {
         TopN top_k(num_neighbors);
