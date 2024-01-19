@@ -87,11 +87,16 @@ int main(int argc, const char* argv[]) {
     time = timer.Stop();
     std::cout << "HSNW routing took " << time << " seconds. That's " << 1000.0 * time / queries.n
             << "ms per query, or " << queries.n / time << " QPS" << std::endl;
-
     probes_v.emplace_back(std::tuple("HNSW", time, std::move(buckets_to_probe_hnsw)));
 
     timer.Start();
-    InvertedIndexHNSW ivf_hnsw(points, clusters);
+    InvertedIndexHNSW ivf_hnsw(points);
+    ivf_hnsw.hnsw_parameters = HNSWParameters {
+        .M = 16,
+        .ef_construction = 200,
+        .ef_search = 120
+    };
+    ivf_hnsw.Build(points, clusters);
     std::cout << "Building IVF-HNSW took " << timer.Restart() << " seconds." << std::endl;
     InvertedIndex ivf(points, clusters);
     std::cout << "Building IVF took " << timer.Stop() << " seconds." << std::endl;
