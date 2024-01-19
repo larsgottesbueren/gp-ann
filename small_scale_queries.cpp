@@ -32,10 +32,14 @@ int main(int argc, const char* argv[]) {
     Clusters clusters = ReadClusters(partition_file);
 
     std::vector<NNVec> ground_truth;
-    if (std::filesystem::exists(ground_truth_file)) { ground_truth = ReadGroundTruth(ground_truth_file); } else {
+    if (std::filesystem::exists(ground_truth_file)) {
+        ground_truth = ReadGroundTruth(ground_truth_file);
+    } else {
         std::cout << "start computing ground truth" << std::endl;
         ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
         std::cout << "computed ground truth" << std::endl;
+        WriteGroundTruth(ground_truth_file, ground_truth);
+        std::cout << "wrote ground truth to file " << ground_truth_file << std::endl;
     }
 
     int num_shards = clusters.size();

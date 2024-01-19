@@ -35,7 +35,7 @@ int main(int argc, const char* argv[]) {
     WritePoints(points, out_file);
 #endif
 
-#if true
+#if false
     std::string file = argv[1];
     PointSet points = ReadPoints(file);
     size_t num_normalized = parlay::count_if(parlay::iota(points.n), [&](size_t i) {
