@@ -12,6 +12,16 @@
 
 #include "inverted_index_hnsw.h"
 
+void DedupNeighbors(std::vector<NNVec>& neighbors, size_t num_neighbors) {
+    parlay::parallel_for(0, neighbors.size(), [&](size_t i) {
+       auto& n = neighbors[i];
+        std::sort(n.begin(), n.end(), [](const auto& l, const auto& r) { return l.second < r.second; });
+        n.erase(std::unique(n.begin(), n.end()), n.end());
+        std::sort(n.begin(), n.end());
+        n.resize(std::min(n.size(), num_neighbors));
+    });
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 8) {
         std::cerr << "Usage ./SmallScaleQueries input-points queries ground-truth-file num-neighbors partition part-method out-file" << std::endl;
@@ -54,34 +64,32 @@ int main(int argc, const char* argv[]) {
     auto [routing_points, routing_index_partition] = router.ExtractPoints();
 
     timer.Start();
-    HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition, HNSWParameters{ .M = 32, .ef_construction = 200, .ef_search = 200 });
+    HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition, HNSWParameters{ .M = 16, .ef_construction = 200, .ef_search = 200 });
     hnsw_router.Train(routing_points);
     std::cout << "Training HNSW router took " << timer.Stop() << " seconds." << std::endl;
 
-    std::vector<std::tuple<std::string/*router*/, double/*routing time*/, parlay::sequence<std::vector<int>>/*probes*/>> probes_v;
+    std::vector<std::tuple<std::string/*router*/, double/*routing time*/, std::vector<std::vector<int>>/*probes*/>> probes_v;
 
+    std::vector<std::vector<int>> buckets_to_probe_kmtr(queries.n), buckets_to_probe_hnsw(queries.n);
     timer.Start();
-    auto buckets_to_probe_kmtr = parlay::tabulate(queries.n, [&](size_t q) {
-        return router.Query(queries.GetPoint(q), options.search_budget);
-    }, /*granularity=sequential*/queries.n);
+    for (size_t q = 0; q < queries.n; ++q) {
+        buckets_to_probe_kmtr[q] = router.Query(queries.GetPoint(q), options.search_budget);
+    }
     double time = timer.Stop();
     std::cout << "KMTR routing took " << time << " seconds. That's " << 1000.0 * time / queries.n
             << "ms per query, or " << queries.n / time << " QPS" << std::endl;
     probes_v.emplace_back(std::tuple("KMTR", time, std::move(buckets_to_probe_kmtr)));
 
     timer.Start();
-    auto buckets_to_probe_hnsw = parlay::tabulate(queries.n, [&](size_t q) {
-        return hnsw_router.Query(queries.GetPoint(q), 120).RoutingQuery();
-    }, /*granularity=sequential*/queries.n);
+    for (size_t q = 0; q < queries.n; ++q) {
+        buckets_to_probe_hnsw[q] = hnsw_router.Query(queries.GetPoint(q), 60).RoutingQuery();
+    }
     time = timer.Stop();
     std::cout << "HSNW routing took " << time << " seconds. That's " << 1000.0 * time / queries.n
             << "ms per query, or " << queries.n / time << " QPS" << std::endl;
 
     probes_v.emplace_back(std::tuple("HNSW", time, std::move(buckets_to_probe_hnsw)));
 
-    // NOTE with IVF-HNSW and IVF deduplicating the resulting neighbors is not supported yet -- as it is not needed for the current experiments.
-    // This is because the same top-K data structure is shared across multiple clusters.
-    // We should build separate top-k data structures, remap and then merge.
     timer.Start();
     InvertedIndexHNSW ivf_hnsw(points, clusters);
     std::cout << "Building IVF-HNSW took " << timer.Restart() << " seconds." << std::endl;
@@ -99,14 +107,17 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Start queries" << std::endl;
 
-    std::vector<NNVec> neighbors(queries.n);
     for (const auto& [desc, routing_time, probes] : probes_v) {
+        std::vector<NNVec> neighbors(queries.n);
+        time = 0;
         for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
             timer.Start();
             for (size_t q = 0; q < queries.n; ++q) {
-                neighbors[q] = ivf.Query(queries.GetPoint(q), num_neighbors, probes[q], num_probes);
+                auto neighs = ivf.QueryBucket(queries.GetPoint(q), num_neighbors, probes[q][num_probes-1]);
+                neighbors[q].insert(neighbors[q].end(), neighs.begin(), neighs.end());
             }
-            time = timer.Stop();
+            time += timer.Stop();
+            DedupNeighbors(neighbors, num_neighbors);
             double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
             std::cout << "router = " << desc << " query = IVF " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time << std::endl;
             double latency = (routing_time + time) / queries.n;
@@ -115,12 +126,18 @@ int main(int argc, const char* argv[]) {
 
         }
 
+        for (auto& neighs : neighbors) {
+            neighs.clear();
+        }
+        time = 0;
         for (int num_probes = 1; num_probes <= num_shards; ++num_probes) {
             timer.Start();
             for (size_t q = 0; q < queries.n; ++q) {
-                neighbors[q] = ivf_hnsw.Query(queries.GetPoint(q), num_neighbors, probes[q], num_probes);
+                auto neighs = ivf_hnsw.QueryBucket(queries.GetPoint(q), num_neighbors, probes[q][num_probes-1]);
+                neighbors[q].insert(neighbors[q].end(), neighs.begin(), neighs.end());
             }
-            time = timer.Stop();
+            time += timer.Stop();
+            DedupNeighbors(neighbors, num_neighbors);
             double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
             std::cout << "router = " << desc << " query = IVF-HNSW " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time << std::endl;
             double latency = (routing_time + time) / queries.n;

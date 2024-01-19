@@ -63,4 +63,14 @@ struct InvertedIndexHNSW {
         }
         return top_k.Take();
     }
+
+    NNVec QueryBucket(float* Q, int num_neighbors, int bucket) {
+        auto result_pq = bucket_hnsws[bucket]->searchKnn(Q, num_neighbors);
+        NNVec result;
+        while (!result_pq.empty()) {
+            result.emplace_back(result_pq.top());
+            result_pq.pop();
+        }
+        return result;
+    }
 };

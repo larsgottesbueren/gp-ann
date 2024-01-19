@@ -50,4 +50,17 @@ struct InvertedIndex {
         for (auto& x : result) { x.second = permutation[x.second]; }
         return result;
     }
+
+    NNVec QueryBucket(float* Q, int k, int bucket) {
+        TopN top_k(k);
+        for (int i = offsets[bucket]; i < offsets[bucket+1]; ++i) {
+            float new_dist = distance(clustered_points.GetPoint(i), Q, clustered_points.d);
+            auto x = std::make_pair(new_dist, i);
+            top_k.Add(x);
+        }
+        auto result = top_k.Take();
+        // remap the IDs
+        for (auto& x : result) { x.second = permutation[x.second]; }
+        return result;
+    }
 };
