@@ -84,7 +84,7 @@ int main(int argc, const char* argv[]) {
             double time = timer.Stop();
             double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
             std::cout   << "HNSW query with ef = " << ef << " took " << time << " seconds. recall = " << recall
-                        << ". avg latency = " << time / queries.n << std::endl;
+                        << ". avg latency = " << 1000.0 * time / queries.n << " ms." << std::endl;
         }
 
         return 0;
