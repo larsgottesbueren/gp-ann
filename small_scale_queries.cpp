@@ -159,8 +159,9 @@ int main(int argc, const char* argv[]) {
             time += timer.Stop();
             DedupNeighbors(neighbors, num_neighbors);
             double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
-            std::cout << "router = " << desc << " query = IVF " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time << std::endl;
             double latency = (routing_time + time) / queries.n;
+            std::cout << "router = " << desc << " query = IVF " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time
+                      << " avg latency = " << 1000.0 * latency << " ms" << std::endl;
             out << part_method << "," << desc << "," << "BruteForce" << "," << num_probes << "," << latency << "," << routing_time / queries.n << ","
                 << time / queries.n << "," << recall << std::endl;
 
@@ -179,8 +180,9 @@ int main(int argc, const char* argv[]) {
             time += timer.Stop();
             DedupNeighbors(neighbors, num_neighbors);
             double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
-            std::cout << "router = " << desc << " query = IVF-HNSW " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time << std::endl;
             double latency = (routing_time + time) / queries.n;
+            std::cout << "router = " << desc << " query = IVF-HNSW " << "nprobes = " << num_probes << " recall = " << recall << " time = " << time
+                      << " avg latency = " << 1000.0 * latency << " ms" << std::endl;
             out << part_method << "," << desc << "," << "HNSW" << "," << num_probes << "," << latency << "," << routing_time / queries.n << ","
                 << time / queries.n << "," << recall << std::endl;
         }
