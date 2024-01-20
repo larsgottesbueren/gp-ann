@@ -39,7 +39,6 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
-    Clusters clusters = ReadClusters(partition_file);
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
@@ -51,7 +50,47 @@ int main(int argc, const char* argv[]) {
         WriteGroundTruth(ground_truth_file, ground_truth);
         std::cout << "wrote ground truth to file " << ground_truth_file << std::endl;
     }
+    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
+    std::cout << "finished converting ground truth to distances" << std::endl;
 
+
+    if (!std::filesystem::exists(partition_file) || part_method == "None") {
+        std::cout << "Not partitioned. --> Run HNSW directly on input" << std::endl;
+        Timer timer;
+        timer.Start();
+        HNSWParameters hnsw_parameters;
+#ifdef MIPS_DISTANCE
+        hnswlib::InnerProductSpace space(points.d);
+#else
+        hnswlib::L2Space space(points.d);
+#endif
+        hnswlib::HierarchicalNSW<float> hnsw(&space, points.n, hnsw_parameters.M, hnsw_parameters.ef_construction, 555);
+        parlay::parallel_for(0, points.n, [&](size_t i) { hnsw.addPoint(points.GetPoint(i), i); });
+        std::cout << "Building HNSW took " << timer.Stop() << " seconds." << std::endl;
+
+        for (int ef : { 20, 50, 80, 100, 120, 150, 200, 300, 400 }) {
+            std::vector<NNVec> neighbors(queries.n);
+            hnsw.setEf(ef);
+            timer.Start();
+            for (size_t q = 0; q < queries.n; ++q) {
+                auto result_pq = hnsw.searchKnn(queries.GetPoint(q), num_neighbors);
+                NNVec result;
+                while (!result_pq.empty()) {
+                    result.emplace_back(result_pq.top());
+                    result_pq.pop();
+                }
+                neighbors[q] = std::move(result);
+            }
+            double time = timer.Stop();
+            double recall = Recall(neighbors, distance_to_kth_neighbor, num_neighbors);
+            std::cout   << "HNSW query with ef = " << ef << " took " << time << " seconds. recall = " << recall
+                        << ". avg latency = " << time / queries.n << std::endl;
+        }
+
+        return 0;
+    }
+
+    Clusters clusters = ReadClusters(partition_file);
     int num_shards = clusters.size();
 
     Timer timer;
@@ -102,10 +141,6 @@ int main(int argc, const char* argv[]) {
     std::cout << "Building IVF took " << timer.Stop() << " seconds." << std::endl;
 
     std::cout << "Finished building IVFs" << std::endl;
-
-    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
-
-    std::cout << "finished converting ground truth to distances" << std::endl;
 
     std::ofstream out(out_file);
     out << "partitioning,routing,shard query,probes,latency,routing latency, query latency,recall" << std::endl;
