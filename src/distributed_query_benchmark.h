@@ -101,6 +101,172 @@ public:
         return probes;
     }
 
+#if false
+    void ProcessQueries3(const std::vector<int>& query_ids, PointSet& queries) {
+        message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
+
+        struct Request {
+            int query_id = -1;
+            std::vector<float> coordinates;
+        };
+        auto merge_requests = [](auto& buf, message_queue::PEID buffer_destination, message_queue::PEID my_rank,
+                    message_queue::Envelope auto msg) {
+            buf.push_back(static_cast<float>(msg.message.query_id));
+            for (float x : msg.message.coordinates) {
+                buf.push_back(x);
+            }
+        };
+
+        auto split_requests = [](message_queue::MPIBuffer<float> auto const& buf, message_queue::PEID buffer_origin,
+                    message_queue::PEID my_rank) {
+            std::vector<Request> incoming_requests;
+            Request r;
+
+            return incoming_requests;
+        };
+
+        auto requests_queue =
+                message_queue::make_buffered_queue<Request, float>(MPI_COMM_WORLD, merge_requests, split_requests);
+
+
+        struct Response {
+            int query_id;
+            std::vector<int> neighbors;
+        };
+        auto responses_queue =
+                message_queue::make_buffered_queue<Response, int>();
+
+        std::vector<int> local_requests;
+        std::vector<std::vector<float>> request_buffers(comm_size);
+
+        // we want to
+        // a) process queries in parallel
+        // b) dont lock message buffers to avoid overheads
+        // c) get the first requests out as soon as possible so that a machine that runs out of routing
+        //    work can get started on retrieving neighbors right away
+        // The following performs multiple steps with 2^^i queries routed in step i, followed by sending their messages
+
+        size_t step_size = 128;
+        auto qq = parlay::make_slice(query_ids);
+        for (size_t i = 0; i < query_ids.size(); i += step_size, step_size *= 2) {
+            const auto queries_this_step = qq.cut(i, std::min(query_ids.size(), i + step_size));
+            auto probes_nested = parlay::map(queries_this_step, [&](int query_id) { return Route(queries.GetPoint(query_id)); });
+            //auto probes = parlay::flatten(probes_nested); // no point in doing the zip and flatten in parallel. we have to post messages sequentially anyway
+            // well actually, merging the embedding streams in parallel could be nice
+            for (size_t j = 0; j < queries_this_step.size(); ++j) {
+                int query_id = queries_this_step[j];
+                float* Q = queries.GetPoint(query_id);
+                for (int shard_id : probes_nested[j]) {
+                    if (shard_id == rank) {
+                        local_requests.push_back(query_id);
+                    } else {
+                        auto& buf = request_buffers[shard_id];
+                        // write the query ID to the stream as a float... oh well
+                        buf.push_back(static_cast<float>(query_id));
+                        // write the query vector
+                        for (int k = 0; k < dim; ++k) {
+                            buf.push_back(Q[k]);
+                        }
+                    }
+                }
+            }
+
+            for (int j = 0; j < comm_size; ++j) {
+                if (j != rank) {
+                    requests_queue.post_message(std::move(request_buffers[j]), j);
+                    // TODO flush the buffer queue
+                    request_buffers[j].clear();
+                }
+            }
+        }
+
+        auto return_neighbors = [&](message_queue::Envelope<Request> auto request_envelope) {
+            for (const Request& r : request_envelope.message) {
+                int original_sender = request_envelope.sender;
+                auto result = hnsw->searchKnn(queries.GetPoint(r.query_id), num_neighbors);
+                Response response;
+                response.query_id = r.query_id;
+                while (!result.empty()) {
+                    auto next = result.top();
+                    response.neighbors.push_back(next.second);
+                    result.pop();
+                }
+                responses_queue.post_message(std::move(response), original_sender);
+            }
+        };
+
+        auto accept_returned_neighbors = [&](message_queue::Envelope<Response> auto response_envelope) {
+            /* Do nothing here */
+            // Dedup?
+        };
+
+        requests_queue.terminate(return_neighbors);
+        responses_queue.terminate(accept_returned_neighbors);
+    }
+
+    void ProcessQueries2(const std::vector<int>& query_ids, PointSet& queries) {
+        message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
+
+        using RequestType = int;
+        auto requests_queue =
+                message_queue::make_buffered_queue<RequestType>();
+
+        using ResponseType = int;
+        auto responses_queue =
+                message_queue::make_buffered_queue<ResponseType>();
+
+        std::vector<int> local_requests;
+
+        // we want to
+        // a) process queries in parallel
+        // b) dont lock message buffers to avoid overheads
+        // c) get the first requests out as soon as possible so that a machine that runs out of routing
+        //    work can get started on retrieving neighbors right away
+        // The following performs multiple steps with 2^^i queries routed in step i, followed by sending their messages
+
+        size_t step_size = 128;
+        auto qq = parlay::make_slice(query_ids);
+        for (size_t i = 0; i < query_ids.size(); i += step_size, step_size *= 2) {
+            const auto queries_this_step = qq.cut(i, std::min(query_ids.size(), i + step_size));
+            auto probes_nested = parlay::map(queries_this_step, [&](int query_id) { return Route(queries.GetPoint(query_id)); });
+            //auto probes = parlay::flatten(probes_nested); // no point in doing the zip and flatten in parallel. we have to post messages sequentially anyway
+            // well actually, merging the embedding streams in parallel could be nice
+            for (size_t j = 0; j < queries_this_step.size(); ++j) {
+                int query_id = queries_this_step[j];
+                for (int shard_id : probes_nested[j]) {
+                    if (shard_id == rank) {
+                        local_requests.push_back(query_id);
+                    } else {
+                        requests_queue.post_message(query_id, shard_id);
+                    }
+                }
+            }
+        }
+
+        auto return_neighbors = [&](message_queue::Envelope<RequestType> auto request_envelope) {
+            for (const RequestType& query_id : request_envelope.message) {
+                int original_sender = request_envelope.sender;
+                auto result = hnsw->searchKnn(queries.GetPoint(query_id), num_neighbors);
+                while (!result.empty()) {
+                    auto next = result.top();
+                    result.pop();
+                    // TODO aggregate neighbors for the same query... and add the query ID
+                    responses_queue.post_message(next, original_sender);
+                }
+            }
+        };
+
+        auto accept_returned_neighbors = [&](message_queue::Envelope<ResponseType> auto response_envelope) {
+            /* Do nothing here */
+            // Dedup?
+        };
+
+        requests_queue.terminate(return_neighbors);
+        responses_queue.terminate(accept_returned_neighbors);
+    }
+
+#endif
+
     void ProcessQueries(const std::vector<int>& query_ids, PointSet& queries) {
         message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
 
