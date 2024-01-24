@@ -104,7 +104,10 @@ int main(int argc, const char* argv[]) {
         clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OKM") {
         // leave the same num clusters, since k-means will use more than requested anyways
+        Timer timer;
+        timer.Start();
         auto kmp = KMeansPartitioning(points, k, eps);
+        std::cout << "KM took " << timer.Stop() << " seconds" << std::endl;
         clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OBKM") {
         int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
@@ -122,5 +125,5 @@ int main(int argc, const char* argv[]) {
     if (clusters.empty()) {
         clusters = ConvertPartitionToClusters(partition);
     }
-    WriteClusters(clusters, part_file);
+    // WriteClusters(clusters, part_file);
 }
