@@ -75,7 +75,7 @@ struct ApproximateKNNGraphBuilder {
                 clusters[leader].push_back(point_id);
                 cluster_locks[leader].unlock();
             }
-        });
+        }, 20);
         cluster_locks.clear(); cluster_locks.shrink_to_fit();
         leaders.clear(); leaders.shrink_to_fit();
         leader_points.Drop();
@@ -228,7 +228,7 @@ struct ApproximateKNNGraphBuilder {
 
     int seed = 555;
     double FRACTION_LEADERS = 0.005;
-    size_t TOP_LEVEL_NUM_LEADERS = 700;
+    size_t TOP_LEVEL_NUM_LEADERS = 950;
     size_t MAX_NUM_LEADERS = 1500;
     size_t MAX_CLUSTER_SIZE = 2500;
     size_t MIN_CLUSTER_SIZE = 50;
