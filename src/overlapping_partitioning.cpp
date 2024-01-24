@@ -61,13 +61,13 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     timer.Start();
     static constexpr int degree = 10;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, degree);
-    std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
+    std::cout << "Built KNN graph. Took " << timer.Stop() << std::endl;
 
     Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false);
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 
-    Timer timer;
+    timer.Start();
 
     // the current implementation gives
     // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
