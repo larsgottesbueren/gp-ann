@@ -13,7 +13,11 @@
 std::vector<int> BalancedKMeansCall(PointSet& points, int k, double eps) {
     PointSet centroids = RandomSample(points, k, 555);
     size_t max_cluster_size = points.n * (1.0+eps) / k;
-    return BalancedKMeans(points, centroids, max_cluster_size);
+    Timer timer;
+    timer.Start();
+    auto result = BalancedKMeans(points, centroids, max_cluster_size);
+    std::cout << "Balanced Kmeans took " << timer.Stop() << " seconds" << std::endl;
+    return result;
 }
 
 std::vector<int> FlatKMeansCall(PointSet& points, int k, double eps) {

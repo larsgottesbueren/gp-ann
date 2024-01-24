@@ -67,6 +67,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 
+    Timer timer;
+
     // the current implementation gives
     // extra_assignments = L_max * (k'-k) = L_max * k * overlap = (1+eps) * n/k * k * overlap = (1+eps)*n*overlap
     // instead of the expected 1 * n * overlap. that's fine, we just have to give the other method the same amount
@@ -129,6 +131,8 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
         MakeOverlappingWithCentroids(points, clusters, max_cluster_size, num_assignments_remaining);
     }
     #endif
+
+    std::cout << "Make GP overlapping took " <<  timer.Stop() << " seconds" << std::endl;
     return clusters;
 }
 
@@ -212,8 +216,9 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
         }
     }
 
-    std::cout << "Finished overlap partitioning. " << num_assignments_left << " possible assignments unused. Moves inspected: "
+    std::cout << "Finished kmeans overlap partitioning. " << num_assignments_left << " possible assignments unused. Moves inspected: "
                 << steps << " Time " << timer.Stop() << std::endl;
+    std::cout << "Total time for overlap " << timer.total_duration.count() << " seconds" << std::endl;
 }
 
 Clusters OverlappingKMeansPartitioningSPANN(PointSet& points, const Partition& partition, int requested_num_clusters, double epsilon, double overlap) {

@@ -109,7 +109,13 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
+    Timer timer;
+    timer.Start();
     shm.compute_partition(k, kaminpar_partition.data());
+    double time = timer.Stop();
+    if (!quiet) {
+        std::cout << "Partitioning with KaMinPar took " << time << " seconds" << std::endl;
+    }
     Partition partition(num_nodes);
     for (size_t i = 0; i < partition.size(); ++i) {
         partition[i] = kaminpar_partition[i]; // convert unsigned int partition ID to signed int partition ID
@@ -145,6 +151,9 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
 }
 
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "") {
+    Timer timer;
+    timer.Start();
+
     // Subsample points
     size_t num_subsample_points = 10000000; // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
@@ -226,6 +235,8 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
         parlay::parallel_for(0, frontier.size(), [&](size_t i) { assign_point(frontier[i]); });
         std::cout << "Extra Pyramid assignment round " << ++num_extra_rounds << " finished. " << unfinished_points.size() << " still unassigned" << std::endl;
     }
+
+    std::cout << "Pyramid partitioning took " << timer.Stop() << " seconds" << std::endl;
 
     return partition;
 }
