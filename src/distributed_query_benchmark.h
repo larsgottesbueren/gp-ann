@@ -101,7 +101,6 @@ public:
         return probes;
     }
 
-#if false
     void ProcessQueries3(const std::vector<int>& query_ids, PointSet& queries) {
         message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
 
@@ -264,8 +263,6 @@ public:
         requests_queue.terminate(return_neighbors);
         responses_queue.terminate(accept_returned_neighbors);
     }
-
-#endif
 
     void ProcessQueries(const std::vector<int>& query_ids, PointSet& queries) {
         message_queue::FlushStrategy flush_strategy = message_queue::FlushStrategy::global;
