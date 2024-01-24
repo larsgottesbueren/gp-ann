@@ -92,6 +92,7 @@ int main(int argc, const char* argv[]) {
             }
             std::vector<int> probes(num_shards);
             std::iota(probes.begin(), probes.end(), 0);
+            // no update for found neighbors after each probe. just send it!
             std::sort(probes.begin(), probes.end(), [&](int l, int r) { return freq[l] > freq[r]; });
             buckets_to_probe[q] = std::move(probes);
         });
