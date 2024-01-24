@@ -53,10 +53,14 @@ int main(int argc, const char* argv[]) {
     size_t num_queries = ground_truth.size();
     size_t num_shards = clusters.size();
     std::vector<RoutingConfig> routes = DeserializeRoutes(routes_file);
+    std::vector<std::vector<double>> rrv;
+    int n_configs = 0;
     for (const RoutingConfig& route : routes) {
         std::vector<std::unordered_set<uint32_t>> neighbors(num_queries);
         std::vector<double> recall_values;
-        size_t hits = 0;
+        hits = 0;
+        std::cout << "Routing recall for config " << n_configs << " --";
+        n_configs++;
         for (size_t probes = 0; probes < num_shards; ++probes) {
              hits += parlay::reduce(
                 parlay::tabulate(num_queries, [&](size_t q) {
@@ -76,6 +80,18 @@ int main(int argc, const char* argv[]) {
                 })
             );
             double recall = static_cast<double>(hits) / num_neighbors;
+            recall_values.push_back(recall);
+            std::cout << " " << recall;
+        }
+        std::cout << std::endl;
+        rrv.emplace_back(std::move(recall_values));
+    }
+
+    int best = 0;
+    for (int i = 1; i < rrv.size(); ++i) {
+        if (rrv[i][0] > rrv[best][0]) {
+            best = i;
         }
     }
+    std::cout << "best config " << best << " first shard recall " << rrv[best][0];
 }
