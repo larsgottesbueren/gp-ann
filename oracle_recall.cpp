@@ -52,9 +52,16 @@ int main(int argc, const char* argv[]) {
 
     int num_neighbors = std::stoi(k_string);
 
+#if false
     auto clusters = ReadClusters(partition_file);
-    std::cout << "Finished reading partition file" << std::endl;
     Cover cover = ConvertClustersToCover(clusters);
+    size_t num_shards = clusters.size();
+#else
+    auto partition = ReadMetisPartition(partition_file);
+    size_t num_shards = NumPartsInPartition(partition);
+    Cover cover = ConvertPartitionToCover(partition);
+#endif
+    std::cout << "Finished reading partition file" << std::endl;
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
@@ -64,7 +71,6 @@ int main(int argc, const char* argv[]) {
         throw std::runtime_error("ground truth file doesnt exist");
     }
 
-    size_t num_shards = clusters.size();
     std::vector<RoutingConfig> routes = DeserializeRoutes(routes_file);
 
     auto rrv = parlay::map(routes, [&](const RoutingConfig& route) {
@@ -92,7 +98,7 @@ int main(int argc, const char* argv[]) {
         std::vector<std::vector<int>> buckets_to_probe(ground_truth.size());
         parlay::parallel_for(0, ground_truth.size(), [&](size_t q) {
             const NNVec& nn = ground_truth[q];
-            std::vector<int> freq(clusters.size(), 0);
+            std::vector<int> freq(num_shards, 0);
             for (int j = 0; j < num_neighbors; ++j) {
                 for (int c : cover[nn[j].second]) {
                     freq[c]++;
