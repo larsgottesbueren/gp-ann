@@ -38,8 +38,8 @@ std::vector<double> RecallForIncreasingProbes(
 }
 
 int main(int argc, const char* argv[]) {
-    if (argc != 5) {
-        std::cerr << "Usage ./OracleRecall ground-truth-file routes-file num_neighbors partition-file" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage ./OracleRecall ground-truth-file routes-file num_neighbors partition-file part-method out-file" << std::endl;
         std::abort();
     }
 
@@ -47,6 +47,8 @@ int main(int argc, const char* argv[]) {
     std::string routes_file = argv[2];
     std::string k_string = argv[3];
     std::string partition_file = argv[4];
+    std::string part_method = argv[5];
+    std::string out_file = argv[6];
 
     int num_neighbors = std::stoi(k_string);
 
@@ -71,14 +73,20 @@ int main(int argc, const char* argv[]) {
 
     int best = 0;
     for (int i = 1; i < rrv.size(); ++i) {
-        std::cout << rrv[i][0] << " ";
         if (rrv[i][0] > rrv[best][0]) {
             best = i;
         }
     }
+
     std::cout << std::endl;
     std::cout << "best config " << best << " first shard recall " << rrv[best][0] << std::endl;
-    //  TODO output as CSV
+
+    std::ofstream out(out_file);
+    // header
+    out << "partitioning,num probes,recall,type" << std::endl;
+    for (size_t j = 0; j < num_shards; ++j) {
+        out << part_method << "," << j << "," << rrv[best][j] << ",brute-force-shard-search" << std::endl;
+    }
 
     {   // Oracle
         std::vector<std::vector<int>> buckets_to_probe(ground_truth.size());
@@ -97,9 +105,10 @@ int main(int argc, const char* argv[]) {
             buckets_to_probe[q] = std::move(probes);
         });
 
-        auto recall_values = RecallForIncreasingProbes(buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);
-        std::cout << "oracle recall. first shard " << recall_values[0] << std::endl;
+        auto oracle_recall_values = RecallForIncreasingProbes(buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);
+        std::cout << "oracle recall. first shard " << oracle_recall_values[0] << std::endl;
+        for (size_t j = 0; j < num_shards; ++j) {
+            out << part_method << "," << j << "," << oracle_recall_values[j] << ",oracle" << std::endl;
+        }
     }
-
-
 }
