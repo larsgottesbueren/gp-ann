@@ -251,9 +251,9 @@ struct ApproximateKNNGraphBuilder {
 
     int seed = 555;
     double FRACTION_LEADERS = 0.005;
-    size_t TOP_LEVEL_NUM_LEADERS = 950;
-    size_t MAX_NUM_LEADERS = 1500;
-    size_t MAX_CLUSTER_SIZE = 2500;
+    size_t TOP_LEVEL_NUM_LEADERS = 128;
+    size_t MAX_NUM_LEADERS = 800;
+    size_t MAX_CLUSTER_SIZE = 5000;
     size_t MIN_CLUSTER_SIZE = 50;
     size_t MAX_MERGED_CLUSTER_SIZE = 2500;
     int REPETITIONS = 3;
