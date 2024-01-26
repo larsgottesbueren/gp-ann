@@ -25,3 +25,5 @@ target_sources(Convert PRIVATE routes.cpp shard_searches.cpp route_search_combin
 target_sources(GraphQualityBench PRIVATE partitioning.cpp)
 
 target_sources(OracleRecall PRIVATE routes.cpp kmeans_tree_router.cpp)
+
+target_sources(AnalyzeApproximationLosses PRIVATE routes.cpp kmeans_tree_router.cpp)

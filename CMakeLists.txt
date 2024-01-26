@@ -30,6 +30,7 @@ add_executable(QueryAttribution run_query_attribution.cpp)
 add_executable(OracleRecall oracle_recall.cpp)
 add_executable(DistributedBench distributed_bench.cpp)
 add_executable(GraphQualityBench graph_quality_benchmark.cpp)
+add_executable(AnalyzeApproximationLosses analyze_approximation_losses.cpp)
 
 set(TARGETS
 		SmallScaleQueries
@@ -39,6 +40,7 @@ set(TARGETS
 		OracleRecall
 		DistributedBench
 		GraphQualityBench
+		AnalyzeApproximationLosses
 )
 
 foreach(target IN LISTS TARGETS)
