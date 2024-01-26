@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iostream>
 #include <parlay/parallel.h>
+#include <parlay/primitives.h>
 #include <random>
 
 
@@ -63,20 +64,46 @@ struct ApproximateKNNGraphBuilder {
 
         PointSet leader_points = ExtractPoints(points, leaders);
 
-        // find closest leaders and build clusters around leaders
         std::vector<Bucket> clusters(leaders.size());
-        std::vector<SpinLock> cluster_locks(leaders.size());
-        parlay::parallel_for(0, ids.size(), [&](size_t i) {
-            auto point_id = ids[i];
-            auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
+        if (ids.size() > 50'000'000) {
+            Timer tt; tt.Start();
+            auto closest_leaders =
+                parlay::map(ids, [&](uint32_t point_id) {
+                    auto cl = ClosestLeaders(points, leader_points, point_id, fanout).Take();
+                    std::vector<std::pair<uint32_t, uint32_t>> pp;
+                    for (const auto& [dist, leader] : cl) {
+                        pp.emplace_back(leader, point_id);
+                    }
+                    return pp;
+                    //return parlay::zip(
+                    //    ClosestLeaders(points, leader_points, point_id, fanout).Take(),
+                    //    parlay::sequence(fanout, point_id)
+                    //);
+                });
 
-            for (const auto& [_, leader] : closest_leaders) {
-                cluster_locks[leader].lock();
-                clusters[leader].push_back(point_id);
-                cluster_locks[leader].unlock();
-            }
-        }, 20);
-        cluster_locks.clear(); cluster_locks.shrink_to_fit();
+            auto flat = parlay::flatten(closest_leaders);
+
+            auto pclusters = parlay::group_by_index(flat, leaders.size());
+
+            // copy clusters from parlay::sequence to std::vector
+            parlay::parallel_for(0, pclusters.size(), [&](size_t i) {
+                clusters[i] = Bucket(pclusters[i].begin(), pclusters[i].end());
+            });
+            std::cout << "multi-group-by took " << tt.Stop() << " seconds" << std::endl;
+        } else {
+            // find closest leaders and build clusters around leaders
+            std::vector<SpinLock> cluster_locks(leaders.size());
+            parlay::parallel_for(0, ids.size(), [&](size_t i) {
+                auto point_id = ids[i];
+                auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
+                for (const auto& [_, leader] : closest_leaders) {
+                    cluster_locks[leader].lock();
+                    clusters[leader].push_back(point_id);
+                    cluster_locks[leader].unlock();
+                }
+            }, 20);
+        }
+
         leaders.clear(); leaders.shrink_to_fit();
         leader_points.Drop();
 
