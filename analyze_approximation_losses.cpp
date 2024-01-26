@@ -96,6 +96,66 @@ std::vector<std::vector<int>> FullDatasetRouting(
     return probes;
 }
 
+std::vector<std::vector<int>> RouteUsingSingleCenter(PointSet& points, PointSet& queries, const Clusters& clusters) {
+    PointSet centers;
+    centers.d = points.d;
+    centers.n = clusters.size();
+    centers.Alloc();
+    parlay::parallel_for(0, clusters.size(), [&](size_t c) {
+        // avoid false sharing
+        PointSet CC;
+        CC.d = points.d;
+        CC.n = 1;
+        CC.Alloc();
+        float* C = CC.GetPoint(0);
+
+        double norm_sum = 0.0;
+        for (uint32_t v : clusters[c]) {
+            float* V = points.GetPoint(v);
+#ifdef MIPS_DISTANCE
+            double norm = vec_norm(V, centers.d);
+            norm_sum += norm;
+            float multiplier = 1.0f / std::sqrt(norm);
+            for (size_t j = 0; j < centers.d; ++j) {
+                C[j] += V[j] * multiplier;
+            }
+#else
+            for (size_t j = 0; j < centers.d; ++j) {
+                C[j] += V[j];
+            }
+#endif
+        }
+#ifdef MIPS_DISTANCE
+        float desired_norm = norm_sum / clusters[c].size();
+        float current_norm = vec_norm(C, centers.d);
+        float multiplier = std::sqrt(desired_norm / current_norm);
+        for (size_t j = 0; j < centers.d; ++j) { C[j] *= multiplier; }
+#else
+        for (size_t j = 0; j < centers.d; ++j) {
+            C[j] /= clusters[c].size();
+        }
+
+        // copy over
+        float* C2 = centers.GetPoint(c);
+        for (size_t j = 0; j < centers.d; ++j) {
+            C2[j] = C[j];
+        }
+#endif
+    }, 1);
+
+    std::vector<std::vector<int>> probes(queries.n, std::vector<int>(clusters.size()));
+    parlay::parallel_for(0, queries.n, [&](size_t q) {
+        std::vector<float> min_dist;
+        for (size_t c = 0; c < clusters.size(); ++c) {
+            min_dist.push_back(distance(queries.GetPoint(q), centers.GetPoint(c), queries.d));
+        }
+        auto& p = probes[q];
+        std::iota(p.begin(), p.end(), 0);
+        std::sort(p.begin(), p.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
+    });
+    return probes;
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 8) {
         std::cerr << "Usage ./AnalyzeApproximationLosses point-file query-file ground-truth-file num_neighbors partition-file part-method out-file" <<
