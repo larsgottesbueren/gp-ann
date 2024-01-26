@@ -67,21 +67,15 @@ struct ApproximateKNNGraphBuilder {
         std::vector<Bucket> clusters(leaders.size());
         if (ids.size() > 50'000'000) {
             Timer tt; tt.Start();
-            auto closest_leaders =
-                parlay::map(ids, [&](uint32_t point_id) {
-                    auto cl = ClosestLeaders(points, leader_points, point_id, fanout).Take();
-                    std::vector<std::pair<uint32_t, uint32_t>> pp;
-                    for (const auto& [dist, leader] : cl) {
-                        pp.emplace_back(leader, point_id);
-                    }
-                    return pp;
-                    //return parlay::zip(
-                    //    ClosestLeaders(points, leader_points, point_id, fanout).Take(),
-                    //    parlay::sequence(fanout, point_id)
-                    //);
-                });
-
-            auto flat = parlay::flatten(closest_leaders);
+            parlay::sequence<std::pair<uint32_t, uint32_t>> flat(ids.size() * fanout);
+            // less readable than map + zip + flatten, but at least it's as efficient as possible for fanout = 1
+            parlay::parallel_for(0, ids.size(), [&](size_t i) {
+                uint32_t point_id = ids[i];
+                auto cl = ClosestLeaders(points, leader_points, point_id, fanout).Take();
+                for (int j = 0; j < fanout; ++j) {
+                    flat[i * fanout + j] = std::make_pair(cl[j].second, point_id);
+                }
+            });
 
             auto pclusters = parlay::group_by_index(flat, leaders.size());
 
