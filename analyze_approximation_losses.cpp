@@ -60,11 +60,7 @@ std::vector<std::vector<int>> FullDatasetRouting(
     std::vector<std::vector<float>> min_dist(queries.n, std::vector<float>(num_shards, std::numeric_limits<float>::max()));
     std::vector<uint32_t> non_covered_queries;
     for (size_t q = 0; q < queries.n; ++q) {
-        for (const auto& [dist, neigh] : ground_truth[q]) {
-            if (dist < min_dist[q][partition[neigh]]) {
-                min_dist[q][partition[neigh]] = dist;
-            }
-        }
+        for (const auto& [dist, neigh] : ground_truth[q]) { if (dist < min_dist[q][partition[neigh]]) { min_dist[q][partition[neigh]] = dist; } }
         if (std::any_of(min_dist[q].begin(), min_dist[q].end(), [](float x) { return x == std::numeric_limits<float>::max(); })) {
             non_covered_queries.push_back(q);
         }
@@ -117,9 +113,7 @@ std::vector<std::vector<int>> RouteUsingSingleCenter(PointSet& points, PointSet&
                 C[j] += V[j] * multiplier;
             }
 #else
-            for (size_t j = 0; j < centers.d; ++j) {
-                C[j] += V[j];
-            }
+            for (size_t j = 0; j < centers.d; ++j) { C[j] += V[j]; }
 #endif
         }
 #ifdef MIPS_DISTANCE
@@ -128,24 +122,18 @@ std::vector<std::vector<int>> RouteUsingSingleCenter(PointSet& points, PointSet&
         float multiplier = std::sqrt(desired_norm / current_norm);
         for (size_t j = 0; j < centers.d; ++j) { C[j] *= multiplier; }
 #else
-        for (size_t j = 0; j < centers.d; ++j) {
-            C[j] /= clusters[c].size();
-        }
+        for (size_t j = 0; j < centers.d; ++j) { C[j] /= clusters[c].size(); }
 
         // copy over
         float* C2 = centers.GetPoint(c);
-        for (size_t j = 0; j < centers.d; ++j) {
-            C2[j] = C[j];
-        }
+        for (size_t j = 0; j < centers.d; ++j) { C2[j] = C[j]; }
 #endif
     }, 1);
 
     std::vector<std::vector<int>> probes(queries.n, std::vector<int>(clusters.size()));
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         std::vector<float> min_dist;
-        for (size_t c = 0; c < clusters.size(); ++c) {
-            min_dist.push_back(distance(queries.GetPoint(q), centers.GetPoint(c), queries.d));
-        }
+        for (size_t c = 0; c < clusters.size(); ++c) { min_dist.push_back(distance(queries.GetPoint(q), centers.GetPoint(c), queries.d)); }
         auto& p = probes[q];
         std::iota(p.begin(), p.end(), 0);
         std::sort(p.begin(), p.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
@@ -189,7 +177,19 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
-    ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 100, points, queries);
+    ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 10, points, queries);
+
+
+    auto single_center_probes = RouteUsingSingleCenter(points, queries, clusters);
+    auto single_center_recall = RecallForIncreasingProbes(single_center_probes, partition, ground_truth, num_neighbors, num_shards);
+    std::ofstream out(out_file);
+    out << "partitioning,num probes,recall,type" << std::endl; // header
+    for (size_t j = 0; j < num_shards; ++j) {
+        out << part_method << "," << j + 1 << "," << single_center_recall[j] << ",single center" << std::endl;
+        std::cout << part_method << "," << j + 1 << "," << single_center_recall[j] << ",single center" << std::endl;
+    }
+
+    return 0;
 
     // --- Routing on full pointset --- //
     Timer timer;

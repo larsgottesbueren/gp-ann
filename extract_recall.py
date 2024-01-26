@@ -13,10 +13,10 @@ partitioning_methods = [
     'GP',
     'KMeans',
     'BalancedKMeans',
-    'OGP',
-    'OGPS',
-    'OBKM',
-    'OKM',
+    #'OGP',
+    #'OGPS',
+    #'OBKM',
+    #'OKM',
     'Pyramid',
     # 'OurPyramid'
 ]
@@ -52,17 +52,30 @@ def extract_recall(dataset, metric, part_method, num_shards, overlap):
     print(arglist)
     subprocess.call(arglist)
 
-
-def run_extract_on_all_datasets():
+def run_on_all_datasets(my_func):
     for dataset, metric in datasets:
         for part_method in partitioning_methods:
             for num_shards in num_shards_vals:
                 if part_method not in overlapping_algos:
-                    extract_recall(dataset, metric, part_method, num_shards, 0.0)
+                    my_func(dataset, metric, part_method, num_shards, 0.0)
                 else:
                     for overlap in overlap_values:
-                        extract_recall(dataset, metric, part_method, num_shards, overlap)
+                        my_func(dataset, metric, part_method, num_shards, overlap)
 
 
 
-run_extract_on_all_datasets()
+def analyze_losses(dataset, metric, part_method, num_shards, overlap):
+    pfx = os.path.join(data_path, dataset)
+    # points queries ground truth num-neighbors partition part-method out-file
+    arglist = [build_folders[metric] + '/AnalyzeApproximationLosses',
+               pfx + '_base1B.fbin', pfx + '_query.fbin', pfx + '_ground-truth.bin',
+               str(num_neighbors),
+               pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
+               part_method,
+               'exp_outputs/' + dataset + '.' + part_method + '.k=' + str(num_shards) + '.single-center-routes.csv',
+               ]
+    print(arglist)
+    subprocess.call(arglist)
+
+# run_on_all_datasets(extract_recall)
+run_on_all_datasets(analyze_losses)
