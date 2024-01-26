@@ -182,10 +182,10 @@ int main(int argc, const char* argv[]) {
 
     auto single_center_probes = RouteUsingSingleCenter(points, queries, clusters);
     auto single_center_recall = RecallForIncreasingProbes(single_center_probes, partition, ground_truth, num_neighbors, num_shards);
-    std::ofstream out(out_file);
-    out << "partitioning,num probes,recall,type" << std::endl; // header
+    std::ofstream out2(out_file);
+    out2 << "partitioning,num probes,recall,type" << std::endl; // header
     for (size_t j = 0; j < num_shards; ++j) {
-        out << part_method << "," << j + 1 << "," << single_center_recall[j] << ",single center" << std::endl;
+        out2 << part_method << "," << j + 1 << "," << single_center_recall[j] << ",single center" << std::endl;
         std::cout << part_method << "," << j + 1 << "," << single_center_recall[j] << ",single center" << std::endl;
     }
 
