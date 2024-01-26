@@ -91,6 +91,9 @@ int main(int argc, const char* argv[]) {
         partition = BalancedKMeansCall(points, k, eps);
     } else if (part_method == "FlatKMeans") {
         partition = FlatKMeansCall(points, k, eps);
+    } else if (part_method == "RKM") {
+        const size_t max_cluster_size = (1.0 + eps) * points.n / k;
+        partition = RebalancingKMeansPartitioning(points, max_cluster_size, k);
     } else if (part_method == "OurPyramid") {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else if (part_method == "OGP") {
