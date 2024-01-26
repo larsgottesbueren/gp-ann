@@ -50,10 +50,9 @@ std::vector<std::vector<int>> BruteForceRouting(PointSet& queries, PointSet& poi
                 min_dist[partition[i]] = dist;
             }
         }
-        std::vector<int> p(num_shards);
+        auto& p = probes[q];
         std::iota(p.begin(), p.end(), 0);
         std::sort(p.begin(), p.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
-        probes[q] = std::move(p);
     }, 1);
     return probes;
 }
@@ -192,28 +191,33 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
-    ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 100, points, queries);
-
-    std::ofstream out(out_file);
-    out << "partitioning,num probes,recall,type" << std::endl; // header
+    // ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 100, points, queries);
 
     // --- Routing on full pointset --- //
+    Timer timer;
+    timer.Start();
     auto full_probes = FullDatasetRouting(ground_truth, queries, points, partition, num_shards);
-    std::cout << "Finished full dataset routing" << std::endl;
+    std::cout << "Finished full dataset routing. Took " << timer.Stop() << std::endl;
     std::vector<double> recall = RecallForIncreasingProbes(full_probes, partition, ground_truth, num_neighbors, num_shards);
+    std::ofstream out(out_file);
+    out << "partitioning,num probes,recall,type" << std::endl; // header
     for (size_t j = 0; j < num_shards; ++j) { out << part_method << "," << j + 1 << "," << recall[j] << ",full data" << std::endl; }
 
     // --- Routing on KMTR sample --- //
+    timer.Start();
     KMeansTreeRouterOptions options;
     options.budget = 10000000;
     KMeansTreeRouter kmtr;
     kmtr.Train(points, clusters, options);
     auto [kmtr_points, kmtr_partition] = kmtr.ExtractPoints();
-    std::cout << "Finished KMTR training" << std::endl;
+    std::cout << "Finished KMTR training. Took " << timer.Stop() << std::endl;
+    std::cout << kmtr_points.n << " " << kmtr_partition.size() << " " << num_shards << std::endl;
 
-    std::vector<std::vector<int>> kmtr_probes = BruteForceRouting(queries, points, kmtr_partition, num_shards);
+    timer.Start();
+    std::vector<std::vector<int>> kmtr_probes = BruteForceRouting(queries, kmtr_points, kmtr_partition, num_shards);
+    std::cout << "brute force routing finished. took " << timer.Stop() << std::endl;
     recall = RecallForIncreasingProbes(kmtr_probes, partition, ground_truth, num_neighbors, num_shards);
-    std::cout << "Finished KMTR sample brute force routing" << std::endl;
+    std::cout << "Finished KMTR sample brute force routing." << std::endl;
 
     for (size_t j = 0; j < num_shards; ++j) { out << part_method << "," << j + 1 << "," << recall[j] << ",kRt sample" << std::endl; }
 
@@ -226,7 +230,7 @@ int main(int argc, const char* argv[]) {
     PointSet uf_points = ExtractPointsInBucket(sample, points);
     Partition uf_partition(sample.size());
     for (size_t i = 0; i < sample.size(); ++i) { uf_partition[i] = partition[sample[i]]; }
-    auto uf_probes = BruteForceRouting(queries, points, uf_partition, num_shards);
+    auto uf_probes = BruteForceRouting(queries, uf_points, uf_partition, num_shards);
     recall = RecallForIncreasingProbes(uf_probes, partition, ground_truth, num_neighbors, num_shards);
 
     std::cout << "Finished UF sample brute force routing" << std::endl;
