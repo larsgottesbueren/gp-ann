@@ -128,5 +128,5 @@ int main(int argc, const char* argv[]) {
     if (clusters.empty()) {
         clusters = ConvertPartitionToClusters(partition);
     }
-    // WriteClusters(clusters, part_file);
+    WriteClusters(clusters, part_file);
 }
