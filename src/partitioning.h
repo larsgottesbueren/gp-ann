@@ -4,6 +4,8 @@
 
 Partition RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size, int depth = 0, int num_clusters = -1);
 
+Partition RebalancingKMeansPartitioning(PointSet& points, size_t max_cluster_size, int num_clusters = -1);
+
 Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon);
 
 Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads=1, bool quiet=false);

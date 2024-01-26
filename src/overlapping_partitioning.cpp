@@ -179,7 +179,7 @@ void MakeOverlappingWithCentroids(PointSet& points, Clusters& clusters, size_t m
         }
 
         std::vector<int> targets;
-        for (int c = 0; c < clusters.size(); ++c) {
+        for (size_t c = 0; c < clusters.size(); ++c) {
             if (min_dist[c] != std::numeric_limits<float>::max() && clusters[c].size() < max_cluster_size) {
                 targets.push_back(c);
             }

@@ -72,6 +72,49 @@ Partition RecursiveKMeansPartitioning(PointSet& points, size_t max_cluster_size,
     return partition;
 }
 
+Partition RebalancingKMeansPartitioning(PointSet& points, size_t max_cluster_size, int num_clusters = -1) {
+    if (num_clusters < 0) { num_clusters = static_cast<int>(ceil(double(points.n) / max_cluster_size)); }
+    if (num_clusters == 0) { return Partition(points.n, 0); }
+    PointSet centroids = RandomSample(points, num_clusters, 555);
+    Timer timer;
+    timer.Start();
+    Partition partition = KMeans(points, centroids);
+    std::cout << "k-means took " << timer.Stop() << " s" << std::endl;
+
+    num_clusters = NumPartsInPartition(partition);
+    std::vector<size_t> cluster_sizes(num_clusters, 0);
+    for (int part_id : partition) { cluster_sizes[part_id]++; }
+    int num_overloaded_clusters = 0;
+    for (int part_id = 0; part_id < num_clusters; ++part_id) { if (cluster_sizes[part_id] > max_cluster_size) { num_overloaded_clusters++; } }
+    if (num_overloaded_clusters == 0) {
+        return partition;
+    }
+
+    std::cout << "There are " << num_overloaded_clusters << " / " << num_clusters << " too heavy clusters. Rebalance stuff" << std::endl;
+    Clusters clusters = ConvertPartitionToClusters(partition);
+    for (int c = 0; c < num_clusters; ++c) {
+        while (clusters[c].size() > max_cluster_size) {
+            // remigrate points -- just skip updating the centroids
+            uint32_t v = clusters[c].back();
+            float min_dist = std::numeric_limits<float>::max();
+            int target = -1;
+            for (size_t j = 0; j < clusters.size(); ++j) {
+                if (clusters[j].size() < max_cluster_size) {
+                    if (float dist = distance(points.GetPoint(v), centroids.GetPoint(j), points.d); dist < min_dist) {
+                        min_dist = dist;
+                        target = j;
+                    }
+                }
+            }
+            assert(target != -1);
+            clusters[target].push_back(v);
+            partition[v] = target;
+            clusters[c].pop_back();
+        }
+    }
+    return partition;
+}
+
 Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon) {
     size_t max_cluster_size = points.n * (1 + epsilon) / num_clusters;
     return RecursiveKMeansPartitioning(points, max_cluster_size, 0, num_clusters);
