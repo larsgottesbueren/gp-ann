@@ -1,8 +1,6 @@
 #include <iostream>
 #include <filesystem>
-#include <kmeans.h>
 #include <recall.h>
-#include <spinlock.h>
 #include <parlay/primitives.h>
 
 #include "routes.h"
@@ -191,7 +189,7 @@ int main(int argc, const char* argv[]) {
 
     PointSet points = ReadPoints(point_file);
     PointSet queries = ReadPoints(query_file);
-    // ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 100, points, queries);
+    ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, 100, points, queries);
 
     // --- Routing on full pointset --- //
     Timer timer;
