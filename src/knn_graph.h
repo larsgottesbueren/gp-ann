@@ -113,7 +113,7 @@ struct ApproximateKNNGraphBuilder {
             std::vector<Bucket> recursive_buckets;
             if (depth > MAX_DEPTH || (depth > CONCERNING_DEPTH && clusters[cluster_id].size() > TOO_SMALL_SHRINKAGE_FRACTION * ids.size())) {
                 // Base case for duplicates and near-duplicates. Split the buckets randomly
-                auto ids_copy = ids;
+                auto ids_copy = clusters[cluster_id];
                 std::mt19937 prng(seed + depth + ids.size());
                 std::shuffle(ids_copy.begin(), ids_copy.end(), prng);
                 for (size_t i = 0; i < ids_copy.size(); i += MAX_CLUSTER_SIZE) {
