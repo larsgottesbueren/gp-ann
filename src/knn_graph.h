@@ -63,12 +63,11 @@ struct ApproximateKNNGraphBuilder {
         std::sample(ids.begin(), ids.end(), leaders.begin(), leaders.size(), prng);
 
         PointSet leader_points = ExtractPoints(points, leaders);
-
         std::vector<Bucket> clusters(leaders.size());
-        if (ids.size() > 50'000'000) {
-            Timer tt; tt.Start();
+
+        {  // less readable than map + zip + flatten, but at least it's as efficient as possible for fanout = 1
             parlay::sequence<std::pair<uint32_t, uint32_t>> flat(ids.size() * fanout);
-            // less readable than map + zip + flatten, but at least it's as efficient as possible for fanout = 1
+
             parlay::parallel_for(0, ids.size(), [&](size_t i) {
                 uint32_t point_id = ids[i];
                 auto cl = ClosestLeaders(points, leader_points, point_id, fanout).Take();
@@ -77,27 +76,11 @@ struct ApproximateKNNGraphBuilder {
                 }
             });
 
-            std::cout << "Computing and writing out leaders took " << tt.Restart() << " seconds" << std::endl;
-
             auto pclusters = parlay::group_by_index(flat, leaders.size());
-            std::cout << "group-by took " << tt.Restart() << " seconds" << std::endl;
             // copy clusters from parlay::sequence to std::vector
             parlay::parallel_for(0, pclusters.size(), [&](size_t i) {
                 clusters[i] = Bucket(pclusters[i].begin(), pclusters[i].end());
             });
-            std::cout << "copying over took " << tt.Stop() << " seconds" << std::endl;
-        } else {
-            // find closest leaders and build clusters around leaders
-            std::vector<SpinLock> cluster_locks(leaders.size());
-            parlay::parallel_for(0, ids.size(), [&](size_t i) {
-                auto point_id = ids[i];
-                auto closest_leaders = ClosestLeaders(points, leader_points, point_id, fanout).Take();
-                for (const auto& [_, leader] : closest_leaders) {
-                    cluster_locks[leader].lock();
-                    clusters[leader].push_back(point_id);
-                    cluster_locks[leader].unlock();
-                }
-            }, 20);
         }
 
         leaders.clear(); leaders.shrink_to_fit();
