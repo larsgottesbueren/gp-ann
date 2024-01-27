@@ -94,6 +94,11 @@ int main(int argc, const char* argv[]) {
     } else if (part_method == "RKM") {
         const size_t max_cluster_size = (1.0 + eps) * points.n / k;
         partition = RebalancingKMeansPartitioning(points, max_cluster_size, k);
+    } else if (part_method == "ORKM") {
+        const size_t max_cluster_size = (1.0 + eps) * points.n / k;
+        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        auto rkm = RebalancingKMeansPartitioning(points, max_cluster_size, adjusted_num_clusters);
+        clusters = OverlappingKMeansPartitioningSPANN(points, rkm, k, eps, overlap);
     } else if (part_method == "OurPyramid") {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else if (part_method == "OGP") {

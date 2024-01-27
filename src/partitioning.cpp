@@ -170,7 +170,7 @@ Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, dou
     auto copy = adj_graph;
     Timer timer;
     timer.Start();
-    Symmetrize(copy);
+    Symmetrize(copy);       // TODO optimize (parallelize) these steps
     if (!quiet) std::cout << "Symmetrize took " << timer.Restart() << std::endl;
     CSR csr = ConvertAdjGraphToCSR(copy);
     if (!quiet) std::cout << "Convert to CSR took " << timer.Stop() << std::endl;
