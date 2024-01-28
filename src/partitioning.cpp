@@ -122,9 +122,9 @@ Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon)
 
 struct CSR {
     CSR() : xadj(1, 0) { }
-    std::vector<kaminpar::shm::EdgeID> xadj;
-    std::vector<kaminpar::shm::NodeID> adjncy;
-    std::vector<kaminpar::shm::NodeWeight> node_weights;
+    parlay::sequence<kaminpar::shm::EdgeID> xadj;
+    parlay::sequence<kaminpar::shm::NodeID> adjncy;
+    parlay::sequence<kaminpar::shm::NodeWeight> node_weights;
 };
 
 CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
@@ -166,29 +166,64 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     return partition;
 }
 
-Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads=1, bool quiet=false) {
-    auto copy = adj_graph;
+CSR ParallelSymmetrizeAndConvertToCSR(const AdjGraph& adj_graph) {
     Timer timer;
     timer.Start();
-    Symmetrize(copy);       // TODO optimize (parallelize) these steps
-    if (!quiet) std::cout << "Symmetrize took " << timer.Restart() << std::endl;
-    CSR csr = ConvertAdjGraphToCSR(copy);
-    if (!quiet) std::cout << "Convert to CSR took " << timer.Stop() << std::endl;
-    copy.clear();
-    copy.shrink_to_fit();
+    auto nested_edges = parlay::tabulate(adj_graph.size(), [&](size_t i) {
+        std::vector<std::pair<uint32_t, uint32_t>> zipped;
+        for (const int v : adj_graph[i]) {
+            zipped.emplace_back(v, i);
+        }
+        return zipped;
+    });
+    std::cout << "Nested edges took " << timer.Restart() << std::endl;
+
+    auto flat = parlay::flatten(nested_edges);
+    std::cout << "flatten took " << timer.Restart() << std::endl;
+
+    auto rev = parlay::group_by_index(flat, adj_graph.size());
+    std::cout << "group-by took " << timer.Restart() << std::endl;
+
+    auto degree = parlay::tabulate(adj_graph.size(), [&](size_t i) -> kaminpar::shm::EdgeID {
+       return adj_graph[i].size() + rev[i].size();
+    });
+
+    std::cout << "degree took " << timer.Restart() << std::endl;
+
+    auto [xadj, num_edges] = parlay::scan(degree);
+    std::cout << "prefix sum took " << timer.Restart() << std::endl;
+    xadj.push_back(num_edges);
+    std::cout << "push back took " << timer.Restart() << std::endl;
+
+    auto adjncy = parlay::sequence<kaminpar::shm::NodeID>::uninitialized(num_edges);
+    parlay::parallel_for(0, adj_graph.size(), [&](size_t i) {
+       size_t j = xadj[i];
+       for (const auto v : adj_graph[i]) {
+           adjncy[j++] = v;
+       }
+       for (const auto v : rev[i]) {
+           adjncy[j++] = v;
+       }
+    });
+    std::cout << "copy over took " << timer.Stop() << std::endl;
+
+    CSR csr;
+    csr.xadj = std::move(xadj);
+    csr.adjncy = std::move(adjncy);
+    return csr;
+}
+
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads=1, bool quiet=false) {
+    CSR csr = ParallelSymmetrizeAndConvertToCSR(adj_graph);
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, num_threads, quiet);
 }
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
-    Timer timer;
-    timer.Start();
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-    std::cout << "Built KNN graph. Took " << timer.Restart() << std::endl;
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
         WriteMetisGraph(graph_output_path, knn_graph);
-        std::cout << "Writing graph file took " << timer.Restart() << std::endl;
     }
     return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()));
 }
