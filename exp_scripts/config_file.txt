@@ -1,5 +1,0 @@
-DATA_PATH=data
-BUILD_FOLDER=../release
-DATASETS=(deep turing text-to-image)
-PARTITIONING_METHODS=(GP Pyramid KMeans)
-ks=(10 20 40)
