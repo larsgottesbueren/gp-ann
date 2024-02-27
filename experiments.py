@@ -5,19 +5,19 @@ data_path = '/global_data/gottesbueren/anns'
 
 datasets = [
     ('turing', 'L2'),
-    #('deep', 'L2'),
-    #('text-to-image', 'mips')
+    ('deep', 'L2'),
+    ('text-to-image', 'mips')
 ]
 
 partitioning_methods = [
-    #'GP', 
-    #'KMeans',
-    #'BalancedKMeans',
+    'GP', 
+    'KMeans',
+    'BalancedKMeans',
     'OGP',
-    #'OGPS',
-    #'OBKM',
-    #'OKM',
-    #'Pyramid',
+    'OGPS',
+    'OBKM',
+    'OKM',
+    'Pyramid',
     # 'OurPyramid'
 ]
 
@@ -107,23 +107,5 @@ def run_queries_on_all_datasets():
                         run_query_set(dataset, metric, part_method, num_shards, overlap)
 
 
-def pareto_filter(dataset, part_method, num_shards):
-    pfx = "exp_outputs/" + dataset + "." + part_method + ".k=" + str(num_shards)
-    part_file = os.path.join(data_path, dataset) + '.partition.k=' + str(num_shards) + '.' + part_method
-    arglist = [build_folders[0] + '/Convert',
-               pfx + '.routes', pfx + '.searches', pfx,
-               part_method, part_file
-               ]
-    print(arglist)
-    subprocess.call(arglist)
-
-
-def run_all_pareto_filters():
-    for dataset, _ in datasets:
-        for part_method in partitioning_methods:
-            for num_shards in num_shards_vals:
-                pareto_filter(dataset, part_method, num_shards)
-
-
-#compute_all_partitions()
+compute_all_partitions()
 run_queries_on_all_datasets()
