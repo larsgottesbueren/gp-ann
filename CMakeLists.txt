@@ -19,7 +19,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lm")
 add_subdirectory(external/parlaylib)
 add_subdirectory(external/KaMinPar)
 add_subdirectory(external/hnswlib)
-add_subdirectory(external/message-queue)
+# add_subdirectory(external/message-queue)
 
 include_directories("src")
 
@@ -28,7 +28,7 @@ add_executable(Convert convert.cpp)
 add_executable(Partition partition.cpp)
 add_executable(QueryAttribution run_query_attribution.cpp)
 add_executable(OracleRecall oracle_recall.cpp)
-add_executable(DistributedBench distributed_bench.cpp)
+# add_executable(DistributedBench distributed_bench.cpp)
 add_executable(GraphQualityBench graph_quality_benchmark.cpp)
 add_executable(AnalyzeApproximationLosses analyze_approximation_losses.cpp)
 
@@ -38,7 +38,7 @@ set(TARGETS
 		Partition
 		QueryAttribution
 		OracleRecall
-		DistributedBench
+		# DistributedBench
 		GraphQualityBench
 		AnalyzeApproximationLosses
 )
@@ -49,7 +49,7 @@ endforeach()
 
 target_link_libraries(Partition PUBLIC kaminpar_shm)
 target_link_libraries(GraphQualityBench PUBLIC kaminpar_shm)
-target_link_libraries(DistributedBench PUBLIC message-queue kassert::kassert)
+# target_link_libraries(DistributedBench PUBLIC message-queue kassert::kassert)
 
 OPTION(MIPS_DISTANCE "Use MIPS distance instead of L2" OFF)
 if(MIPS_DISTANCE)
