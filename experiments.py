@@ -11,13 +11,15 @@ datasets = [
 
 partitioning_methods = [
     'GP', 
-    'KMeans',
+    #'KMeans',
     'BalancedKMeans',
     'OGP',
-    'OGPS',
+    #'OGPS',
     'OBKM',
-    'OKM',
+    #'OKM',
     'Pyramid',
+    'RKM',
+    'ORKM',
     # 'OurPyramid'
 ]
 
