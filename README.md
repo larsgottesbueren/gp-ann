@@ -1,5 +1,10 @@
 Experimental research code for our paper "Unleashing Graph Partitioning for Large-Scale Nearest Neighbor Search".
 
+To get started, fetch submodules.
+```
+git submodule update --init --recursive
+```
+
 The ```exp_scripts``` folder contains scripts to download the datasets (beware they are large and downloading MS Turing takes forever) and build the source code -- in a way that is expected by the experiment scripts, e.g., ```experiments.py```.
 
 To run the experiments, point the ```data_path``` variable to the folder containing the datasets, and create a folder ```exp_outputs``` in the top-level.
