@@ -36,24 +36,6 @@ build_folders = {
     'mips': 'release_mips'
 }
 
-def create_builds():
-    for dist, directory in build_folders.items():
-        os.mkdir(directory)
-        os.chdir(directory)
-        arglist = ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release']
-        if dist == 'mips':
-            arglist.append('-DMIPS_DISTANCE=ON')
-        print(arglist)
-        subprocess.call(arglist)
-        subprocess.call(['make', '-j'])
-        os.chdir('../')
-        print('cwd=', os.getcwd())
-
-
-def download_datasets():
-    subprocess.call(['exp_scripts/download_datasets.sh'])
-
-
 def compute_partition(dataset, metric, part_method, num_shards):
     arglist = [build_folders[metric] + '/Partition',
                os.path.join(data_path, dataset + '_base1B.fbin'),
