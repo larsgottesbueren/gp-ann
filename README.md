@@ -1,4 +1,4 @@
-Experimental research code for our paper "Unleashing Graph Partitioning for Large-Scale Nearest Neighbor Search".
+Experimental research code for our paper [Unleashing Graph Partitioning for Large-Scale Nearest Neighbor Search](https://arxiv.org/abs/2403.01797).
 
 To get started, fetch submodules.
 ```
