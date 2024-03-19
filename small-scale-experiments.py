@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-data_path = '/global_data/gottesbueren/anns'
+data_path = 'data/'
 
 datasets = [
     ('sift', 'L2'),
@@ -42,7 +42,7 @@ def run_query_set(dataset, metric, part_method, num_shards):
     pfx = os.path.join(data_path, dataset)
     sfx = ''
     arglist = [build_folders[metric] + '/SmallScaleQueries',
-               pfx + '.fbin', pfx + '.query.fbin', pfx + '.ground_truth.fbin',
+               pfx + '.fbin', pfx + '.query.fbin', pfx + '.ground_truth.bin',
                str(num_neighbors),
                pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
                part_method,
