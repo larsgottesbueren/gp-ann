@@ -40,10 +40,8 @@ int main(int argc, const char* argv[]) {
     std::string requested_num_shards_str = argv[8];
     int requested_num_shards = std::stoi(requested_num_shards_str);
 
-    // PointSet points = ReadPoints(point_file);
-    // PointSet queries = ReadPoints(query_file);
-    PointSet points = ReadBytePoints(point_file, /*is_signed=*/false);
-    PointSet queries = ReadBytePoints(query_file, /*is_signed=*/false);
+    PointSet points = ReadPoints(point_file);
+    PointSet queries = ReadPoints(query_file);
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {

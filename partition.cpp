@@ -70,8 +70,7 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
 
-    // PointSet points = ReadPoints(input_file);
-    PointSet points = ReadBytePoints(input_file, /*is_signed=*/false);
+    PointSet points = ReadPoints(input_file);
     std::cout << "Finished reading points" << std::endl;
 
     if (part_method == "GP" && overlap != 0.0) {
