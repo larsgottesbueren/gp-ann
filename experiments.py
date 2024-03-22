@@ -4,6 +4,8 @@ import subprocess
 data_path = '/global_data/gottesbueren/anns'
 
 datasets = [
+    ('spacev', 'L2'),
+    ('sift1b', 'L2'),
     ('turing', 'L2'),
     ('deep', 'L2'),
     ('text-to-image', 'mips')
@@ -13,13 +15,13 @@ partitioning_methods = [
     'GP', 
     #'KMeans',
     'BalancedKMeans',
-    'OGP',
+    #'OGP',
     #'OGPS',
-    'OBKM',
+    #'OBKM',
     #'OKM',
-    'Pyramid',
-    'RKM',
-    'ORKM',
+    #'Pyramid',
+    #'RKM',
+    #'ORKM',
     # 'OurPyramid'
 ]
 

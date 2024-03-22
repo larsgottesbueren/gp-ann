@@ -2,17 +2,17 @@
 #include <iostream>
 #include <random>
 
-#include "points_io.h"
-#include "metis_io.h"
-#include "partitioning.h"
-#include "overlapping_partitioning.h"
 #include "kmeans.h"
+#include "metis_io.h"
+#include "overlapping_partitioning.h"
+#include "partitioning.h"
+#include "points_io.h"
 
 #include <parlay/primitives.h>
 
 std::vector<int> BalancedKMeansCall(PointSet& points, int k, double eps) {
     PointSet centroids = RandomSample(points, k, 555);
-    size_t max_cluster_size = points.n * (1.0+eps) / k;
+    size_t max_cluster_size = points.n * (1.0 + eps) / k;
     Timer timer;
     timer.Start();
     auto result = BalancedKMeans(points, centroids, max_cluster_size);
@@ -62,7 +62,7 @@ int main(int argc, const char* argv[]) {
         std::vector<int> partition;
         partition.reserve(n);
         for (int b = 0; b < k; ++b) {
-            partition.insert(partition.end(), n/k, b);
+            partition.insert(partition.end(), n / k, b);
         }
         std::mt19937 prng(555);
         std::shuffle(partition.begin(), partition.end(), prng);
@@ -70,7 +70,8 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
 
-    PointSet points = ReadPoints(input_file);
+    // PointSet points = ReadPoints(input_file);
+    PointSet points = ReadBytePoints(input_file, /*is_signed=*/false);
     std::cout << "Finished reading points" << std::endl;
 
     if (part_method == "GP" && overlap != 0.0) {
@@ -96,7 +97,7 @@ int main(int argc, const char* argv[]) {
         partition = RebalancingKMeansPartitioning(points, max_cluster_size, k);
     } else if (part_method == "ORKM") {
         const size_t max_cluster_size = (1.0 + eps) * points.n / k;
-        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        int adjusted_num_clusters = std::ceil(k * (1.0 + overlap));
         auto rkm = RebalancingKMeansPartitioning(points, max_cluster_size, adjusted_num_clusters);
         clusters = OverlappingKMeansPartitioningSPANN(points, rkm, k, eps, overlap);
     } else if (part_method == "OurPyramid") {
@@ -118,7 +119,7 @@ int main(int argc, const char* argv[]) {
         std::cout << "KM took " << timer.Stop() << " seconds" << std::endl;
         clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OBKM") {
-        int adjusted_num_clusters =  std::ceil(k * (1.0 + overlap));
+        int adjusted_num_clusters = std::ceil(k * (1.0 + overlap));
         // use adjusted num clusters for BKM call
         auto bkm = BalancedKMeansCall(points, adjusted_num_clusters, eps);
         // but use the original number for the overlap call, so that it chooses the correct max cluster size. The code can handle the case
