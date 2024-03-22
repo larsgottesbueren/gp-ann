@@ -1,12 +1,12 @@
 #include "kmeans.h"
 
-#include "dist.h"
-#include "defs.h"
+#include <numeric>
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <numeric>
 #include <random>
+#include "defs.h"
+#include "dist.h"
 
 namespace {
     int Top1Neighbor(PointSet& P, float* Q) {
@@ -35,7 +35,9 @@ namespace {
                     if (l != r) { // don't do the copy if not necessary
                         float* L = centroids.GetPoint(l);
                         float* R = centroids.GetPoint(r);
-                        for (size_t j = 0; j < centroids.d; ++j) { L[j] = R[j]; }
+                        for (size_t j = 0; j < centroids.d; ++j) {
+                            L[j] = R[j];
+                        }
                     }
                     remapped_cluster_ids[r] = l;
                     l++;
@@ -51,7 +53,9 @@ namespace {
         float expected;
         __atomic_load(addr, &expected, __ATOMIC_RELAXED);
         float desired = expected + x;
-        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
+        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+            desired = expected + x;
+        }
     }
 
 #ifdef MIPS_DISTANCE
@@ -60,17 +64,23 @@ namespace {
         double expected;
         __atomic_load(addr, &expected, __ATOMIC_RELAXED);
         double desired = expected + x;
-        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) { desired = expected + x; }
+        while (!__atomic_compare_exchange(addr, &expected, &desired, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+            desired = expected + x;
+        }
     }
 
     void NormalizeCentroidsIP(PointSet& centroids, const std::vector<size_t>& cluster_size, const std::vector<float>& norm_sums) {
         for (size_t c = 0; c < centroids.n; ++c) {
             float* C = centroids.GetPoint(c);
-            if (cluster_size[c] == 0) { continue; }
+            if (cluster_size[c] == 0) {
+                continue;
+            }
             float desired_norm = norm_sums[c] / cluster_size[c];
             float current_norm = vec_norm(C, centroids.d);
             float multiplier = std::sqrt(desired_norm / current_norm);
-            for (size_t j = 0; j < centroids.d; ++j) { C[j] *= multiplier; }
+            for (size_t j = 0; j < centroids.d; ++j) {
+                C[j] *= multiplier;
+            }
         }
     }
 
@@ -83,7 +93,9 @@ namespace {
             float* Pi = P.GetPoint(i);
             norm_sums[c] += vector_sqrt_norms[i] * vector_sqrt_norms[i];
             float multiplier = 1.0f / vector_sqrt_norms[i];
-            for (size_t j = 0; j < P.d; ++j) { C[j] += Pi[j] * multiplier; }
+            for (size_t j = 0; j < P.d; ++j) {
+                C[j] += Pi[j] * multiplier;
+            }
         }
     }
 
@@ -92,8 +104,12 @@ namespace {
     void NormalizeCentroidsL2(PointSet& centroids, const std::vector<size_t>& cluster_size) {
         for (size_t c = 0; c < centroids.n; ++c) {
             float* C = centroids.GetPoint(c);
-            if (cluster_size[c] == 0) { continue; }
-            for (size_t j = 0; j < centroids.d; ++j) { C[j] /= cluster_size[c]; }
+            if (cluster_size[c] == 0) {
+                continue;
+            }
+            for (size_t j = 0; j < centroids.d; ++j) {
+                C[j] /= cluster_size[c];
+            }
         }
     }
 
@@ -104,23 +120,29 @@ namespace {
             cluster_size[c]++;
             float* C = centroids.GetPoint(c);
             float* Pi = P.GetPoint(i);
-            for (size_t j = 0; j < P.d; ++j) { C[j] += Pi[j]; }
+            for (size_t j = 0; j < P.d; ++j) {
+                C[j] += Pi[j];
+            }
         }
     }
 
 #endif
 
-    std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center,
-                                          const parlay::sequence<float>& vector_sqrt_norms, bool normalize = true) {
+    std::vector<size_t> AggregateClusters(PointSet& P, PointSet& centroids, std::vector<int>& closest_center, const parlay::sequence<float>& vector_sqrt_norms,
+                                          bool normalize = true) {
         centroids.coordinates.assign(centroids.coordinates.size(), 0.f);
         std::vector<size_t> cluster_size(centroids.n, 0);
 #ifdef MIPS_DISTANCE
         std::vector<float> norm_sums(centroids.n, 0.0);
         SumPointsInClustersIP(P, centroids, closest_center, cluster_size, vector_sqrt_norms, norm_sums, 0, closest_center.size());
-        if (normalize) { NormalizeCentroidsIP(centroids, cluster_size, norm_sums); }
+        if (normalize) {
+            NormalizeCentroidsIP(centroids, cluster_size, norm_sums);
+        }
 #else
         SumPointsInClustersL2(P, centroids, closest_center, cluster_size, 0, closest_center.size());
-        if (normalize) { NormalizeCentroidsL2(centroids, cluster_size); }
+        if (normalize) {
+            NormalizeCentroidsL2(centroids, cluster_size);
+        }
 #endif
         RemoveEmptyClusters(centroids, closest_center, cluster_size);
         return cluster_size;
@@ -163,7 +185,9 @@ namespace {
             for (size_t i = 0; i < centroids.n; ++i) {
                 float* BC = b_centroids.GetPoint(i);
                 float* C = centroids.GetPoint(i);
-                for (size_t j = 0; j < centroids.d; ++j) { atomic_fetch_add_float(&C[j], BC[j]); }
+                for (size_t j = 0; j < centroids.d; ++j) {
+                    atomic_fetch_add_float(&C[j], BC[j]);
+                }
             }
         });
 
@@ -178,7 +202,7 @@ namespace {
         RemoveEmptyClusters(centroids, closest_center, cluster_size);
         return cluster_size;
     }
-} // namespace anonymous
+} // namespace
 
 PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
     PointSet centroids;
@@ -194,13 +218,17 @@ PointSet RandomSample(PointSet& points, size_t num_samples, int seed) {
 
     for (int i : sample) {
         float* p = points.GetPoint(i);
-        for (size_t j = 0; j < points.d; ++j) { centroids.coordinates.push_back(p[j]); }
+        for (size_t j = 0; j < points.d; ++j) {
+            centroids.coordinates.push_back(p[j]);
+        }
     }
     return centroids;
 }
 
 std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
-    if (centroids.n < 1) { throw std::runtime_error("KMeans #centroids < 1"); }
+    if (centroids.n < 1) {
+        throw std::runtime_error("KMeans #centroids < 1");
+    }
     std::vector<int> closest_center(P.n, -1);
     parlay::sequence<float> vector_sqrt_norms;
 #ifdef MIPS_DISTANCE
@@ -216,11 +244,8 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
 }
 
 double ObjectiveValue(PointSet& points, PointSet& centroids, const std::vector<int>& closest_center) {
-    return parlay::reduce(
-        parlay::delayed_tabulate(points.n, [&](size_t i) -> double {
-            return pos_distance(points.GetPoint(i), centroids.GetPoint(closest_center[i]), points.d);
-        })
-    );
+    return parlay::reduce(parlay::delayed_tabulate(
+            points.n, [&](size_t i) -> double { return pos_distance(points.GetPoint(i), centroids.GetPoint(closest_center[i]), points.d); }));
 }
 
 double square(double x) { return x * x; }
@@ -229,22 +254,21 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     std::vector<int> closest_center = KMeans(points, centroids);
 
     // precompute norms and sqrts since it slowed down centroid calculation
-    parlay::sequence<float> vector_sqrt_norms = parlay::tabulate(points.n, [&](size_t i) -> float {
-        return std::sqrt(vec_norm(points.GetPoint(i), points.d));
-    });
+    parlay::sequence<float> vector_sqrt_norms =
+            parlay::tabulate(points.n, [&](size_t i) -> float { return std::sqrt(vec_norm(points.GetPoint(i), points.d)); });
 
     PointSet cluster_coordinate_sums = centroids;
-    std::vector<size_t> cluster_sizes =
-            AggregateClustersParallel(points, cluster_coordinate_sums, closest_center, vector_sqrt_norms, false);
+    std::vector<size_t> cluster_sizes = AggregateClustersParallel(points, cluster_coordinate_sums, closest_center, vector_sqrt_norms, false);
 
     std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
 
-    auto cluster_norm_sums = parlay::reduce_by_index(
-        parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })),
-        centroids.n);
+    auto cluster_norm_sums =
+            parlay::reduce_by_index(parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })), centroids.n);
 
     std::cout << "cluster norm sums ";
-    for (size_t j = 0; j < cluster_norm_sums.size(); ++j) { std::cout << cluster_norm_sums[j] << " "; }
+    for (size_t j = 0; j < cluster_norm_sums.size(); ++j) {
+        std::cout << cluster_norm_sums[j] << " ";
+    }
     std::cout << std::endl;
     std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0) << std::endl;
 
@@ -262,11 +286,17 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
         double imbalance2 = double(min_size) / perfect_balance;
 
         std::cout << "overshot " << overshot << " imbalance " << imbalance << " min imb " << imbalance2 << " largest cluster size " << max_size
-                << " constraint " << max_cluster_size << std::endl;
+                  << " constraint " << max_cluster_size << std::endl;
     };
 
     // taken from the BKM+ paper and implementation.
-    auto penalty_function_iter = [](int round) -> double { if (round > 100) { return 1.01; } else { return 1.5009 - 0.0009 * round; } };
+    auto penalty_function_iter = [](int round) -> double {
+        if (round > 100) {
+            return 1.01;
+        } else {
+            return 1.5009 - 0.0009 * round;
+        }
+    };
 
     int round = 0;
     constexpr int MAX_ROUNDS = 500;
@@ -279,8 +309,91 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     print_cluster_sizes();
 
+    auto atomic_move = [&](uint32_t point_id, int old_cluster, int new_cluster) {
+        if (new_cluster == old_cluster) {
+            return;
+        }
+        closest_center[point_id] = new_cluster;
+        __atomic_fetch_sub(&cluster_sizes[old_cluster], 1, __ATOMIC_RELAXED); // HORRIBLE contention...
+        __atomic_fetch_add(&cluster_sizes[new_cluster], 1, __ATOMIC_RELAXED);
+
+        float* coords_best = cluster_coordinate_sums.GetPoint(new_cluster);
+        float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
+        float multiplier = 1.0f;
+#ifdef MIPS_DISTANCE
+        atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -square(vector_sqrt_norms[point_id]));
+        atomic_fetch_add_double(&cluster_norm_sums[new_cluster], square(vector_sqrt_norms[point_id]));
+        multiplier = 1.0f / vector_sqrt_norms[point_id];
+#endif
+        float* p = points.GetPoint(point_id);
+        for (size_t j = 0; j < points.d; ++j) {
+            atomic_fetch_add_float(coords_best + j, p[j] * multiplier);
+            atomic_fetch_add_float(coords_old + j, -p[j] * multiplier);
+        }
+    };
+
+
+    auto update_centroids = [&] {
+// update centroids phase
+#ifdef MIPS_DISTANCE
+        for (size_t c = 0; c < centroids.n; ++c) {
+            float* C = centroids.GetPoint(c);
+            float* C2 = cluster_coordinate_sums.GetPoint(c);
+            if (cluster_sizes[c] == 0) {
+                for (size_t j = 0; j < centroids.d; ++j) {
+                    C[j] = 0.0f;
+                }
+            } else {
+                float desired_norm = cluster_norm_sums[c] / cluster_sizes[c];
+                float current_norm = vec_norm(C2, centroids.d);
+                float multiplier = std::sqrt(desired_norm / current_norm);
+                for (size_t j = 0; j < centroids.d; ++j) {
+                    C[j] = C2[j] * multiplier;
+                }
+            }
+        }
+#else
+        for (size_t c = 0; c < centroids.n; ++c) {
+            float* C = centroids.GetPoint(c);
+            float* C2 = cluster_coordinate_sums.GetPoint(c);
+            for (size_t j = 0; j < centroids.d; ++j) {
+                if (cluster_sizes[c] == 0) {
+                    C[j] = 0.0;
+                } else {
+                    C[j] = C2[j] / cluster_sizes[c];
+                }
+            }
+        }
+#endif
+    };
+
     while (round++ <= MAX_ROUNDS) {
         std::cout << "round = " << round << " penalty " << round_penalty << std::endl;
+
+        while (parlay::any_of(cluster_sizes, [&](size_t cs) { return cs == 0; })) {
+            int largest = 0;
+            int smallest = -1;
+            for (size_t i = 0; i < cluster_sizes.size(); ++i) {
+                if (cluster_sizes[i] == 0) {
+                    smallest = i;
+                }
+                if (cluster_sizes[i] > cluster_sizes[largest]) {
+                    largest = i;
+                }
+            }
+            std::cout << "Rebalance from " << largest << " to " << smallest << ". current sizes " << cluster_sizes[largest] << " " << cluster_sizes[smallest]
+                      << std::endl;
+            size_t half = cluster_sizes[largest] / 2;
+            uint32_t point_id = 0;
+            while (half > 0) {
+                while (closest_center[point_id] != largest) {
+                    ++point_id;
+                }
+                atomic_move(point_id, largest, smallest);
+                --half;
+            }
+            update_centroids();
+        }
 
         // mini-batch cluster moves and updates
         auto perm = parlay::random_shuffle(parlay::iota<uint32_t>(points.n), parlay::random(round));
@@ -308,12 +421,16 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
                     const float dist = pos_distance(centroids.GetPoint(j), p, points.d);
                     const double score = dist + round_penalty * cluster_size;
                     int denom = old_cluster_size - cluster_size;
-                    if (denom == 0) { denom = 1; }
+                    if (denom == 0) {
+                        denom = 1;
+                    }
 
                     const double penalty_needed = (dist - old_cluster_dist) / denom;
                     if (old_cluster_size > cluster_size) {
                         if (round_penalty < penalty_needed) {
-                            if (penalty_needed < min_penalty_needed) { min_penalty_needed = penalty_needed; }
+                            if (penalty_needed < min_penalty_needed) {
+                                min_penalty_needed = penalty_needed;
+                            }
                         } else {
                             if (score < best_score) {
                                 best = j;
@@ -330,51 +447,10 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
                 penalties_needed[point_id] = min_penalty_needed;
 
-                if (best != old_cluster) {
-                    closest_center[point_id] = best;
-                    __atomic_fetch_sub(&cluster_sizes[old_cluster], 1, __ATOMIC_RELAXED); // HORRIBLE contention...
-                    __atomic_fetch_add(&cluster_sizes[best], 1, __ATOMIC_RELAXED);
-
-                    float* coords_best = cluster_coordinate_sums.GetPoint(best);
-                    float* coords_old = cluster_coordinate_sums.GetPoint(old_cluster);
-                    float multiplier = 1.0f;
-#ifdef MIPS_DISTANCE
-                    atomic_fetch_add_double(&cluster_norm_sums[old_cluster], -square(vector_sqrt_norms[point_id]));
-                    atomic_fetch_add_double(&cluster_norm_sums[best], square(vector_sqrt_norms[point_id]));
-                    multiplier = 1.0f / vector_sqrt_norms[i];
-#endif
-                    for (size_t j = 0; j < points.d; ++j) {
-                        atomic_fetch_add_float(coords_best + j, p[j] * multiplier);
-                        atomic_fetch_add_float(coords_old + j, -p[j] * multiplier);
-                    }
-                }
+                atomic_move(point_id, old_cluster, best);
             });
 
-            // update centroids phase
-#ifdef MIPS_DISTANCE
-            for (size_t c = 0; c < centroids.n; ++c) {
-                float* C = centroids.GetPoint(c);
-                float* C2 = cluster_coordinate_sums.GetPoint(c);
-                if (cluster_sizes[c] == 0) {
-                    for (size_t j = 0; j < centroids.d; ++j) {
-                        C[j] = 0.0f;
-                    }
-                } else {
-                    float desired_norm = cluster_norm_sums[c] / cluster_sizes[c];
-                    float current_norm = vec_norm(C2, centroids.d);
-                    float multiplier = std::sqrt(desired_norm / current_norm);
-                    for (size_t j = 0; j < centroids.d; ++j) {
-                        C[j] = C2[j] * multiplier;
-                    }
-                }
-            }
-#else
-            for (size_t c = 0; c < centroids.n; ++c) {
-                float* C = centroids.GetPoint(c);
-                float* C2 = cluster_coordinate_sums.GetPoint(c);
-                for (size_t j = 0; j < centroids.d; ++j) { if (cluster_sizes[c] == 0) { C[j] = 0.0; } else { C[j] = C2[j] / cluster_sizes[c]; } }
-            }
-#endif
+            update_centroids();
         }
 
 
