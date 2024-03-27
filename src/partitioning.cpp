@@ -172,7 +172,7 @@ CSR ConvertAdjGraphToCSR(const AdjGraph& graph) {
 Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_threads, bool quiet) {
     size_t num_nodes = graph.xadj.size() - 1;
     std::vector<kaminpar::shm::BlockID> kaminpar_partition(num_nodes, -1);
-    auto context = kaminpar::shm::create_strong_context();
+    auto context = kaminpar::shm::create_default_context();
     context.partition.epsilon = epsilon;
     kaminpar::KaMinPar shm(num_threads, context);
     if (quiet) {
