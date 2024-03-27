@@ -262,15 +262,17 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
 
-    auto cluster_norm_sums =
-            parlay::reduce_by_index(parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })), centroids.n);
+
+    auto d_vec_sqrt_norms = parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; });
+    auto assignment_and_norm = parlay::zip(closest_center, d_vec_sqrt_norms);
+    auto cluster_norm_sums = parlay::reduce_by_index(assignment_and_norm, centroids.n);
 
     std::cout << "cluster norm sums ";
     for (size_t j = 0; j < cluster_norm_sums.size(); ++j) {
         std::cout << cluster_norm_sums[j] << " ";
     }
     std::cout << std::endl;
-    std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0) << std::endl;
+    std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0.0) << std::endl;
 
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
 

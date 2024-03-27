@@ -8,7 +8,7 @@ Partition RebalancingKMeansPartitioning(PointSet& points, size_t max_cluster_siz
 
 Partition KMeansPartitioning(PointSet& points, int num_clusters, double epsilon);
 
-Partition PartitionAdjListGraph(AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool quiet = false);
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool quiet = false);
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "");
 

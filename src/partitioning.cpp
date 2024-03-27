@@ -240,10 +240,8 @@ CSR ParallelSymmetrizeAndConvertToCSR(const AdjGraph& adj_graph) {
     return csr;
 }
 
-Partition PartitionAdjListGraph(AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool quiet = false) {
+Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool quiet = false) {
     CSR csr = ParallelSymmetrizeAndConvertToCSR(adj_graph);
-    adj_graph.clear();
-    adj_graph.shrink_to_fit();
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, num_threads, quiet);
 }
 
