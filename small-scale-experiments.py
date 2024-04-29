@@ -1,17 +1,17 @@
 import os
 import subprocess
 
-data_path = 'data/'
+data_path = 'data5/'
 
 datasets = [
     ('sift', 'L2'),
-    ('glove', 'mips') # actually angular, but this is equivalent if normalized
+   # ('glove', 'mips') # actually angular, but this is equivalent if normalized
 ]
 
 partitioning_methods = [
     'GP',
-    'KMeans',
-    'BalancedKMeans',
+    #'KMeans',
+    #'BalancedKMeans',
 ]
 
 num_shards_vals = [16]
