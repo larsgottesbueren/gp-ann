@@ -160,14 +160,19 @@ std::vector<KMeansTreeRouter::PQEntry> KMeansTreeRouter::QueryWithEntriesReturne
 void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, const std::vector<NNVec>& ground_truth, const Clusters& clusters,
                                         int search_budget) {
     auto cover = ConvertClustersToCover(clusters);
-    auto top_gt_shards = parlay::map(parlay::iota(queries.n), [&](size_t q) -> int {
+    struct ShardFrequency {
+        int shard_id = -1;
+        int num_neighbors = 0;
+    };
+    auto top_gt_shards = parlay::map(parlay::iota(queries.n), [&](size_t q) -> ShardFrequency {
         std::vector<int> frequency(clusters.size(), 0);
         for (const auto& [neigh, _] : ground_truth[q]) {
             for (int c : cover[neigh]) {
                 frequency[c]++;
             }
         }
-        return std::distance(frequency.begin(), std::max_element(frequency.begin(), frequency.end()));
+        auto it = std::max_element(frequency.begin(), frequency.end());
+        return ShardFrequency { .shard_id = std::distance(frequency.begin(), it), .num_neighbors = *it };
     });
 
     parlay::parallel_for(0, queries.n, [&](size_t q) {
@@ -181,7 +186,7 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
             }
         }
 
-        if (top_routed_shard == top_gt_shards[q]) {
+        if (top_routed_shard == top_gt_shards[q].shard_id) {
             return; // continue
         }
     });
