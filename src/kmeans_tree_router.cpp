@@ -1,10 +1,12 @@
 #include "kmeans_tree_router.h"
 
-#include "kmeans.h"
-#include "dist.h"
-#include <numeric>
 #include <iostream>
+#include <numeric>
 #include <parlay/parallel.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
+#include "dist.h"
+#include "kmeans.h"
 
 void KMeansTreeRouter::Train(PointSet& points, const Clusters& clusters, KMeansTreeRouterOptions options) {
     num_shards = clusters.size();
@@ -19,35 +21,40 @@ void KMeansTreeRouter::Train(PointSet& points, const Clusters& clusters, KMeansT
     num_shards_processed_in_parallel = 4;
 #endif
 
-    parlay::parallel_for(0, num_shards, [&](int b) {
-        //for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
-        PointSet ps = ExtractPointsInBucket(clusters[b], points);
-        KMeansTreeRouterOptions recursive_options = options;
-        recursive_options.budget = double(clusters[b].size() * options.budget) / double(points.n);
-        TrainRecursive(ps, recursive_options, roots[b], 555 * b);
-        // }
-    }, num_shards / num_shards_processed_in_parallel);
+    parlay::parallel_for(
+            0, num_shards,
+            [&](int b) {
+                // for (int b = 0; b < num_shards; ++b) {      // go sequential for the big datasets on not the biggest memory machines
+                PointSet ps = ExtractPointsInBucket(clusters[b], points);
+                KMeansTreeRouterOptions recursive_options = options;
+                recursive_options.budget = double(clusters[b].size() * options.budget) / double(points.n);
+                TrainRecursive(ps, recursive_options, roots[b], 555 * b);
+                // }
+            },
+            num_shards / num_shards_processed_in_parallel);
 }
 
 void KMeansTreeRouter::TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed) {
     PointSet centroids = RandomSample(points, std::max(2, std::min<int>(options.num_centroids, options.budget)), seed);
     auto partition = KMeans(points, centroids);
     auto buckets = ConvertPartitionToClusters(partition);
-    // std::cout << "num buckets " << buckets.size() << " num centroids " << centroids.n << " num points " << points.n << " options.budget " << options.budget << std::endl;
+    // std::cout << "num buckets " << buckets.size() << " num centroids " << centroids.n << " num points " << points.n << " options.budget " << options.budget
+    // << std::endl;
 
     // check bucket size. stop recursion if small enough. --> partition buckets into those who get a sub-tree and those who don't
     // this is needed for 1-to-1 mapping between centroid and sub-tree in the query phase
     std::vector<std::pair<size_t, size_t>> bucket_size_and_ids(buckets.size());
-    for (size_t i = 0; i < buckets.size(); ++i) bucket_size_and_ids[i] = std::make_pair(buckets[i].size(), i);
-    size_t num_buckets_in_recursion = std::distance(
-        bucket_size_and_ids.begin(),
-        std::partition(bucket_size_and_ids.begin(), bucket_size_and_ids.end(), [&](const auto& pair) { return pair.first > options.min_cluster_size; })
-    );
+    for (size_t i = 0; i < buckets.size(); ++i)
+        bucket_size_and_ids[i] = std::make_pair(buckets[i].size(), i);
+    size_t num_buckets_in_recursion =
+            std::distance(bucket_size_and_ids.begin(), std::partition(bucket_size_and_ids.begin(), bucket_size_and_ids.end(),
+                                                                      [&](const auto& pair) { return pair.first > options.min_cluster_size; }));
 
     tree_node.centroids = ReorderCentroids(centroids, bucket_size_and_ids);
 
     options.budget -= tree_node.centroids.n;
-    if (options.budget <= 0) return;
+    if (options.budget <= 0)
+        return;
 
     if (tree_node.centroids.n == 1) {
         // Don't split it further. There's no use.
@@ -58,14 +65,18 @@ void KMeansTreeRouter::TrainRecursive(PointSet& points, KMeansTreeRouterOptions 
 
     // split budget equally
     size_t total_size = 0;
-    for (size_t i = 0; i < num_buckets_in_recursion; ++i) total_size += bucket_size_and_ids[i].first;
+    for (size_t i = 0; i < num_buckets_in_recursion; ++i)
+        total_size += bucket_size_and_ids[i].first;
 
-    parlay::parallel_for(0, num_buckets_in_recursion, [&](int i) {
-        PointSet ps = ExtractPointsInBucket(buckets[bucket_size_and_ids[i].second], points);
-        KMeansTreeRouterOptions recursive_options = options;
-        recursive_options.budget = double(bucket_size_and_ids[i].first * options.budget) / double(total_size);
-        TrainRecursive(ps, recursive_options, tree_node.children[i], seed + i);
-    }, 1);
+    parlay::parallel_for(
+            0, num_buckets_in_recursion,
+            [&](int i) {
+                PointSet ps = ExtractPointsInBucket(buckets[bucket_size_and_ids[i].second], points);
+                KMeansTreeRouterOptions recursive_options = options;
+                recursive_options.budget = double(bucket_size_and_ids[i].first * options.budget) / double(total_size);
+                TrainRecursive(ps, recursive_options, tree_node.children[i], seed + i);
+            },
+            1);
 }
 
 PointSet KMeansTreeRouter::ReorderCentroids(PointSet& centroids, std::vector<std::pair<size_t, size_t>>& permutation) {
@@ -74,18 +85,14 @@ PointSet KMeansTreeRouter::ReorderCentroids(PointSet& centroids, std::vector<std
     re.n = centroids.n;
     for (const auto& [_, centroid_id] : permutation) {
         float* c = centroids.GetPoint(centroid_id);
-        for (size_t j = 0; j < centroids.d; ++j) { re.coordinates.push_back(c[j]); }
+        for (size_t j = 0; j < centroids.d; ++j) {
+            re.coordinates.push_back(c[j]);
+        }
     }
     return re;
 }
 
 std::vector<int> KMeansTreeRouter::Query(float* Q, int budget) {
-    struct PQEntry {
-        float dist = 0.f;
-        int shard_id = -1;
-        TreeNode* node = nullptr;
-        bool operator>(const PQEntry& other) const { return dist > other.dist; }
-    };
     std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
     std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
@@ -105,7 +112,9 @@ std::vector<int> KMeansTreeRouter::Query(float* Q, int budget) {
         for (size_t i = 0; i < top.node->centroids.n; ++i) {
             float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
             min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
-            if (i < top.node->children.size()) { pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] }); }
+            if (i < top.node->children.size()) {
+                pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] });
+            }
         }
     }
 
@@ -116,6 +125,68 @@ std::vector<int> KMeansTreeRouter::Query(float* Q, int budget) {
     return probes;
 }
 
+std::vector<KMeansTreeRouter::PQEntry> KMeansTreeRouter::QueryWithEntriesReturned(float* Q, int budget) {
+    std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
+    std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
+    std::vector<PQEntry> visited;
+
+    for (int u = 0; u < int(roots.size()); ++u) {
+        float dist = std::numeric_limits<float>::lowest();
+        if (centroids_in_roots) {
+            dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
+            budget--;
+        }
+        pq.push(PQEntry{ dist, u, &roots[u] });
+        visited.push_back(PQEntry{ dist, u, &roots[u] });
+    }
+
+    while (!pq.empty() && budget > 0) {
+        PQEntry top = pq.top();
+        pq.pop();
+        budget -= top.node->centroids.n;
+        for (size_t i = 0; i < top.node->centroids.n; ++i) {
+            float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
+            min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
+            if (i < top.node->children.size()) {
+                pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] });
+                visited.push_back(PQEntry{ dist, top.shard_id, &top.node->children[i] });
+            }
+        }
+    }
+
+    return visited;
+}
+
+void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, const std::vector<NNVec>& ground_truth, const Clusters& clusters,
+                                        int search_budget) {
+    auto cover = ConvertClustersToCover(clusters);
+    auto top_gt_shards = parlay::map(parlay::iota(queries.n), [&](size_t q) -> int {
+        std::vector<int> frequency(clusters.size(), 0);
+        for (const auto& [neigh, _] : ground_truth[q]) {
+            for (int c : cover[neigh]) {
+                frequency[c]++;
+            }
+        }
+        return std::distance(frequency.begin(), std::max_element(frequency.begin(), frequency.end()));
+    });
+
+    parlay::parallel_for(0, queries.n, [&](size_t q) {
+        auto visits = QueryWithEntriesReturned(queries.GetPoint(q), search_budget);
+        int top_routed_shard = -1;
+        float min_dist = std::numeric_limits<float>::max();
+        for (const auto& el : visits) {
+            if (el.dist < min_dist) {
+                min_dist = el.dist;
+                top_routed_shard = el.shard_id;
+            }
+        }
+
+        if (top_routed_shard == top_gt_shards[q]) {
+            return; // continue
+        }
+    });
+}
+
 std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {
     PointSet points;
     points.d = dim;
@@ -123,12 +194,14 @@ std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {
 
     int b = 0;
     for (TreeNode& root : roots) {
-        std::queue<TreeNode *> queue;
+        std::queue<TreeNode*> queue;
         queue.push(&root);
         while (!queue.empty()) {
             TreeNode* u = queue.front();
             queue.pop();
-            for (TreeNode& c : u->children) { queue.push(&c); }
+            for (TreeNode& c : u->children) {
+                queue.push(&c);
+            }
             if (u->centroids.coordinates.size() != u->centroids.n * u->centroids.d) {
                 std::cout << u->centroids.coordinates.size() << " " << u->centroids.n << " " << u->centroids.d << std::endl;
                 throw std::runtime_error("C");

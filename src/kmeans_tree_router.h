@@ -14,14 +14,26 @@ class KMeansTreeRouter {
 public:
     void Train(PointSet& points, const Clusters& clusters, KMeansTreeRouterOptions options);
 
+    void TrainWithQueries(PointSet& points, PointSet& queries, const std::vector<NNVec>& ground_truth, const Clusters& clusters, int search_budget);
+
     std::vector<int> Query(float* Q, int budget);
 
     std::pair<PointSet, std::vector<int>> ExtractPoints();
+
 private:
     struct TreeNode {
         std::vector<TreeNode> children;
         PointSet centroids;
     };
+
+    struct PQEntry {
+        float dist = 0.f;
+        int shard_id = -1;
+        TreeNode* node = nullptr;
+        bool operator>(const PQEntry& other) const { return dist > other.dist; }
+    };
+
+    std::vector<PQEntry> QueryWithEntriesReturned(float* Q, int budget);
 
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed);
 

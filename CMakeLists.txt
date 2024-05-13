@@ -24,6 +24,7 @@ add_subdirectory(external/hnswlib)
 include_directories("src")
 
 add_executable(SmallScaleQueries small_scale_queries.cpp)
+add_executable(TrainRouteBench train_router_bench.cpp)
 add_executable(Convert convert.cpp)
 add_executable(Partition partition.cpp)
 add_executable(QueryAttribution run_query_attribution.cpp)
@@ -33,6 +34,7 @@ add_executable(GraphQualityBench graph_quality_benchmark.cpp)
 add_executable(AnalyzeApproximationLosses analyze_approximation_losses.cpp)
 
 set(TARGETS
+    TrainRouteBench
 		SmallScaleQueries
 		Convert
 		Partition
