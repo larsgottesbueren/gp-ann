@@ -125,10 +125,10 @@ std::vector<int> KMeansTreeRouter::Query(float* Q, int budget) {
     return probes;
 }
 
-std::vector<KMeansTreeRouter::PQEntry> KMeansTreeRouter::QueryWithEntriesReturned(float* Q, int budget) {
+std::vector<KMeansTreeRouter::VisitEntry> KMeansTreeRouter::QueryWithEntriesReturned(float* Q, int budget) {
     std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
     std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
-    std::vector<PQEntry> visited;
+    std::vector<VisitEntry> visited;
 
     for (int u = 0; u < int(roots.size()); ++u) {
         float dist = std::numeric_limits<float>::lowest();
@@ -137,19 +137,18 @@ std::vector<KMeansTreeRouter::PQEntry> KMeansTreeRouter::QueryWithEntriesReturne
             budget--;
         }
         pq.push(PQEntry{ dist, u, &roots[u] });
-        visited.push_back(PQEntry{ dist, u, &roots[u] });
     }
 
     while (!pq.empty() && budget > 0) {
         PQEntry top = pq.top();
         pq.pop();
         budget -= top.node->centroids.n;
-        for (size_t i = 0; i < top.node->centroids.n; ++i) {
+        for (int i = 0; i < int(top.node->centroids.n); ++i) {
             float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
             min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
             if (i < top.node->children.size()) {
                 pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] });
-                visited.push_back(PQEntry{ dist, top.shard_id, &top.node->children[i] });
+                visited.push_back(VisitEntry{ .dist = dist, .shard_id = top.shard_id, .node = top.node, .centroid_id = i });
             }
         }
     }
@@ -172,10 +171,18 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
             }
         }
         auto it = std::max_element(frequency.begin(), frequency.end());
-        return ShardFrequency { .shard_id = std::distance(frequency.begin(), it), .num_neighbors = *it };
+        return ShardFrequency{ .shard_id = std::distance(frequency.begin(), it), .num_neighbors = *it };
     });
 
-    parlay::parallel_for(0, queries.n, [&](size_t q) {
+    struct Move {
+        TreeNode* node = nullptr;
+        int centroid_id = -1;
+        std::vector<float> direction;
+    };
+    
+    int num_neighbors_retrieved = 0;
+    int num_ranked_correctly = 0;
+    auto moves_nested = parlay::map(parlay::iota(queries.n), [&](size_t q) -> parlay::sequence<Move> {
         auto visits = QueryWithEntriesReturned(queries.GetPoint(q), search_budget);
         int top_routed_shard = -1;
         float min_dist = std::numeric_limits<float>::max();
@@ -187,9 +194,26 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
         }
 
         if (top_routed_shard == top_gt_shards[q].shard_id) {
-            return; // continue
+            __atomic_fetch_add(&num_ranked_correctly, 1, __ATOMIC_RELAXED);
+            __atomic_fetch_add(&num_neighbors_retrieved, top_gt_shards[q].num_neighbors, __ATOMIC_RELAXED);
+            return {}; // continue
         }
+
+        constexpr float alpha = 0.1;
+        int num_vectors_to_move = 5;
+
+        visits.erase(std::remove_if(visits.begin(), visits.end(), [&](const VisitEntry& visit) { return visit.shard_id != top_gt_shards[q].shard_id; }),
+                     visits.end());
+        std::sort(visits.begin(), visits.end());
+        for (int i = 0; i < num_vectors_to_move; ++i) {
+
+        }
+
     });
+
+    std::cout << "num neighbors retrieved " << num_neighbors_retrieved << " num ranked correctly " << num_ranked_correctly << std::endl;
+
+    auto moves = parlay::flatten(moves_nested);
 }
 
 std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {

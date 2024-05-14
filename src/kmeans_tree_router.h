@@ -33,7 +33,16 @@ private:
         bool operator>(const PQEntry& other) const { return dist > other.dist; }
     };
 
-    std::vector<PQEntry> QueryWithEntriesReturned(float* Q, int budget);
+    struct VisitEntry : public PQEntry {
+        float dist = 0.f;
+        int shard_id = -1;
+        TreeNode* node = nullptr;
+        int centroid_id;
+        bool operator>(const PQEntry& other) const { return dist > other.dist; }
+        bool operator<(const PQEntry& other) const { return dist < other.dist; }
+    };
+
+    std::vector<VisitEntry> QueryWithEntriesReturned(float* Q, int budget);
 
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed);
 
