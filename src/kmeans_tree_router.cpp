@@ -179,41 +179,63 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
         int centroid_id = -1;
         std::vector<float> direction;
     };
-    
-    int num_neighbors_retrieved = 0;
-    int num_ranked_correctly = 0;
-    auto moves_nested = parlay::map(parlay::iota(queries.n), [&](size_t q) -> parlay::sequence<Move> {
-        auto visits = QueryWithEntriesReturned(queries.GetPoint(q), search_budget);
-        int top_routed_shard = -1;
-        float min_dist = std::numeric_limits<float>::max();
-        for (const auto& el : visits) {
-            if (el.dist < min_dist) {
-                min_dist = el.dist;
-                top_routed_shard = el.shard_id;
+
+    int num_reps = 5;
+    for (int rep = 0; rep < num_reps; ++rep) {
+
+        int num_neighbors_retrieved = 0;
+        int num_ranked_correctly = 0;
+        auto moves_nested = parlay::map(parlay::iota(queries.n), [&](size_t q) -> parlay::sequence<Move> {
+            auto visits = QueryWithEntriesReturned(queries.GetPoint(q), search_budget);
+            int top_routed_shard = -1;
+            float min_dist = std::numeric_limits<float>::max();
+            for (const auto& el : visits) {
+                if (el.dist < min_dist) {
+                    min_dist = el.dist;
+                    top_routed_shard = el.shard_id;
+                }
+            }
+
+            if (top_routed_shard == top_gt_shards[q].shard_id) {
+                __atomic_fetch_add(&num_ranked_correctly, 1, __ATOMIC_RELAXED);
+                __atomic_fetch_add(&num_neighbors_retrieved, top_gt_shards[q].num_neighbors, __ATOMIC_RELAXED);
+                return {}; // continue
+            }
+
+            constexpr float alpha = 0.1;
+            int num_vectors_to_move = 5;
+
+            visits.erase(std::remove_if(visits.begin(), visits.end(), [&](const VisitEntry& visit) { return visit.shard_id != top_gt_shards[q].shard_id; }),
+                         visits.end());
+            std::sort(visits.begin(), visits.end());
+            parlay::sequence<Move> directions;
+            for (int i = 0; i < num_vectors_to_move; ++i) {
+                Move m;
+                m.node = visits[i].node;
+                m.centroid_id = visits[i].centroid_id;
+                m.direction.resize(points.d);
+                float* T = m.node->centroids.GetPoint(m.centroid_id);
+                float* Q = queries.GetPoint(q);
+                // suggest moving T closer to Q
+                for (int j = 0; j < points.d; ++j) {
+                    m.direction[j] = alpha * (Q[j] - T[j]);
+                }
+                directions.emplace_back(std::move(m));
+            }
+            return directions;
+        });
+
+        std::cout << "num neighbors retrieved " << num_neighbors_retrieved << " num ranked correctly " << num_ranked_correctly << std::endl;
+
+        auto moves = parlay::flatten(moves_nested);
+
+        for (const Move& m : moves) {
+            float* T = m.node->centroids.GetPoint(m.centroid_id);
+            for (int j = 0; j < points.d; ++j) {
+                T[j] += m.direction[j];
             }
         }
-
-        if (top_routed_shard == top_gt_shards[q].shard_id) {
-            __atomic_fetch_add(&num_ranked_correctly, 1, __ATOMIC_RELAXED);
-            __atomic_fetch_add(&num_neighbors_retrieved, top_gt_shards[q].num_neighbors, __ATOMIC_RELAXED);
-            return {}; // continue
-        }
-
-        constexpr float alpha = 0.1;
-        int num_vectors_to_move = 5;
-
-        visits.erase(std::remove_if(visits.begin(), visits.end(), [&](const VisitEntry& visit) { return visit.shard_id != top_gt_shards[q].shard_id; }),
-                     visits.end());
-        std::sort(visits.begin(), visits.end());
-        for (int i = 0; i < num_vectors_to_move; ++i) {
-
-        }
-
-    });
-
-    std::cout << "num neighbors retrieved " << num_neighbors_retrieved << " num ranked correctly " << num_ranked_correctly << std::endl;
-
-    auto moves = parlay::flatten(moves_nested);
+    }
 }
 
 std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {
