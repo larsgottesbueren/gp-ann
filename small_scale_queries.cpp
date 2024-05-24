@@ -131,7 +131,7 @@ int main(int argc, const char* argv[]) {
     timer.Start();
     InvertedIndexHNSW ivf_hnsw(points);
     ivf_hnsw.hnsw_parameters = HNSWParameters{ .M = 16, .ef_construction = 200, .ef_search = 120 };
-    ivf_hnsw.Build(points, clusters);
+    // ivf_hnsw.Build(points, clusters);
     std::cout << "Building IVF-HNSW took " << timer.Restart() << " seconds." << std::endl;
     InvertedIndex ivf(points, clusters);
     std::cout << "Building IVF took " << timer.Stop() << " seconds." << std::endl;

@@ -165,7 +165,7 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
     };
     auto top_gt_shards = parlay::map(parlay::iota(queries.n), [&](size_t q) -> ShardFrequency {
         std::vector<int> frequency(clusters.size(), 0);
-        for (const auto& [neigh, _] : ground_truth[q]) {
+        for (const auto& [_, neigh] : ground_truth[q]) {
             for (int c : cover[neigh]) {
                 frequency[c]++;
             }
@@ -174,25 +174,41 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
         return ShardFrequency{ .shard_id = std::distance(frequency.begin(), it), .num_neighbors = *it };
     });
 
+    size_t oracle_hits = 0;
+    for (const auto& sf : top_gt_shards) {
+        oracle_hits += sf.num_neighbors;
+    }
+    std::cout << "oracle hits " << oracle_hits << std::endl;
+
+    PointSet routing_points;
+    std::vector<int> routing_index_partition;
+    std::tie(routing_points, routing_index_partition) = ExtractPoints();
+
     struct Move {
-        TreeNode* node = nullptr;
-        int centroid_id = -1;
+        size_t pos;
         std::vector<float> direction;
     };
 
-    int num_reps = 5;
+    int num_reps = 20;
+    constexpr float alpha = 0.005;
+    int num_vectors_to_move = 1;
+
     for (int rep = 0; rep < num_reps; ++rep) {
 
         int num_neighbors_retrieved = 0;
         int num_ranked_correctly = 0;
         auto moves_nested = parlay::map(parlay::iota(queries.n), [&](size_t q) -> parlay::sequence<Move> {
-            auto visits = QueryWithEntriesReturned(queries.GetPoint(q), search_budget);
+            // do brute force routing instead of tree routing
             int top_routed_shard = -1;
+            int closest_vector = -1;
             float min_dist = std::numeric_limits<float>::max();
-            for (const auto& el : visits) {
-                if (el.dist < min_dist) {
-                    min_dist = el.dist;
-                    top_routed_shard = el.shard_id;
+            float* Q = queries.GetPoint(q);
+            for (size_t i = 0; i < routing_points.n; ++i) {
+                float dist = distance(routing_points.GetPoint(i), Q, queries.d);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    top_routed_shard = routing_index_partition[i];
+                    closest_vector = i;
                 }
             }
 
@@ -202,19 +218,27 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
                 return {}; // continue
             }
 
-            constexpr float alpha = 0.1;
-            int num_vectors_to_move = 5;
+            int top_shard = top_gt_shards[q].shard_id;
 
-            visits.erase(std::remove_if(visits.begin(), visits.end(), [&](const VisitEntry& visit) { return visit.shard_id != top_gt_shards[q].shard_id; }),
-                         visits.end());
-            std::sort(visits.begin(), visits.end());
+            std::vector<std::pair<float, size_t>> dists;
+            for (size_t i = 0; i < routing_points.n; ++i) {
+                if (routing_index_partition[i] != top_shard) {
+                    continue;
+                }
+                float dist = distance(routing_points.GetPoint(i), Q, queries.d);
+                dists.emplace_back(dist, i);
+            }
+            std::sort(dists.begin(), dists.end());
+
+            constexpr float alpha = 0.01;
+            int num_vectors_to_move = 2;
+
             parlay::sequence<Move> directions;
             for (int i = 0; i < num_vectors_to_move; ++i) {
                 Move m;
-                m.node = visits[i].node;
-                m.centroid_id = visits[i].centroid_id;
+                m.pos = dists[i].second;
                 m.direction.resize(points.d);
-                float* T = m.node->centroids.GetPoint(m.centroid_id);
+                float* T = routing_points.GetPoint(m.pos);
                 float* Q = queries.GetPoint(q);
                 // suggest moving T closer to Q
                 for (int j = 0; j < points.d; ++j) {
@@ -230,7 +254,7 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
         auto moves = parlay::flatten(moves_nested);
 
         for (const Move& m : moves) {
-            float* T = m.node->centroids.GetPoint(m.centroid_id);
+            float* T = routing_points.GetPoint(m.pos);
             for (int j = 0; j < points.d; ++j) {
                 T[j] += m.direction[j];
             }
