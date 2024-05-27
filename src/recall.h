@@ -7,7 +7,7 @@
 #include <iostream>
 #include <parlay/parallel.h>
 
-std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& queries, int k) {
+static inline std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& queries, int k) {
     std::vector<float> d(queries.n);
     parlay::parallel_for(0, queries.n, [&](size_t i) {
         TopN top_k(k);
@@ -22,7 +22,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
     return d;
 }
 
-std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
+static inline std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
     std::vector<NNVec> res(queries.n);
     parlay::parallel_for(0, queries.n, [&](size_t i) {
         TopN top_k(k);
@@ -38,7 +38,7 @@ std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k
     return res;
 }
 
-void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition, int num_neighbors) {
+static inline void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition, int num_neighbors) {
     int num_shards = NumPartsInPartition(partition);
     std::vector<size_t> hits(num_shards, 0);
 
@@ -71,7 +71,7 @@ void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>
 /**
  * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the candidates.
  */
-std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
+static inline std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
     if (ground_truth.size() != queries.n) {
         std::cout << "Ground truth size and number of queries don't match." << std::endl;
         std::exit(0);
@@ -136,7 +136,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     return distance_to_kth_neighbor;
 }
 
-double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {
+static inline double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {
     size_t hits = 0;
     for (size_t i = 0; i < neighbors_per_query.size(); ++i) {
         for (const auto& x : neighbors_per_query[i]) {

@@ -61,7 +61,7 @@ int main(int argc, const char* argv[]) {
     size_t num_shards = NumPartsInPartition(partition);
     Cover cover = ConvertPartitionToCover(partition);
 #endif
-    std::cout << "Finished reading partition file" << std::endl;
+    std::cout << "Finished reading partition file. num shards = " << num_shards << std::endl;
 
     std::vector<NNVec> ground_truth;
     if (std::filesystem::exists(ground_truth_file)) {
@@ -70,6 +70,10 @@ int main(int argc, const char* argv[]) {
     } else {
         throw std::runtime_error("ground truth file doesnt exist");
     }
+
+    std::ofstream out(out_file);
+    // header
+    out << "partitioning,num probes,recall,type" << std::endl;
 
     std::vector<RoutingConfig> routes = DeserializeRoutes(routes_file);
 
@@ -86,10 +90,7 @@ int main(int argc, const char* argv[]) {
 
     std::cout << std::endl;
     std::cout << "best config " << best << " first shard recall " << rrv[best][0] << std::endl;
-
-    std::ofstream out(out_file);
-    // header
-    out << "partitioning,num probes,recall,type" << std::endl;
+ 
     for (size_t j = 0; j < num_shards; ++j) {
         out << part_method << "," << j << "," << rrv[best][j] << ",brute-force-shard-search" << std::endl;
     }
@@ -110,6 +111,7 @@ int main(int argc, const char* argv[]) {
             std::sort(probes.begin(), probes.end(), [&](int l, int r) { return freq[l] > freq[r]; });
             buckets_to_probe[q] = std::move(probes);
         });
+        std::cout << "hi" << std::endl;
 
         auto oracle_recall_values = RecallForIncreasingProbes(buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);
         std::cout << "oracle recall. first shard " << oracle_recall_values[0] << std::endl;

@@ -7,6 +7,7 @@
 #include <parlay/sequence.h>
 #include "dist.h"
 #include "kmeans.h"
+#include "recall.h"
 
 void KMeansTreeRouter::Train(PointSet& points, const Clusters& clusters, KMeansTreeRouterOptions options) {
     num_shards = clusters.size();
@@ -180,6 +181,27 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
     }
     std::cout << "oracle hits " << oracle_hits << std::endl;
 
+    Timer timer;
+    timer.Start();
+    PointSet training_queries = RandomSample(points, 20000, 555);
+    std::vector<NNVec> training_ground_truth = ComputeGroundTruth(points, training_queries, 10);
+    auto training_gt_shards = parlay::map(parlay::iota(training_queries.n), [&](size_t q) -> ShardFrequency {
+        std::vector<int> frequency(clusters.size(), 0);
+        for (const auto& [_, neigh] : training_ground_truth[q]) {
+            for (int c : cover[neigh]) {
+                frequency[c]++;
+            }
+        }
+        auto it = std::max_element(frequency.begin(), frequency.end());
+        return ShardFrequency{ .shard_id = std::distance(frequency.begin(), it), .num_neighbors = *it };
+    });
+    std::cout << "Computing ground truth took " << timer.Stop() << " seconds" << std::endl;
+    oracle_hits = 0;
+    for (const auto& sf : training_gt_shards) {
+        oracle_hits += sf.num_neighbors;
+    }
+    std::cout << "oracle hits for training queries " << oracle_hits << std::endl;
+
     PointSet routing_points;
     std::vector<int> routing_index_partition;
     std::tie(routing_points, routing_index_partition) = ExtractPoints();
@@ -194,17 +216,49 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
     int num_vectors_to_move = 1;
 
     for (int rep = 0; rep < num_reps; ++rep) {
+        { // true queries eval
+            auto retrieved = parlay::map(parlay::iota(queries.n), [&](size_t q) {
+                int top_routed_shard = -1;
+                int closest_vector = -1;
+                float min_dist = std::numeric_limits<float>::max();
+                float* Q = queries.GetPoint(q);
+                for (size_t i = 0; i < routing_points.n; ++i) {
+                    float dist = distance(routing_points.GetPoint(i), Q, queries.d);
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        top_routed_shard = routing_index_partition[i];
+                        closest_vector = i;
+                    }
+                }
+
+                if (top_routed_shard == top_gt_shards[q].shard_id) {
+                    return std::make_pair(1, top_gt_shards[q].num_neighbors);
+                } else {
+                    return std::make_pair(0, 0);
+                }
+            });
+
+            size_t num_ranked = 0;
+            size_t num_neighbors = 0;
+            for (const auto& [nr, nn] : retrieved) {
+                num_ranked += nr;
+                num_neighbors += nn;
+            }
+            std::cout << "num neighbors retrieved " << num_neighbors << " num ranked correctly " << num_ranked << std::endl;
+        }
+
 
         int num_neighbors_retrieved = 0;
         int num_ranked_correctly = 0;
-        auto moves_nested = parlay::map(parlay::iota(queries.n), [&](size_t q) -> parlay::sequence<Move> {
+
+        auto moves_nested = parlay::map(parlay::iota(training_queries.n), [&](size_t q) -> parlay::sequence<Move> {
             // do brute force routing instead of tree routing
             int top_routed_shard = -1;
             int closest_vector = -1;
             float min_dist = std::numeric_limits<float>::max();
-            float* Q = queries.GetPoint(q);
+            float* Q = training_queries.GetPoint(q);
             for (size_t i = 0; i < routing_points.n; ++i) {
-                float dist = distance(routing_points.GetPoint(i), Q, queries.d);
+                float dist = distance(routing_points.GetPoint(i), Q, training_queries.d);
                 if (dist < min_dist) {
                     min_dist = dist;
                     top_routed_shard = routing_index_partition[i];
@@ -212,13 +266,13 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
                 }
             }
 
-            if (top_routed_shard == top_gt_shards[q].shard_id) {
+            if (top_routed_shard == training_gt_shards[q].shard_id) {
                 __atomic_fetch_add(&num_ranked_correctly, 1, __ATOMIC_RELAXED);
-                __atomic_fetch_add(&num_neighbors_retrieved, top_gt_shards[q].num_neighbors, __ATOMIC_RELAXED);
+                __atomic_fetch_add(&num_neighbors_retrieved, training_gt_shards[q].num_neighbors, __ATOMIC_RELAXED);
                 return {}; // continue
             }
 
-            int top_shard = top_gt_shards[q].shard_id;
+            int top_shard = training_gt_shards[q].shard_id;
 
             std::vector<std::pair<float, size_t>> dists;
             for (size_t i = 0; i < routing_points.n; ++i) {
@@ -239,7 +293,7 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
                 m.pos = dists[i].second;
                 m.direction.resize(points.d);
                 float* T = routing_points.GetPoint(m.pos);
-                float* Q = queries.GetPoint(q);
+                float* Q = training_queries.GetPoint(q);
                 // suggest moving T closer to Q
                 for (int j = 0; j < points.d; ++j) {
                     m.direction[j] = alpha * (Q[j] - T[j]);
@@ -249,7 +303,7 @@ void KMeansTreeRouter::TrainWithQueries(PointSet& points, PointSet& queries, con
             return directions;
         });
 
-        std::cout << "num neighbors retrieved " << num_neighbors_retrieved << " num ranked correctly " << num_ranked_correctly << std::endl;
+        std::cout << "[in-dist sampled] num neighbors retrieved " << num_neighbors_retrieved << " num ranked correctly " << num_ranked_correctly << std::endl;
 
         auto moves = parlay::flatten(moves_nested);
 

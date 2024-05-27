@@ -90,7 +90,9 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
 
-    Clusters clusters = ReadClusters(partition_file);
+    // Clusters clusters = ReadClusters(partition_file);
+    Partition partition = ReadMetisPartition(partition_file);
+    Clusters clusters = ConvertPartitionToClusters(partition);
     int num_shards = clusters.size();
 
     Timer timer;

@@ -258,8 +258,8 @@ struct ApproximateKNNGraphBuilder {
     size_t MAX_CLUSTER_SIZE = 5000;
     size_t MIN_CLUSTER_SIZE = 50;
     size_t MAX_MERGED_CLUSTER_SIZE = 2500;
-    int REPETITIONS = 3;
-    int FANOUT = 3;
+    int REPETITIONS = 5;
+    int FANOUT = 5;
     int MAX_DEPTH = 14;
     int CONCERNING_DEPTH = 10;
     double TOO_SMALL_SHRINKAGE_FRACTION = 0.8;
