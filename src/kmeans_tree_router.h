@@ -16,6 +16,8 @@ public:
 
     std::vector<int> Query(float* Q, int budget);
 
+    std::vector<int> FrequencyQuery(float* Q, int budget, int num_voting_neighbors);
+
     std::pair<PointSet, std::vector<int>> ExtractPoints();
 private:
     struct TreeNode {
