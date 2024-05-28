@@ -129,6 +129,45 @@ std::vector<int> KMeansTreeRouter::Query(float* Q, int budget) {
     return probes;
 }
 
+KMeansTreeRouter::FrequencyQueryData KMeansTreeRouter::FrequencyQuery(float* Q, int budget, int num_voting_neighbors) {
+    struct PQEntry {
+        float dist = 0.f;
+        int shard_id = -1;
+        TreeNode* node = nullptr;
+        bool operator>(const PQEntry& other) const { return dist > other.dist; }
+    };
+    std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
+    TopN top_neighbors(num_voting_neighbors);
+
+    for (int u = 0; u < int(roots.size()); ++u) {
+        float dist = std::numeric_limits<float>::lowest();
+        if (centroids_in_roots) {
+            dist = distance(roots[u].centroids.GetPoint(0), Q, dim);
+            budget--;
+        }
+        pq.push(PQEntry{ dist, u, &roots[u] });
+    }
+
+    while (!pq.empty() && budget > 0) {
+        PQEntry top = pq.top();
+        pq.pop();
+        budget -= top.node->centroids.n;
+        for (size_t i = 0; i < top.node->centroids.n; ++i) {
+            float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
+            top_neighbors.Add(std::make_pair(dist, top.shard_id));
+            if (i < top.node->children.size()) {
+                pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] });
+            }
+        }
+    }
+
+
+    FrequencyQueryData ret;
+    ret.near_neighbors = top_neighbors.Take();
+    ret.Init();
+    return ret;
+}
+
 std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {
     PointSet points;
     points.d = dim;
