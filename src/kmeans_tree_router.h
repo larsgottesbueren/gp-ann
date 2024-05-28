@@ -1,7 +1,7 @@
 #pragma once
 
+#include <numeric>
 #include "defs.h"
-
 
 struct KMeansTreeRouterOptions {
     size_t num_centroids = 64;
@@ -16,9 +16,26 @@ public:
 
     std::vector<int> Query(float* Q, int budget);
 
-    std::vector<int> FrequencyQuery(float* Q, int budget, int num_voting_neighbors);
+    struct FrequencyQueryData {
+        NNVec near_neighbors;
+        void Init() { std::sort(near_neighbors.begin(), near_neighbors.end()); }
+        std::vector<int> Query(int num_shards, int num_voting_neighbors) {
+            std::vector<int> frequency(num_shards, 0);
+            for (int i = 0; i < std::min<int>(num_voting_neighbors, near_neighbors.size()); ++i) {
+                frequency[near_neighbors[i].second]++;
+            }
+
+            std::vector<int> probes(num_shards);
+            std::iota(probes.begin(), probes.end(), 0);
+            std::sort(probes.begin(), probes.end(), [&](int l, int r) { return frequency[l] > frequency[r]; });
+            return probes;
+        }
+    };
+
+    FrequencyQueryData FrequencyQuery(float* Q, int budget, int num_voting_neighbors);
 
     std::pair<PointSet, std::vector<int>> ExtractPoints();
+
 private:
     struct TreeNode {
         std::vector<TreeNode> children;

@@ -198,7 +198,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
                 });
 
                 double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, cover);
-                std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n
+                std::cout << "KMTR Routing took " << time_routing << " s overall, and " << time_routing / queries.n
                           << " s per query. Max first shard recall = " << first_shard_recall << std::endl;
                 auto& new_route = routes.emplace_back();
                 new_route.routing_algorithm = "KMeansTree";
@@ -213,27 +213,32 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
 
             // frequency tree-search routing
             {
-                std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
+                std::vector<KMeansTreeRouter::FrequencyQueryData> routing_data(queries.n);
                 double time_routing;
                 parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
                     routing_timer.Start();
                     parlay::parallel_for(0, queries.n, [&](size_t i) {
-                        buckets_to_probe_by_query[i] = router.FrequencyQuery(queries.GetPoint(i), routing_index_options.search_budget, 350);
+                        routing_data[i] = router.FrequencyQuery(queries.GetPoint(i), routing_index_options.search_budget, 500);
                     });
                     time_routing = routing_timer.Stop();
                 });
+                std::cout << "KMTR Frequency Routing took " << time_routing << " s overall, and " << time_routing / queries.n << " s per query" << std::endl;
 
-                double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, cover);
-                std::cout << "Routing took " << time_routing << " s overall, and " << time_routing / queries.n
-                          << " s per query. Max first shard recall = " << first_shard_recall << std::endl;
-                auto& new_route = routes.emplace_back();
-                new_route.routing_algorithm = "KMeansTree-Frequency";
-                new_route.hnsw_num_voting_neighbors = 0;
-                new_route.routing_time = time_routing;
-                new_route.routing_index_options = routing_index_options;
-                new_route.routing_distance_calcs = routing_index_options.search_budget;
-                new_route.try_increasing_num_shards = true;
-                new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
+                for (size_t num_voting_neighbors : { 20, 40, 80, 120, 200, 250, 300, 400, 500 }) {
+                    std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
+                    parlay::parallel_for(0, queries.n,
+                                         [&](size_t i) { buckets_to_probe_by_query[i] = routing_data[i].Query(num_shards, num_voting_neighbors); });
+                    double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query, ground_truth, num_neighbors, cover);
+                    std::cout << "Num voting points " << num_voting_neighbors << " Max first shard recall = " << first_shard_recall << std::endl;
+                    auto& new_route = routes.emplace_back();
+                    new_route.routing_algorithm = "KMeansTree-Frequency";
+                    new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+                    new_route.routing_time = time_routing;
+                    new_route.routing_index_options = routing_index_options;
+                    new_route.routing_distance_calcs = routing_index_options.search_budget;
+                    new_route.try_increasing_num_shards = true;
+                    new_route.buckets_to_probe = std::move(buckets_to_probe_by_query);
+                }
             }
 
 
