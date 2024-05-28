@@ -92,6 +92,19 @@ void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& quer
             new_route.routing_distance_calcs = hnsw_router.hnsw->metric_distance_computations / queries.n;
             hnsw_router.hnsw->metric_distance_computations = 0;
         }
+
+        // frequency routing
+        {
+            std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
+            parlay::parallel_for(0, queries.n, [&](size_t i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].FrequencyQuery(); });
+            routes.push_back(blueprint);
+            auto& new_route = routes.back();
+            new_route.routing_algorithm = "HNSW-Frequency";
+            new_route.hnsw_num_voting_neighbors = num_voting_neighbors;
+            new_route.routing_time = time_routing;
+            new_route.try_increasing_num_shards = true;
+            new_route.buckets_to_probe = std::move(buckets_to_probe_by_query_hnsw);
+        }
     }
 }
 

@@ -54,6 +54,7 @@ struct HNSWRouter {
 
     struct ShardPriorities {
         std::vector<float> min_dist;
+        std::vector<int> frequency;
 
         std::vector<int> RoutingQuery() const {
             std::vector<int> probes(min_dist.size());
@@ -82,6 +83,13 @@ struct HNSWRouter {
             }
             return probes;
         }
+
+        std::vector<int> FrequencyQuery() const {
+            std::vector<int> probes(min_dist.size());
+            std::iota(probes.begin(), probes.end(), 0);
+            std::sort(probes.begin(), probes.end(), [&](int l, int r) { return frequency[l] > frequency[r]; });
+            return probes;
+        }
     };
 
     ShardPriorities Query(float* Q, int num_voting_neighbors) {
@@ -89,10 +97,12 @@ struct HNSWRouter {
 
         ShardPriorities result;
         result.min_dist.assign(num_shards, std::numeric_limits<float>::max());
+        result.frequency.assign(num_shards, 0);
         while (!near_neighbors.empty()) {
             auto [dist, point_id] = near_neighbors.top();
             near_neighbors.pop();
             result.min_dist[partition[point_id]] = std::min(result.min_dist[partition[point_id]], dist);
+            result.frequency[partition[point_id]]++;
         }
         return result;
     }
