@@ -5,7 +5,7 @@ data_path = 'data/'
 
 datasets = [
     ('sift', 'L2'),
-   # ('glove', 'mips') # actually angular, but this is equivalent if normalized
+    ('glove', 'mips') # actually angular, but this is equivalent if normalized
 ]
 
 partitioning_methods = [
@@ -28,7 +28,7 @@ def compute_partition(dataset, metric, part_method, num_shards):
     arglist = [build_folders[metric] + '/Partition',
                os.path.join(data_path, dataset + '.fbin'),
                os.path.join(data_path, dataset + '.partition'),
-               str(num_shards), part_method]
+               str(num_shards), part_method, 'strong']
     print(arglist)
     subprocess.call(arglist)
 

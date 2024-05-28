@@ -58,7 +58,7 @@ def compute_partition(dataset, part_method, num_shards):
     arglist = [build_folders[metrics[dataset]] + '/Partition',
                os.path.join(data_path, dataset + '_base1B' + file_ending[dataset]),
                os.path.join(data_path, dataset + '.partition'),
-               str(num_shards), part_method]
+               str(num_shards), part_method, 'default']
     if part_method in overlapping_algos:
         import copy
         for o in overlap_values:
