@@ -159,15 +159,15 @@ std::pair<PointSet, std::vector<int>> KMeansTreeRouter::ExtractPoints() {
 }
 
 
-void KMeansTreeRouter::L2Normalize() {
+void KMeansTreeRouter::L2NormalizeTreePoints() {
     for (TreeNode& root : roots) {
         std::queue<TreeNode*> queue;
         queue.push(&root);
         while (!queue.empty()) {
             TreeNode* u = queue.front();
             for (size_t i = 0; i < u->centroids.n; ++i) {
-                float* P = u->centroids.GetPoint(i);
-                L2Normalize(P, u->centroids.d);
+                float* point = u->centroids.GetPoint(i);
+                L2Normalize(point, u->centroids.d);
             }
             queue.pop();
             for (TreeNode& c : u->children) {
@@ -175,3 +175,4 @@ void KMeansTreeRouter::L2Normalize() {
             }
         }
     }
+}

@@ -18,7 +18,7 @@ public:
 
     std::pair<PointSet, std::vector<int>> ExtractPoints();
 
-    void L2Normalize();
+    void L2NormalizeTreePoints();
 private:
     struct TreeNode {
         std::vector<TreeNode> children;

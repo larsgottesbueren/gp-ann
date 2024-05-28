@@ -173,7 +173,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
             #ifdef MIPS_DISTANCE
-            router.L2Normalize();
+            router.L2NormalizeTreePoints();
             #endif
 
             // Standard tree-search routing
