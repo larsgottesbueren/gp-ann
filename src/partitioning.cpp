@@ -242,33 +242,11 @@ CSR ParallelSymmetrizeAndConvertToCSR(const AdjGraph& adj_graph) {
 
 Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool quiet = false) {
     CSR csr = ParallelSymmetrizeAndConvertToCSR(adj_graph);
-    {
-        std::ofstream out("sift.gr");
-        out << csr.xadj.size() - 1 << " " << csr.adjncy.size() / 2 << "\n";
-        for (int u = 0; u + 1 < csr.xadj.size(); ++u) {
-            for (size_t vid = csr.xadj[u]; vid < csr.xadj[u+1]; ++vid) {
-                out << csr.adjncy[vid] + 1 << " ";
-            }
-            out << "\n";
-        }
-
-    }
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, num_threads, quiet);
 }
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& graph_output_path = "") {
     AdjGraph knn_graph = ApproximateKNNGraphBuilder().BuildApproximateNearestNeighborGraph(points, 10);
-    {
-        // hmetis output
-        std::ofstream out("sift.hgr");
-        out << knn_graph.size() << " " << knn_graph.size() << "\n";
-        for (const auto& nbs : knn_graph) {
-            for (const int v : nbs) {
-                out << v + 1 << " ";
-            }
-            out << std::endl;
-        }
-    }
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
         WriteMetisGraph(graph_output_path, knn_graph);
