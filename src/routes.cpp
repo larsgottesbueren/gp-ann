@@ -172,6 +172,10 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             router.Train(points, clusters, routing_index_options);
             std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
+            #ifdef MIPS_DISTANCE
+            router.L2Normalize();
+            #endif
+
             // Standard tree-search routing
             std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
             double time_routing;

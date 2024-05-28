@@ -27,6 +27,8 @@ private:
 
     PointSet ReorderCentroids(PointSet& centroids, std::vector<std::pair<size_t, size_t>>& permutation);
 
+    void L2Normalize();
+
     bool centroids_in_roots = false;
     uint32_t dim = 0;
     std::vector<TreeNode> roots;
