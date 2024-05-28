@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-data_path = 'data5/'
+data_path = 'data/'
 
 datasets = [
     ('sift', 'L2'),
@@ -10,8 +10,9 @@ datasets = [
 
 partitioning_methods = [
     'GP',
+    'RKM',
     #'KMeans',
-    #'BalancedKMeans',
+    'BalancedKMeans',
 ]
 
 num_shards_vals = [16]
