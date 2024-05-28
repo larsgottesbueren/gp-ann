@@ -17,6 +17,8 @@ public:
     std::vector<int> Query(float* Q, int budget);
 
     std::pair<PointSet, std::vector<int>> ExtractPoints();
+
+    void L2Normalize();
 private:
     struct TreeNode {
         std::vector<TreeNode> children;
@@ -26,8 +28,6 @@ private:
     void TrainRecursive(PointSet& points, KMeansTreeRouterOptions options, TreeNode& tree_node, int seed);
 
     PointSet ReorderCentroids(PointSet& centroids, std::vector<std::pair<size_t, size_t>>& permutation);
-
-    void L2Normalize();
 
     bool centroids_in_roots = false;
     uint32_t dim = 0;
