@@ -250,6 +250,10 @@ Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, dou
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, bool strong, const std::string& graph_output_path = "") {
     ApproximateKNNGraphBuilder graph_builder;
+    if (strong) {
+        graph_builder.FANOUT = 5;
+        graph_builder.REPETITIONS = 5;
+    }
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;

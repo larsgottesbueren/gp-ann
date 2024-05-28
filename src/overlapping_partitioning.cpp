@@ -58,6 +58,10 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
     ApproximateKNNGraphBuilder graph_builder;
+    if (strong) {
+        graph_builder.FANOUT = 5;
+        graph_builder.REPETITIONS = 5;
+    }
     timer.Start();
     static constexpr int degree = 10;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, degree);
