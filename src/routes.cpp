@@ -98,6 +98,8 @@ void IterateHNSWRouterConfigsInScheduler(HNSWRouter& hnsw_router, PointSet& quer
         {
             std::vector<std::vector<int>> buckets_to_probe_by_query_hnsw(queries.n);
             parlay::parallel_for(0, queries.n, [&](size_t i) { buckets_to_probe_by_query_hnsw[i] = routing_objects[i].FrequencyQuery(); });
+            double first_shard_recall = MaxFirstShardRoutingRecall(buckets_to_probe_by_query_hnsw, ground_truth, num_neighbors, cover);
+            std::cout << "HNSW frequency routing first shard recall = " << first_shard_recall << std::endl;
             routes.push_back(blueprint);
             auto& new_route = routes.back();
             new_route.routing_algorithm = "HNSW-Frequency";
