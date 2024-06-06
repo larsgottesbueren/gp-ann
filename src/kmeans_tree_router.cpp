@@ -138,6 +138,7 @@ KMeansTreeRouter::FrequencyQueryData KMeansTreeRouter::FrequencyQuery(float* Q, 
     };
     std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
     TopN top_neighbors(num_voting_neighbors);
+    std::vector<float> min_dist(num_shards, std::numeric_limits<float>::max());
 
     for (int u = 0; u < int(roots.size()); ++u) {
         float dist = std::numeric_limits<float>::lowest();
@@ -154,6 +155,7 @@ KMeansTreeRouter::FrequencyQueryData KMeansTreeRouter::FrequencyQuery(float* Q, 
         budget -= top.node->centroids.n;
         for (size_t i = 0; i < top.node->centroids.n; ++i) {
             float dist = distance(top.node->centroids.GetPoint(i), Q, dim);
+            min_dist[top.shard_id] = std::min(min_dist[top.shard_id], dist);
             top_neighbors.Add(std::make_pair(dist, top.shard_id));
             if (i < top.node->children.size()) {
                 pq.push(PQEntry{ dist, top.shard_id, &top.node->children[i] });
@@ -163,6 +165,7 @@ KMeansTreeRouter::FrequencyQueryData KMeansTreeRouter::FrequencyQuery(float* Q, 
 
 
     FrequencyQueryData ret;
+    ret.min_dist = std::move(min_dist);
     ret.near_neighbors = top_neighbors.Take();
     ret.Init();
     return ret;

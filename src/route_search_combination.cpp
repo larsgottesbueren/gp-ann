@@ -115,6 +115,9 @@ void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vecto
     }
 }
 
+// TODO pick Pareto configs for variable index size.
+// Pareto configs with index size = 5M; variable ef_search
+
 void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches,
     const std::string& output_file, int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
 

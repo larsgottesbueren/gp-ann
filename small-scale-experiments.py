@@ -4,7 +4,7 @@ import subprocess
 data_path = 'data/'
 
 datasets = [
-    ('sift', 'L2'),
+#    ('sift', 'L2'),
     ('glove', 'mips') # actually angular, but this is equivalent if normalized
 ]
 
@@ -60,5 +60,5 @@ def run_queries_on_all_datasets():
                 run_query_set(dataset, metric, part_method, num_shards)
 
 
-compute_all_partitions()
+#compute_all_partitions()
 run_queries_on_all_datasets()

@@ -85,9 +85,20 @@ struct HNSWRouter {
         }
 
         std::vector<int> FrequencyQuery() const {
-            std::vector<int> probes(min_dist.size());
-            std::iota(probes.begin(), probes.end(), 0);
-            std::sort(probes.begin(), probes.end(), [&](int l, int r) { return frequency[l] > frequency[r]; });
+            std::vector<int> probes;
+            size_t highest_freq = 0;
+            for (size_t b = 1; b < frequency.size(); ++b) {
+                if (frequency[b] > frequency[highest_freq]) {
+                    highest_freq = b;
+                }
+            }
+            probes.push_back(highest_freq);
+            for (size_t b = 0; b < frequency.size(); ++b) {
+                if (b != highest_freq) {
+                    probes.push_back(b);
+                }
+            }
+            std::sort(probes.begin() + 1, probes.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
             return probes;
         }
     };

@@ -60,14 +60,14 @@ int main(int argc, const char* argv[]) {
     }
 #endif
 
-#if false
+#if true
     if (argc != 6) {
         std::cerr << "Usage ./Convert routes searches output part-method query-file" << std::endl;
         std::abort();
     }
 
     std::string searches_file = argv[2];
-    auto searches = DeserializeShardSearchesOldFormat(searches_file);
+    auto searches = DeserializeShardSearches(searches_file);
 
     std::cout << "Finished loading searches" << std::endl;
 
