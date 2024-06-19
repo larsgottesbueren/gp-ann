@@ -262,15 +262,17 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
 
     std::cout << "Objective " << ObjectiveValue(points, centroids, closest_center) << std::endl;
 
-    auto cluster_norm_sums =
-            parlay::reduce_by_index(parlay::zip(closest_center, parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; })), centroids.n);
+
+    auto d_vec_sqrt_norms = parlay::delayed_map(vector_sqrt_norms, [](float x) -> double { return x; });
+    auto assignment_and_norm = parlay::zip(closest_center, d_vec_sqrt_norms);
+    auto cluster_norm_sums = parlay::reduce_by_index(assignment_and_norm, centroids.n);
 
     std::cout << "cluster norm sums ";
     for (size_t j = 0; j < cluster_norm_sums.size(); ++j) {
         std::cout << cluster_norm_sums[j] << " ";
     }
     std::cout << std::endl;
-    std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0) << std::endl;
+    std::cout << "total norm sums " << std::accumulate(cluster_norm_sums.begin(), cluster_norm_sums.end(), 0.0) << std::endl;
 
     auto is_balanced = [&] { return parlay::all_of(cluster_sizes, [&](size_t cluster_size) { return cluster_size <= max_cluster_size; }); };
 
@@ -299,7 +301,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     };
 
     int round = 0;
-    constexpr int MAX_ROUNDS = 500;
+    constexpr int MAX_ROUNDS = 150;
     double round_penalty = 0.0;
 
     std::vector<int> best_partition = closest_center;
@@ -370,6 +372,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
     while (round++ <= MAX_ROUNDS) {
         std::cout << "round = " << round << " penalty " << round_penalty << std::endl;
 
+#if false
         while (parlay::any_of(cluster_sizes, [&](size_t cs) { return cs == 0; })) {
             int largest = 0;
             int smallest = -1;
@@ -394,6 +397,7 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
             }
             update_centroids();
         }
+#endif
 
         // mini-batch cluster moves and updates
         auto perm = parlay::random_shuffle(parlay::iota<uint32_t>(points.n), parlay::random(round));
@@ -471,6 +475,50 @@ std::vector<int> BalancedKMeans(PointSet& points, PointSet& centroids, size_t ma
             round_penalty = penalty_function_iter(round) * next_penalty;
         }
     }
+
+    cluster_sizes = AggregateClustersParallel(points, centroids, best_partition, vector_sqrt_norms, true);
+    int num_clusters = cluster_sizes.size();
+
+    print_cluster_sizes();
+
+    int num_overloaded_clusters = 0;
+    for (int part_id = 0; part_id < num_clusters; ++part_id) {
+        if (cluster_sizes[part_id] > max_cluster_size) {
+            num_overloaded_clusters++;
+        }
+    }
+    if (num_overloaded_clusters == 0) {
+        return best_partition;
+    }
+
+    std::cout << "There are " << num_overloaded_clusters << " / " << num_clusters << " too heavy clusters. Rebalance stuff" << std::endl;
+    Clusters clusters = ConvertPartitionToClusters(best_partition);
+    for (int c = 0; c < num_clusters; ++c) {
+        while (clusters[c].size() > max_cluster_size) {
+            // remigrate points -- just skip updating the centroids
+            uint32_t v = clusters[c].back();
+            float min_dist = std::numeric_limits<float>::max();
+            int target = -1;
+            for (size_t j = 0; j < clusters.size(); ++j) {
+                if (clusters[j].size() < max_cluster_size) {
+                    if (float dist = distance(points.GetPoint(v), centroids.GetPoint(j), points.d); dist < min_dist) {
+                        min_dist = dist;
+                        target = j;
+                    }
+                }
+            }
+            assert(target != -1);
+            clusters[target].push_back(v);
+            best_partition[v] = target;
+            clusters[c].pop_back();
+        }
+    }
+
+    for (int c = 0; c < num_clusters; ++c) {
+        cluster_sizes[c] = clusters[c].size();
+    }
+
+    print_cluster_sizes();
 
     return best_partition;
 }

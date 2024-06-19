@@ -47,7 +47,7 @@ std::pair<int, int> TopMove(uint32_t u, const NeighborRange& neighbors, const Co
     return std::make_pair(best_part, best_affinity);
 }
 
-Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap) {
+Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double epsilon, double overlap, bool strong) {
     const size_t max_cluster_size = (1.0 + epsilon) * points.n / num_clusters;
     const size_t num_extra_assignments = overlap * points.n;
     // previously const size_t num_extra_assignments = (1.0 + epsilon) * n * (1.0 + overlap) - n
@@ -58,12 +58,16 @@ Clusters OverlappingGraphPartitioning(PointSet& points, int num_clusters, double
     std::cout << "max cluster size " << max_cluster_size << " num clusters " << num_clusters << " eps " << epsilon << " overlap " << overlap << std::endl;
     Timer timer;
     ApproximateKNNGraphBuilder graph_builder;
+    if (strong) {
+        graph_builder.FANOUT = 5;
+        graph_builder.REPETITIONS = 5;
+    }
     timer.Start();
     static constexpr int degree = 10;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, degree);
     std::cout << "Built KNN graph. Took " << timer.Stop() << std::endl;
 
-    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false);
+    Partition partition = PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), strong, false);
     Cover cover = ConvertPartitionToCover(partition);
     Clusters clusters = ConvertPartitionToClusters(partition);
 

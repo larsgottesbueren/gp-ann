@@ -34,8 +34,8 @@ void PrintImbalance(std::vector<int>& partition, int k) {
 }
 
 int main(int argc, const char* argv[]) {
-    if (argc != 5 && argc != 6) {
-        std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method [overlap]" << std::endl;
+    if (argc != 6 && argc != 7) {
+        std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method (default|strong) [overlap]" << std::endl;
         std::abort();
     }
 
@@ -46,9 +46,17 @@ int main(int argc, const char* argv[]) {
     std::string part_method = argv[4];
     std::string part_file = output_file + ".k=" + k_str + "." + part_method;
 
+    std::string config = argv[5];
+    bool strong = false;
+    if (config == "strong") {
+        strong = true;
+    } else if (config != "default") {
+        throw std::runtime_error("Unknown config: " + config);
+    }
+
     double overlap = 0.0;
-    if (argc == 6) {
-        std::string overlap_str = argv[5];
+    if (argc == 7) {
+        std::string overlap_str = argv[6];
         overlap = std::stod(overlap_str);
         part_file += ".o=" + overlap_str;
     }
@@ -77,12 +85,11 @@ int main(int argc, const char* argv[]) {
         part_method = "OGP";
     }
 
-
     const double eps = 0.05;
     std::vector<int> partition;
     Clusters clusters;
     if (part_method == "GP") {
-        partition = GraphPartitioning(points, k, eps);
+        partition = GraphPartitioning(points, k, eps, strong);
     } else if (part_method == "Pyramid") {
         partition = PyramidPartitioning(points, k, eps, part_file + ".pyramid_routing_index");
     } else if (part_method == "KMeans") {
@@ -102,13 +109,13 @@ int main(int argc, const char* argv[]) {
     } else if (part_method == "OurPyramid") {
         partition = OurPyramidPartitioning(points, k, eps, part_file + ".our_pyramid_routing_index", 0.02);
     } else if (part_method == "OGP") {
-        clusters = OverlappingGraphPartitioning(points, k, eps, overlap);
+        clusters = OverlappingGraphPartitioning(points, k, eps, overlap, strong);
     } else if (part_method == "OGPS") {
         const size_t max_cluster_size = (1.0 + eps) * points.n / k;
         const size_t num_extra_assignments = overlap * points.n;
         const size_t num_total_assignments = points.n + num_extra_assignments;
         int adjusted_num_clusters = std::ceil(static_cast<double>(num_total_assignments) / max_cluster_size);
-        auto kmp = GraphPartitioning(points, adjusted_num_clusters, eps);
+        auto kmp = GraphPartitioning(points, adjusted_num_clusters, eps, false);
         clusters = OverlappingKMeansPartitioningSPANN(points, kmp, k, eps, overlap);
     } else if (part_method == "OKM") {
         // leave the same num clusters, since k-means will use more than requested anyways
