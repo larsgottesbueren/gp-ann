@@ -33,11 +33,11 @@ int main(int argc, const char* argv[]) {
     std::string query_file = argv[2];
     std::string ground_truth_file = argv[3];
     std::string k_string = argv[4];
-    int num_neighbors = std::stoi(k_string);
-    std::string partition_file = argv[5];
-    std::string output_file = argv[6];
-    std::string part_method = argv[7];
-    std::string requested_num_shards_str = argv[8];
+    int max_num_neighbors = std::stoi(k_string);
+    std::string partition_file = argv[4];
+    std::string output_file = argv[5];
+    std::string part_method = argv[6];
+    std::string requested_num_shards_str = argv[7];
     int requested_num_shards = std::stoi(requested_num_shards_str);
 
     PointSet points = ReadPoints(point_file);
@@ -49,11 +49,17 @@ int main(int argc, const char* argv[]) {
         std::cout << "Read ground truth file" << std::endl;
     } else {
         std::cout << "start computing ground truth" << std::endl;
-        ground_truth = ComputeGroundTruth(points, queries, num_neighbors);
+        ground_truth = ComputeGroundTruth(points, queries, max_num_neighbors);
         std::cout << "computed ground truth" << std::endl;
         WriteGroundTruth(ground_truth_file, ground_truth);
     }
-    std::vector<float> distance_to_kth_neighbor = ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries);
+
+    std::vector<int> num_neighbors_values = { 100, 10, 1 };
+    std::vector<std::vector<float>> distance_to_kth_neighbor;
+    for (int num_neighbors : num_neighbors_values) {
+        distance_to_kth_neighbor.push_back(ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries));
+    }
+
     std::cout << "Finished computing distance to kth neighbor" << std::endl;
 
 #if false
@@ -75,16 +81,20 @@ int main(int argc, const char* argv[]) {
         our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
     }
 
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options, ground_truth, num_neighbors,
+    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options, ground_truth, max_num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
     std::cout << "Finished routing configs" << std::endl;
     SerializeRoutes(routes, output_file + ".routes");
 
     std::cout << "Start shard searches" << std::endl;
-    std::vector<ShardSearch> shard_searches =
-            RunInShardSearches(points, queries, HNSWParameters(), num_neighbors, clusters, num_shards, distance_to_kth_neighbor);
+    std::vector<std::vector<ShardSearch>> shard_searches =
+            RunInShardSearches(points, queries, HNSWParameters(), num_neighbors_values, clusters, num_shards, distance_to_kth_neighbor);
     std::cout << "Finished shard searches" << std::endl;
-    SerializeShardSearches(shard_searches, output_file + ".searches");
+    for (int i = 0; i < num_neighbors_values.size(); ++i) {
+        int num_neighbors = num_neighbors_values[i];
+        SerializeShardSearches(shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors) + ".searches");
 
-    PrintCombinationsOfRoutesAndSearches(routes, shard_searches, output_file, num_neighbors, queries.n, num_shards, requested_num_shards, part_method);
+        PrintCombinationsOfRoutesAndSearches(routes, shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors), num_neighbors, queries.n,
+                                             num_shards, requested_num_shards, part_method);
+    }
 }

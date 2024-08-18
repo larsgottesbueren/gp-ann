@@ -79,6 +79,8 @@ def compute_all_partitions():
                 compute_partition(dataset, part_method, num_shards)
 
 
+max_num_neighbors = 100
+
 def run_query_set(dataset, part_method, num_shards, overlap):
     pfx = os.path.join(data_path, dataset)
     sfx = ''
@@ -86,7 +88,7 @@ def run_query_set(dataset, part_method, num_shards, overlap):
         sfx = '.o=' + str(overlap)
     arglist = [build_folders[metrics[dataset]] + '/QueryAttribution',
                pfx + '_base1B' + file_ending[dataset], pfx + '_query' + file_ending[dataset], pfx + '_ground-truth.bin',
-               #str(num_neighbors),
+               str(max_num_neighbors),
                pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
                "exp_outputs2/" + dataset + "." + part_method + ".k=" + str(num_shards) + sfx,
                part_method,
