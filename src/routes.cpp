@@ -7,6 +7,7 @@
 #include "hnsw_router.h"
 #include "kmeans_tree_router.h"
 #include "metis_io.h"
+#include "dist.h"
 
 double MaxFirstShardRoutingRecall(const std::vector<std::vector<int>>& buckets_to_probe, const std::vector<NNVec>& ground_truth, int num_neighbors,
                                   const Cover& cover) {
