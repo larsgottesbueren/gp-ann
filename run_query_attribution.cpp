@@ -34,10 +34,10 @@ int main(int argc, const char* argv[]) {
     std::string ground_truth_file = argv[3];
     std::string k_string = argv[4];
     int max_num_neighbors = std::stoi(k_string);
-    std::string partition_file = argv[4];
-    std::string output_file = argv[5];
-    std::string part_method = argv[6];
-    std::string requested_num_shards_str = argv[7];
+    std::string partition_file = argv[5];
+    std::string output_file = argv[6];
+    std::string part_method = argv[7];
+    std::string requested_num_shards_str = argv[8];
     int requested_num_shards = std::stoi(requested_num_shards_str);
 
     PointSet points = ReadPoints(point_file);
