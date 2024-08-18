@@ -16,7 +16,7 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
     Timer init_timer;
     init_timer.Start();
     std::vector<std::vector<ShardSearch>> shard_searches;
-    for (int num_neighbors : num_neighbors_values) {
+    for (int _ : num_neighbors_values) {
         shard_searches.emplace_back(ef_search_param_values.size());
         for (size_t i = 0; i < ef_search_param_values.size(); ++i) {
             shard_searches.back()[i].Init(ef_search_param_values[i], num_shards, queries.n);
@@ -88,7 +88,7 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                         while (!pq.empty()) {
                             auto top = pq.top();
                             pq.pop();
-                            if (top.first <= distance_to_kth_neighbor[q]) {
+                            if (top.first <= distance_to_kth_neighbor[i][q]) {
                                 hits++;
                                 // only need to record a hit... this actually makes things easier later on
                                 nn.push_back(cluster[top.second]);

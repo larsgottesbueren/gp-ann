@@ -32,4 +32,4 @@ std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& in
 
 std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters,
                                                          std::vector<int> num_neighbors_values, const Clusters& clusters, int num_shards,
-                                                         const std::vector<std::vector<float>>& distance_to_kth_neighbor)
+                                                         const std::vector<std::vector<float>>& distance_to_kth_neighbor);
