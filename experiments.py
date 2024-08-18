@@ -20,34 +20,34 @@ file_ending = {
 }
 
 datasets = [
- #   'spacev', 
+    'spacev', 
     'sift1B', 
- #   'turing', 
- #   'deep', 
- #   'text-to-image'
+    'turing', 
+    'deep', 
+    'text-to-image'
 ]
 
 partitioning_methods = [
     'GP', 
     #'KMeans',
     'BalancedKMeans',
-    #'OGP',
+    'OGP',
     #'OGPS',
-    #'OBKM',
+    'OBKM',
     #'OKM',
-    #'Pyramid',
-    #'RKM',
-    #'ORKM',
+    'Pyramid',
+    'RKM',
+    'ORKM',
     # 'OurPyramid'
 ]
 
 num_shards_vals = [40]  # , 20, 10]
 
-overlap_values = [0.2, 0.0]
+overlap_values = [0.2]
 
-overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM']
+overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM', 'ORKM']
 
-num_neighbors = 10
+num_neighbors_values = [1,10,100]
 
 build_folders = {
     'L2': 'release_l2',
@@ -81,7 +81,7 @@ def compute_all_partitions():
                 compute_partition(dataset, part_method, num_shards)
 
 
-def run_query_set(dataset, part_method, num_shards, overlap):
+def run_query_set(dataset, part_method, num_shards, overlap, num_neighbors):
     pfx = os.path.join(data_path, dataset)
     sfx = ''
     if part_method in overlapping_algos:
@@ -90,7 +90,7 @@ def run_query_set(dataset, part_method, num_shards, overlap):
                pfx + '_base1B' + file_ending[dataset], pfx + '_query' + file_ending[dataset], pfx + '_ground-truth.bin',
                str(num_neighbors),
                pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
-               "exp_outputs/" + dataset + "." + part_method + ".k=" + str(num_shards) + sfx,
+               "exp_outputs2/" + dataset + "." + part_method + ".k=" + str(num_shards) + '.nn=' + str(num_neighbors) + sfx,
                part_method,
                str(num_shards)
                ]
@@ -101,13 +101,14 @@ def run_query_set(dataset, part_method, num_shards, overlap):
 def run_queries_on_all_datasets():
     for dataset in datasets:
         for part_method in partitioning_methods:
-            for num_shards in num_shards_vals:
-                if part_method not in overlapping_algos:
-                    run_query_set(dataset, part_method, num_shards, 0.0)
-                else:
-                    for overlap in overlap_values:
-                        run_query_set(dataset, part_method, num_shards, overlap)
+            for num_neighbors in num_neighbors_values:
+                for num_shards in num_shards_vals:
+                    if part_method not in overlapping_algos:
+                        run_query_set(dataset, part_method, num_shards, 0.0, num_neighbors)
+                    else:
+                        for overlap in overlap_values:
+                            run_query_set(dataset, part_method, num_shards, overlap, num_neighbors)
 
 
-compute_all_partitions()
-#run_queries_on_all_datasets()
+#compute_all_partitions()
+run_queries_on_all_datasets()
