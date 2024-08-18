@@ -362,6 +362,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         rc.try_increasing_num_shards = true;
         rc.routing_index_options.search_budget = clusters.size();
         std::tie(rc.routing_time, rc.buckets_to_probe) = RouteUsingSingleCenter(points, queries, clusters);
+        std::cout << "single center routing. first shard recall = " << MaxFirstShardRoutingRecall(rc.buckets_to_probe, ground_truth, num_neighbors, cover) << std::endl;
         routes.push_back(rc);
     }
 
