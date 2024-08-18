@@ -160,6 +160,76 @@ std::vector<KMeansTreeRouterOptions> GenerateRouterConfigs(KMeansTreeRouterOptio
     return routing_index_option_vals;
 }
 
+// Return (Time, Probes)
+std::pair<double, std::vector<std::vector<int>>> RouteUsingSingleCenter(PointSet& points, PointSet& queries, const Clusters& clusters) {
+    PointSet centers;
+    centers.d = points.d;
+    centers.n = clusters.size();
+    centers.Alloc();
+    parlay::parallel_for(
+            0, clusters.size(),
+            [&](size_t c) {
+                // avoid false sharing
+                PointSet CC;
+                CC.d = points.d;
+                CC.n = 1;
+                CC.Alloc();
+                float* C = CC.GetPoint(0);
+
+                double norm_sum = 0.0;
+                for (uint32_t v : clusters[c]) {
+                    float* V = points.GetPoint(v);
+#ifdef MIPS_DISTANCE
+                    double norm = vec_norm(V, centers.d);
+                    norm_sum += norm;
+                    float multiplier = 1.0f / std::sqrt(norm);
+                    for (size_t j = 0; j < centers.d; ++j) {
+                        C[j] += V[j] * multiplier;
+                    }
+#else
+                    for (size_t j = 0; j < centers.d; ++j) {
+                        C[j] += V[j];
+                    }
+#endif
+                }
+#ifdef MIPS_DISTANCE
+                float desired_norm = norm_sum / clusters[c].size();
+                float current_norm = vec_norm(C, centers.d);
+                float multiplier = std::sqrt(desired_norm / current_norm);
+                for (size_t j = 0; j < centers.d; ++j) {
+                    C[j] *= multiplier;
+                }
+#else
+                for (size_t j = 0; j < centers.d; ++j) {
+                    C[j] /= clusters[c].size();
+                }
+
+                // copy over
+                float* C2 = centers.GetPoint(c);
+                for (size_t j = 0; j < centers.d; ++j) {
+                    C2[j] = C[j];
+                }
+#endif
+            },
+            1);
+
+    Timer routing_timer;
+    routing_timer.Start();
+    std::vector<std::vector<int>> probes(queries.n, std::vector<int>(clusters.size()));
+    parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+        parlay::parallel_for(0, queries.n, [&](size_t q) {
+            std::vector<float> min_dist;
+            for (size_t c = 0; c < clusters.size(); ++c) {
+                min_dist.push_back(distance(queries.GetPoint(q), centers.GetPoint(c), queries.d));
+            }
+            auto& p = probes[q];
+            std::iota(p.begin(), p.end(), 0);
+            std::sort(p.begin(), p.end(), [&](int l, int r) { return min_dist[l] < min_dist[r]; });
+        });
+    });
+    double time = routing_timer.Stop();
+    return std::make_pair(time, probes);
+}
 
 std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& queries, const Clusters& clusters, int num_shards,
                                                  KMeansTreeRouterOptions routing_index_options_blueprint, const std::vector<NNVec>& ground_truth,
@@ -281,6 +351,16 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             buckets_to_probe[q] = std::move(probes);
         }
         rc.buckets_to_probe = std::move(buckets_to_probe);
+        routes.push_back(rc);
+    }
+
+    { // single center routing
+        RoutingConfig rc;
+        rc.index_trainer = "Single-Center";
+        rc.routing_algorithm = "Brute-Force";
+        rc.try_increasing_num_shards = true;
+        rc.routing_index_options.search_budget = clusters.size();
+        std::tie(rc.routing_time, rc.buckets_to_probe) = RouteUsingSingleCenter(points, queries, clusters);
         routes.push_back(rc);
     }
 
