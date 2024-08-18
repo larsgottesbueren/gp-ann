@@ -14,8 +14,8 @@ metrics = {
 file_ending = {
     'spacev' : '.i8bin',
     'sift1B' : '.u8bin',
-    'turing' : '.fbin',
     'deep' : '.fbin',
+    'turing' : '.fbin',
     'text-to-image' : '.fbin'
 }
 
