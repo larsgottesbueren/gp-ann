@@ -3,7 +3,7 @@
 #include "defs.h"
 
 struct ShardSearch {
-    ShardSearch() { };
+    ShardSearch() {};
 
     void Init(size_t ef_search, int num_shards, size_t num_queries) {
         this->ef_search = ef_search;
@@ -30,5 +30,6 @@ std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file)
 
 std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& input_file);
 
-std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-                                            const Clusters& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor);
+std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters,
+                                                         std::vector<int> num_neighbors_values, const Clusters& clusters, int num_shards,
+                                                         const std::vector<std::vector<float>>& distance_to_kth_neighbor)

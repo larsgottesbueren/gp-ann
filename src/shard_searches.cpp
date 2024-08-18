@@ -1,21 +1,27 @@
 #include "shard_searches.h"
 
-#include <iostream>
-#include <sstream>
 #include <fstream>
-#include "defs.h"
-#include "../external/hnswlib/hnswlib/hnswlib.h"
+#include <iostream>
 #include <parlay/parallel.h>
 #include <parlay/sequence.h>
+#include <sstream>
+#include "../external/hnswlib/hnswlib/hnswlib.h"
+#include "defs.h"
 
-std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters, int num_neighbors,
-                                            const Clusters& clusters, int num_shards, const std::vector<float>& distance_to_kth_neighbor) {
+std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters,
+                                                         std::vector<int> num_neighbors_values, const Clusters& clusters, int num_shards,
+                                                         const std::vector<std::vector<float>>& distance_to_kth_neighbor) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
     Timer init_timer;
     init_timer.Start();
-    std::vector<ShardSearch> shard_searches(ef_search_param_values.size());
-    for (size_t i = 0; i < ef_search_param_values.size(); ++i) { shard_searches[i].Init(ef_search_param_values[i], num_shards, queries.n); }
+    std::vector<std::vector<ShardSearch>> shard_searches;
+    for (int num_neighbors : num_neighbors_values) {
+        shard_searches.emplace_back(ef_search_param_values.size());
+        for (size_t i = 0; i < ef_search_param_values.size(); ++i) {
+            shard_searches.back()[i].Init(ef_search_param_values[i], num_shards, queries.n);
+        }
+    }
     std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
     for (int b = 0; b < num_shards; ++b) {
@@ -40,61 +46,63 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
         // do some insertion sequentially
         const size_t seq_insertion = std::min(1UL << 11, cluster.size());
-        for (size_t i = 0; i < seq_insertion; ++i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }
+        for (size_t i = 0; i < seq_insertion; ++i) {
+            hnsw.addPoint(points.GetPoint(cluster[i]), i);
+        }
         parlay::parallel_for(seq_insertion, cluster.size(), [&](size_t i) { hnsw.addPoint(points.GetPoint(cluster[i]), i); }, 512);
 
         std::cout << "HNSW build took " << build_timer.Stop() << std::endl;
 
         parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
-            size_t ef_search_param_id = 0;
-            for (const size_t ef_search : ef_search_param_values) {
-                parlay::sequence<std::priority_queue<std::pair<float, unsigned long>>> results(queries.n);
-                hnsw.setEf(ef_search);
-                parlay::parallel_for(0, queries.n, [&](size_t q) {
-                    results[q] = hnsw.searchKnn(queries.GetPoint(q), num_neighbors);
-                }, 10);
+            for (size_t i = 0; i < num_neighbors_values.size(); ++i) {
+                int num_neighbors = num_neighbors_values[i];
+                size_t ef_search_param_id = 0;
+                for (const size_t ef_search : ef_search_param_values) {
+                    parlay::sequence<std::priority_queue<std::pair<float, unsigned long>>> results(queries.n);
+                    hnsw.setEf(ef_search);
+                    parlay::parallel_for(0, queries.n, [&](size_t q) { results[q] = hnsw.searchKnn(queries.GetPoint(q), num_neighbors); }, 10);
 
-                std::vector<double> time_measurements;
-                size_t num_reps = 5;
-                for (size_t r = 0; r < num_reps; ++r) {
-                    Timer total;
-                    total.Start();
-                    parlay::parallel_for(0, queries.n,
-                        [&](size_t q) { hnsw.searchKnn(queries.GetPoint(q), num_neighbors); }, 10);
-                    const double elapsed = total.Stop();
-                    time_measurements.push_back(elapsed);
-                }
-                std::sort(time_measurements.begin(), time_measurements.end());
-                double elapsed = time_measurements[time_measurements.size() / 2];   // take median
-
-                size_t total_hits = 0;
-                parlay::parallel_for(0, queries.n, [&](size_t q) {
-                    // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
-                    // want to repeat the query for each probe config (which we don't because it would take forever.
-                    // this is the parameter tuning code after all.)
-                    shard_searches[ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
-
-                    // now transfer the neighbors
-                    auto& nn = shard_searches[ef_search_param_id].neighbors[b][q];
-                    auto& pq = results[q];
-                    size_t hits = 0;
-                    while (!pq.empty()) {
-                        auto top = pq.top();
-                        pq.pop();
-                        if (top.first <= distance_to_kth_neighbor[q]) {
-                            hits++;
-                            // only need to record a hit... this actually makes things easier later on
-                            nn.push_back(cluster[top.second]);
-                        }
+                    std::vector<double> time_measurements;
+                    size_t num_reps = 1;
+                    for (size_t r = 0; r < num_reps; ++r) {
+                        Timer total;
+                        total.Start();
+                        parlay::parallel_for(0, queries.n, [&](size_t q) { hnsw.searchKnn(queries.GetPoint(q), num_neighbors); }, 10);
+                        const double elapsed = total.Stop();
+                        time_measurements.push_back(elapsed);
                     }
-                    __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
-                });
+                    std::sort(time_measurements.begin(), time_measurements.end());
+                    double elapsed = time_measurements[time_measurements.size() / 2]; // take median
 
-                std::cout << "Shard search with ef-search = " << ef_search << " total hits " << total_hits <<
-                        " median time " << elapsed << std::endl;
+                    size_t total_hits = 0;
+                    parlay::parallel_for(0, queries.n, [&](size_t q) {
+                        // a not so nice hack, but there is no other way to measure parallel runtime, if we don't
+                        // want to repeat the query for each probe config (which we don't because it would take forever.
+                        // this is the parameter tuning code after all.)
+                        shard_searches[i][ef_search_param_id].time_query_in_shard[b][q] = elapsed / queries.n;
 
-                ef_search_param_id++;
+                        // now transfer the neighbors
+                        auto& nn = shard_searches[i][ef_search_param_id].neighbors[b][q];
+                        auto& pq = results[q];
+                        size_t hits = 0;
+                        while (!pq.empty()) {
+                            auto top = pq.top();
+                            pq.pop();
+                            if (top.first <= distance_to_kth_neighbor[q]) {
+                                hits++;
+                                // only need to record a hit... this actually makes things easier later on
+                                nn.push_back(cluster[top.second]);
+                            }
+                        }
+                        __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
+                    });
+
+                    std::cout << "Shard search with ef-search = " << ef_search << " num neighbors = " << num_neighbors << " total hits " << total_hits << " median time " << elapsed << std::endl;
+
+                    ef_search_param_id++;
+                }
             }
+
 
             std::cout << "Finished searches in bucket " << b << std::endl;
         });
@@ -102,7 +110,6 @@ std::vector<ShardSearch> RunInShardSearches(PointSet& points, PointSet& queries,
 
     return shard_searches;
 }
-
 
 
 std::string ShardSearch::Serialize() const {
@@ -119,7 +126,9 @@ std::string ShardSearch::Serialize() const {
         }
     }
     for (const auto& tq : time_query_in_shard) {
-        for (double x : tq) { out << x << " "; }
+        for (double x : tq) {
+            out << x << " ";
+        }
         out << "\n";
     }
     return out.str();
@@ -175,7 +184,8 @@ std::vector<ShardSearch> DeserializeShardSearches(const std::string& input_file)
     std::vector<ShardSearch> shard_searches;
     for (size_t i = 0; i < num_searches; ++i) {
         std::getline(in, header);
-        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
+        if (header != "S")
+            std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
         ShardSearch s = ShardSearch::Deserialize(in);
         shard_searches.push_back(std::move(s));
     }
@@ -197,7 +207,8 @@ ShardSearch DeserializeOldFormat(std::ifstream& in) {
         int q = 0;
         while (line_stream >> hits) {
             // old format only stored number of hits, not neighbor ids. this was fine for non-overlapping clusters, but doesn't work with overlap.
-            // for the comparisons we make, we are only interested in the number of hits, so to bring the two formats together, just create fake ids for the hits
+            // for the comparisons we make, we are only interested in the number of hits, so to bring the two formats together, just create fake ids for the
+            // hits
             int fake_neighbor_id = 0;
             for (int b2 = b - 1; b2 >= 0; --b2) {
                 if (!s.neighbors[b2][q].empty()) {
@@ -235,10 +246,10 @@ std::vector<ShardSearch> DeserializeShardSearchesOldFormat(const std::string& in
     std::vector<ShardSearch> shard_searches;
     for (size_t i = 0; i < num_searches; ++i) {
         std::getline(in, header);
-        if (header != "S") std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
+        if (header != "S")
+            std::cout << "search config doesn't start with marker S. Instead: " << header << std::endl;
         ShardSearch s = DeserializeOldFormat(in);
         shard_searches.push_back(std::move(s));
     }
     return shard_searches;
-
 }
