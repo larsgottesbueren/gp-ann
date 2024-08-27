@@ -7,6 +7,7 @@
 #include "route_search_combination.h"
 
 void SetAffinity() {
+    #if !defined(_MSC_VER) && !defined(__APPLE__)
     cpu_set_t mask;
     CPU_ZERO(&mask);
     for (int cpu = 0; cpu < 64; ++cpu) {
@@ -17,6 +18,7 @@ void SetAffinity() {
         std::cerr << "thread pinning failed" << std::endl;
         std::abort();
     }
+    #endif
 }
 
 int main(int argc, const char* argv[]) {

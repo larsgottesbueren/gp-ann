@@ -414,12 +414,12 @@ std::pair<Partition, PointSet> HierarchicalKMeansParlayImpl(PointSet& points, do
 
     parlay::for_each(parlay::zip(clusters, recursion_results, point_offsets, part_id_offsets), [&](const auto& z1) {
         const auto& [cluster, recursive_partition_and_points, point_offset, part_id_offset] = z1;
-
+        int pio = part_id_offset;
         // remap part IDs
         const auto& recursive_partition = recursive_partition_and_points.first;
         parlay::for_each(parlay::zip(recursive_partition, cluster), [&](const auto& z2) {
             const auto& [rec_part_id, global_point_id] = z2;
-            level_partition[global_point_id] = rec_part_id + part_id_offset;
+            level_partition[global_point_id] = rec_part_id + pio;
         });
 
         // merge points
