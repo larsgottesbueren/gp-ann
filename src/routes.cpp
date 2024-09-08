@@ -453,6 +453,7 @@ std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
     std::getline(in, header);
     std::istringstream iss(header);
     iss >> num_routes;
+    std::cout << "Num routes " << num_routes << std::endl;
     std::vector<RoutingConfig> routes;
     for (size_t i = 0; i < num_routes; ++i) {
         std::getline(in, header);
