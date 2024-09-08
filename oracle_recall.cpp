@@ -52,6 +52,11 @@ int main(int argc, const char* argv[]) {
 
     int num_neighbors = std::stoi(k_string);
 
+    if (!std::filesystem::exists(routes_file)) {
+        throw std::runtime_error("Routes file doesn't exist. " + routes_file);
+    }
+    std::vector<RoutingConfig> routes = DeserializeRoutes(routes_file);
+
 #if true
     auto clusters = ReadClusters(partition_file);
     Cover cover = ConvertClustersToCover(clusters);
@@ -70,8 +75,6 @@ int main(int argc, const char* argv[]) {
     } else {
         throw std::runtime_error("ground truth file doesnt exist");
     }
-
-    std::vector<RoutingConfig> routes = DeserializeRoutes(routes_file);
 
     auto rrv = parlay::map(routes, [&](const RoutingConfig& route) {
         return RecallForIncreasingProbes(route.buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);

@@ -2,8 +2,12 @@
 
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 
 std::vector<int> ReadMetisPartition(const std::string& path) {
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error("Partition file " + path + " does not exist");
+    }
     std::ifstream in(path);
     std::vector<int> partition;
     int part;
@@ -38,6 +42,9 @@ void WriteMetisGraph(const std::string& path, const AdjGraph& graph) {
 }
 
 Clusters ReadClusters(const std::string& path) {
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error("Clustering file " + path + " does not exist");
+    }
     std::ifstream in(path);
     std::string line;
     Clusters clusters;
