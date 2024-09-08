@@ -47,7 +47,7 @@ num_shards_vals = [40]  # , 20, 10]
 
 overlap_values = [0.2]
 
-overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM']
+overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM', 'ORKM']
 
 num_neighbors_values = [1,10,100]
 
@@ -79,6 +79,9 @@ def run_on_all_datasets(my_func):
     for dataset in datasets:
         metric = metrics[dataset]
         for part_method in partitioning_methods:
+            if dataset == 'spacev' and part_method != 'ORKM':
+                print('Skipping', dataset, part_method, 'because it already ran')
+                continue
             for num_shards in num_shards_vals:
                 if part_method not in overlapping_algos:
                     my_func(dataset, metric, part_method, num_shards, 0.0)
