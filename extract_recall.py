@@ -76,7 +76,8 @@ def extract_recall(dataset, metric, part_method, num_shards, overlap):
         subprocess.call(arglist)
 
 def run_on_all_datasets(my_func):
-    for dataset, metric in datasets:
+    for dataset in datasets:
+        metric = metrics[dataset]
         for part_method in partitioning_methods:
             for num_shards in num_shards_vals:
                 if part_method not in overlapping_algos:
@@ -100,5 +101,5 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
     print(arglist)
     subprocess.call(arglist)
 
-# run_on_all_datasets(extract_recall)
-run_on_all_datasets(analyze_losses)
+run_on_all_datasets(extract_recall)
+#run_on_all_datasets(analyze_losses)
