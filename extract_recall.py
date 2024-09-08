@@ -66,7 +66,7 @@ def extract_recall(dataset, metric, part_method, num_shards, overlap):
         # ground-truth-file routes-file num_neighbors partition-file part-method out-file
         arglist = [build_folders[metric] + '/OracleRecall',
                 pfx + '_ground-truth.bin',
-                'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.nn=' + str(num_neighbors) + '.routes',
+                'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.routes',
                 str(num_neighbors),
                 pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
                 part_method,
