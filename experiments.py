@@ -73,9 +73,6 @@ def compute_all_partitions():
     for dataset in datasets:
         for part_method in partitioning_methods:
             for num_shards in num_shards_vals:
-                if part_method == 'OGPS' and dataset == 'turing':
-                    print('skipping', part_method, dataset)
-                    continue
                 compute_partition(dataset, part_method, num_shards)
 
 

@@ -3,23 +3,45 @@ import subprocess
 
 data_path = '/global_data/gottesbueren/anns'
 
+
+metrics = {
+    'spacev' : 'L2',
+    'sift1B' : 'L2',
+    'turing' : 'L2',
+    'deep' : 'L2',
+    'text-to-image' : 'mips'
+}
+
+file_ending = {
+    'spacev' : '.i8bin',
+    'sift1B' : '.u8bin',
+    'deep' : '.fbin',
+    'turing' : '.fbin',
+    'text-to-image' : '.fbin'
+}
+
 datasets = [
-    ('turing', 'L2'),
-    ('deep', 'L2'),
-    ('text-to-image', 'mips')
+    'spacev', 
+    'sift1B', 
+    'deep',
+    'turing', 
+    'text-to-image'
 ]
 
 partitioning_methods = [
-    'GP',
-    'KMeans',
+    'GP', 
+    #'KMeans',
     'BalancedKMeans',
-    #'OGP',
+    'OGP',
     #'OGPS',
-    #'OBKM',
+    'OBKM',
     #'OKM',
     'Pyramid',
+    'RKM',
+    'ORKM',
     # 'OurPyramid'
 ]
+
 
 num_shards_vals = [40]  # , 20, 10]
 
@@ -27,7 +49,7 @@ overlap_values = [0.2]
 
 overlapping_algos = ['OGP', 'OGPS', 'OBKM', 'OKM']
 
-num_neighbors = 10
+num_neighbors_values = [1,10,100]
 
 build_folders = {
     'L2': 'release_l2',
@@ -35,22 +57,23 @@ build_folders = {
 }
 
 def extract_recall(dataset, metric, part_method, num_shards, overlap):
-    pfx = os.path.join(data_path, dataset)
-    sfx = ''
-    if part_method in overlapping_algos:
-        sfx = '.o=' + str(overlap)
+    for num_neighbors in num_neighbors_values:
+        pfx = os.path.join(data_path, dataset)
+        sfx = ''
+        if part_method in overlapping_algos:
+            sfx = '.o=' + str(overlap)
 
-    # ground-truth-file routes-file num_neighbors partition-file part-method out-file
-    arglist = [build_folders[metric] + '/OracleRecall',
-               pfx + '_ground-truth.bin',
-               'exp_outputs/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.routes',
-               str(num_neighbors),
-               pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
-               part_method,
-               'exp_outputs/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.oracle_recall',
-               ]
-    print(arglist)
-    subprocess.call(arglist)
+        # ground-truth-file routes-file num_neighbors partition-file part-method out-file
+        arglist = [build_folders[metric] + '/OracleRecall',
+                pfx + '_ground-truth.bin',
+                'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.nn=' + str(num_neighbors) + '.routes',
+                str(num_neighbors),
+                pfx + '.partition.k=' + str(num_shards) + '.' + part_method + sfx,
+                part_method,
+                'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.nn=' + str(num_neighbors) + '.oracle_recall',
+                ]
+        print(arglist)
+        subprocess.call(arglist)
 
 def run_on_all_datasets(my_func):
     for dataset, metric in datasets:

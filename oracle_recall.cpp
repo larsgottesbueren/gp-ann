@@ -52,7 +52,7 @@ int main(int argc, const char* argv[]) {
 
     int num_neighbors = std::stoi(k_string);
 
-#if false
+#if true
     auto clusters = ReadClusters(partition_file);
     Cover cover = ConvertClustersToCover(clusters);
     size_t num_shards = clusters.size();
