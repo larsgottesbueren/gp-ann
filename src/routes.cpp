@@ -444,6 +444,9 @@ void SerializeRoutes(const std::vector<RoutingConfig>& routes, const std::string
 }
 
 std::vector<RoutingConfig> DeserializeRoutes(const std::string& input_file) {
+    if (!std::filesystem::exists(input_file)) {
+        throw std::runtime_error("Routes file " + input_file + " does not exist");
+    }
     std::ifstream in(input_file);
     size_t num_routes;
     std::string header;
