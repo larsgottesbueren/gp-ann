@@ -10,7 +10,7 @@
 
 std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, PointSet& queries, HNSWParameters hnsw_parameters,
                                                          std::vector<int> num_neighbors_values, const Clusters& clusters, int num_shards,
-                                                         const std::vector<std::vector<float>>& distance_to_kth_neighbor) {
+                                                         const std::vector<NNVec>& ground_truth) {
     std::vector<size_t> ef_search_param_values = { 50, 80, 100, 150, 200, 250, 300, 400, 500 };
 
     Timer init_timer;
@@ -88,7 +88,14 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                         while (!pq.empty()) {
                             auto top = pq.top();
                             pq.pop();
-                            if (top.first <= distance_to_kth_neighbor[i][q]) {
+                            bool contained = false;
+                            for (const auto& [_, neigh] : ground_truth[q]) {
+                                if (top.first == neigh) {
+                                    contained = true;
+                                    break;
+                                }
+                            }
+                            if (contained) {
                                 hits++;
                                 // only need to record a hit... this actually makes things easier later on
                                 nn.push_back(cluster[top.second]);

@@ -1,40 +1,46 @@
 #pragma once
 
+#include <iostream>
+#include <parlay/parallel.h>
+#include <sstream>
 #include "defs.h"
 #include "dist.h"
 #include "topn.h"
-#include <sstream>
-#include <iostream>
-#include <parlay/parallel.h>
 
 std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& queries, int k) {
     std::vector<float> d(queries.n);
-    parlay::parallel_for(0, queries.n, [&](size_t i) {
-        TopN top_k(k);
-        float* Q = queries.GetPoint(i);
-        for (uint32_t j = 0; j < points.n; ++j) {
-            float* P = points.GetPoint(j);
-            float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(dist, j));
-        }
-        d[i] = top_k.Top().first;
-    }, 1);
+    parlay::parallel_for(
+            0, queries.n,
+            [&](size_t i) {
+                TopN top_k(k);
+                float* Q = queries.GetPoint(i);
+                for (uint32_t j = 0; j < points.n; ++j) {
+                    float* P = points.GetPoint(j);
+                    float dist = distance(P, Q, points.d);
+                    top_k.Add(std::make_pair(dist, j));
+                }
+                d[i] = top_k.Top().first;
+            },
+            1);
     return d;
 }
 
 std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
     std::vector<NNVec> res(queries.n);
-    parlay::parallel_for(0, queries.n, [&](size_t i) {
-        TopN top_k(k);
-        float* Q = queries.GetPoint(i);
-        for (uint32_t j = 0; j < points.n; ++j) {
-            float* P = points.GetPoint(j);
-            float dist = distance(P, Q, points.d);
-            top_k.Add(std::make_pair(dist, j));
-        }
-        res[i] = top_k.Take();
-        std::sort(res[i].begin(), res[i].end());    // should be = std::reverse
-    }, 1);
+    parlay::parallel_for(
+            0, queries.n,
+            [&](size_t i) {
+                TopN top_k(k);
+                float* Q = queries.GetPoint(i);
+                for (uint32_t j = 0; j < points.n; ++j) {
+                    float* P = points.GetPoint(j);
+                    float dist = distance(P, Q, points.d);
+                    top_k.Add(std::make_pair(dist, j));
+                }
+                res[i] = top_k.Take();
+                std::sort(res[i].begin(), res[i].end()); // should be = std::reverse
+            },
+            1);
     return res;
 }
 
@@ -64,12 +70,23 @@ void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>
         double recall = static_cast<double>(total) / ground_truth.size() / num_neighbors;
         std::cout << "nprobes = " << i + 1 << " oracle recall = " << recall << std::endl;
     }
-
 }
 
 
+void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points, PointSet& queries) {
+    std::cout << "Reorder ground truth..." << std::endl;
+    parlay::parallel_for(0, queries.n, [&](size_t q) {
+        auto& neighs = ground_truth[q];
+        for (auto& [dist, neigh] : neighs) {
+            dist = distance(points.GetPoint(neigh), queries.GetPoint(q), points.d);
+        }
+        std::sort(neighs.begin(), neighs.end(), [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) { return l.first < r.first; });
+    });
+}
+
 /**
- * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the candidates.
+ * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the
+ * candidates.
  */
 std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
     if (ground_truth.size() != queries.n) {
@@ -88,9 +105,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
 
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         auto& neighs = ground_truth[q];
-        auto comp = [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) {
-            return l.first < r.first;
-        };
+        auto comp = [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) { return l.first < r.first; };
         bool is_sorted_before_recalc = std::is_sorted(neighs.begin(), neighs.begin() + k, comp);
         if (!is_sorted_before_recalc) {
             __atomic_fetch_add(&wrong_sorts_before_before_recalc, 1, __ATOMIC_RELAXED);
@@ -119,7 +134,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
             std::sort(neighs.begin(), neighs.begin() + k, comp);
             __atomic_fetch_add(&wrong_sorts, 1, __ATOMIC_RELAXED);
         }
-        distance_to_kth_neighbor[q] = neighs[k-1].first;
+        distance_to_kth_neighbor[q] = neighs[k - 1].first;
 
         if (local_distance_mismatches > 0) {
             __atomic_fetch_add(&distance_mismatches, local_distance_mismatches, __ATOMIC_RELAXED);
@@ -127,7 +142,9 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     });
 
     std::cout << distance_mismatches << " out of " << ground_truth.size() * ground_truth[0].size() << " distances were wrong" << std::endl;
-    std::cout << wrong_sorts_before_before_recalc << " out of " << ground_truth.size() << " neighbors lists were ordered incorrectly before recomputing distances. And " << wrong_sorts << " were ordered incorrectly after recomputing" << std::endl;
+    std::cout << wrong_sorts_before_before_recalc << " out of " << ground_truth.size()
+              << " neighbors lists were ordered incorrectly before recomputing distances. And " << wrong_sorts << " were ordered incorrectly after recomputing"
+              << std::endl;
 
     for (size_t r = 0; r < epss.size(); ++r) {
         std::cout << "For eps = " << epss[r] << " there were " << wrongss[r] << " many distances wrong, i.e., |d1 - d2| > eps" << std::endl;

@@ -55,12 +55,9 @@ int main(int argc, const char* argv[]) {
     }
 
     std::vector<int> num_neighbors_values = { 100, 10, 1 };
-    std::vector<std::vector<float>> distance_to_kth_neighbor;
-    for (int num_neighbors : num_neighbors_values) {
-        distance_to_kth_neighbor.push_back(ConvertGroundTruthToDistanceToKthNeighbor(ground_truth, num_neighbors, points, queries));
-    }
+    CleanGroundTruth(ground_truth, points, queries);
 
-    std::cout << "Finished computing distance to kth neighbor" << std::endl;
+    std::cout << "Finished reordering ground truth" << std::endl;
 
 #if false
     std::vector<int> partition = ReadMetisPartition(partition_file);
@@ -88,7 +85,7 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Start shard searches" << std::endl;
     std::vector<std::vector<ShardSearch>> shard_searches =
-            RunInShardSearches(points, queries, HNSWParameters(), num_neighbors_values, clusters, num_shards, distance_to_kth_neighbor);
+            RunInShardSearches(points, queries, HNSWParameters(), num_neighbors_values, clusters, num_shards, ground_truth);
     std::cout << "Finished shard searches" << std::endl;
     for (int i = 0; i < num_neighbors_values.size(); ++i) {
         int num_neighbors = num_neighbors_values[i];
