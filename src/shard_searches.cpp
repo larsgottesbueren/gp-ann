@@ -89,8 +89,8 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                             auto top = pq.top();
                             pq.pop();
                             bool contained = false;
-                            for (const auto& [_, neigh] : ground_truth[q]) {
-                                if (top.first == neigh) {
+                            for (int j = 0; j < num_neighbors; ++j) {
+                                if (top.first == ground_truth[q][j].second) {
                                     contained = true;
                                     break;
                                 }
