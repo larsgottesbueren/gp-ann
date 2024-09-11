@@ -87,10 +87,11 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                         size_t hits = 0;
                         while (!pq.empty()) {
                             auto top = pq.top();
+                            uint32_t neighbor = cluster[top.second];
                             pq.pop();
                             bool contained = false;
                             for (int j = 0; j < num_neighbors; ++j) {
-                                if (top.second == ground_truth[q][j].second) {
+                                if (neighbor == ground_truth[q][j].second) {
                                     contained = true;
                                     break;
                                 }
