@@ -90,7 +90,7 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                             pq.pop();
                             bool contained = false;
                             for (int j = 0; j < num_neighbors; ++j) {
-                                if (top.first == ground_truth[q][j].second) {
+                                if (top.second == ground_truth[q][j].second) {
                                     contained = true;
                                     break;
                                 }
