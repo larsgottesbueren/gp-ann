@@ -255,7 +255,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         {
             KMeansTreeRouter router;
             
-            parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+            parlay::execute_with_scheduler(std::min<size_t>(64, parlay::num_workers()), [&] {
                 router.Train(points, clusters, routing_index_options);
             });
 
@@ -265,7 +265,7 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
             {
                 std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
                 double time_routing;
-                parlay::execute_with_scheduler(std::min<size_t>(64, parlay::num_workers()), [&] {
+                parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
                     routing_timer.Start();
                     parlay::parallel_for(0, queries.n, [&](size_t i) {
                         buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
