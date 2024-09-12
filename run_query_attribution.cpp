@@ -27,7 +27,7 @@ int main(int argc, const char* argv[]) {
         std::abort();
     }
 
-    SetAffinity();
+    // SetAffinity();
 
     std::string point_file = argv[1];
     std::string query_file = argv[2];

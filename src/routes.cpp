@@ -254,15 +254,18 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         // compute routing points and run tree-search routing
         {
             KMeansTreeRouter router;
+            
+            parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+                router.Train(points, clusters, routing_index_options);
+            });
 
-            router.Train(points, clusters, routing_index_options);
             std::cout << "Training the router took " << routing_timer.Stop() << std::endl;
 
             // Standard tree-search routing
             {
                 std::vector<std::vector<int>> buckets_to_probe_by_query(queries.n);
                 double time_routing;
-                parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+                parlay::execute_with_scheduler(std::min<size_t>(64, parlay::num_workers()), [&] {
                     routing_timer.Start();
                     parlay::parallel_for(0, queries.n, [&](size_t i) {
                         buckets_to_probe_by_query[i] = router.Query(queries.GetPoint(i), routing_index_options.search_budget);
@@ -323,7 +326,9 @@ std::vector<RoutingConfig> IterateRoutingConfigs(PointSet& points, PointSet& que
         {
             routing_timer.Start();
             HNSWRouter hnsw_router(routing_points, num_shards, routing_index_partition, HNSWParameters{ .M = 32, .ef_construction = 200, .ef_search = 200 });
-            hnsw_router.Train(routing_points);
+            parlay::execute_with_scheduler(std::min<size_t>(32, parlay::num_workers()), [&] {
+                hnsw_router.Train(routing_points);
+            });
             std::cout << "Training HNSW router took " << routing_timer.Restart() << " s" << std::endl;
             // hnsw_router.Serialize(routing_index_file);
             // std::cout << "Serializing HNSW router took " << routing_timer.Stop() << " s" << std::endl;
