@@ -78,11 +78,18 @@ int main(int argc, const char* argv[]) {
         our_pyramid_index_file = partition_file + ".our_pyramid_routing_index";
     }
 
-    std::vector<RoutingConfig> routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options, ground_truth, max_num_neighbors,
+    std::vector<RoutingConfig> routes;
+    if (false) {
+        routes = IterateRoutingConfigs(points, queries, clusters, num_shards, router_options, ground_truth, max_num_neighbors,
                                                               partition_file + ".routing_index", pyramid_index_file, our_pyramid_index_file);
-    std::cout << "Finished routing configs" << std::endl;
-    SerializeRoutes(routes, output_file + ".routes");
-
+        std::cout << "Finished routing configs" << std::endl;
+        SerializeRoutes(routes, output_file + ".routes");
+    } else {
+        std::cout << "Load routes from file" << std::endl;
+        routes = DeserializeRoutes(output_file + ".routes");
+        std::cout << "Loading routes finished" << std::endl;
+    }
+    
     std::cout << "Start shard searches" << std::endl;
     std::vector<std::vector<ShardSearch>> shard_searches =
             RunInShardSearches(points, queries, HNSWParameters(), num_neighbors_values, clusters, num_shards, ground_truth);
