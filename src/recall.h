@@ -75,13 +75,18 @@ void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>
 
 void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points, PointSet& queries) {
     std::cout << "Reorder ground truth..." << std::endl;
+    size_t unsorted = 0;
     parlay::parallel_for(0, queries.n, [&](size_t q) {
         auto& neighs = ground_truth[q];
         for (auto& [dist, neigh] : neighs) {
             dist = distance(points.GetPoint(neigh), queries.GetPoint(q), points.d);
         }
+        if (!std::is_sorted(neighs.begin(), neighs.end(), [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) { return l.first < r.first; })) {
+            __atomic_fetch_add(&unsorted, 1, __ATOMIC_RELAXED);
+        }
         std::sort(neighs.begin(), neighs.end(), [](const std::pair<float, uint32_t>& l, const std::pair<float, uint32_t>& r) { return l.first < r.first; });
     });
+    std::cout << "Num wrongly sorted " << unsorted << std::endl;
 }
 
 /**
