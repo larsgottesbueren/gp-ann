@@ -7,7 +7,7 @@
 #include "dist.h"
 #include "topn.h"
 
-std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& queries, int k) {
+inline std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& queries, int k) {
     std::vector<float> d(queries.n);
     parlay::parallel_for(
             0, queries.n,
@@ -25,7 +25,7 @@ std::vector<float> ComputeDistanceToKthNeighbor(PointSet& points, PointSet& quer
     return d;
 }
 
-std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
+inline std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k) {
     std::vector<NNVec> res(queries.n);
     parlay::parallel_for(
             0, queries.n,
@@ -44,7 +44,7 @@ std::vector<NNVec> ComputeGroundTruth(PointSet& points, PointSet& queries, int k
     return res;
 }
 
-void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition, int num_neighbors) {
+inline void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>& partition, int num_neighbors) {
     int num_shards = NumPartsInPartition(partition);
     std::vector<size_t> hits(num_shards, 0);
 
@@ -73,7 +73,7 @@ void OracleRecall(const std::vector<NNVec>& ground_truth, const std::vector<int>
 }
 
 
-void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points, PointSet& queries) {
+inline void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points, PointSet& queries) {
     std::cout << "Reorder ground truth..." << std::endl;
     size_t unsorted = 0;
     parlay::parallel_for(0, queries.n, [&](size_t q) {
@@ -89,11 +89,33 @@ void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points, PointS
     std::cout << "Num wrongly sorted " << unsorted << std::endl;
 }
 
+inline std::vector<int> GroundTruthRightEnd(const std::vector<NNVec>& ground_truth, int num_neighbors) {
+    std::vector<int> re(ground_truth.size(), 0);
+    for (size_t i = 0; i < ground_truth.size(); ++i) {
+        int r = num_neighbors;
+        const auto& nn = ground_truth[i];
+        while (static_cast<size_t>(r) < nn.size() && nn[r] == nn[num_neighbors - 1]) r++;
+        re[i] = r;
+    }
+    return re;
+}
+
+inline std::vector<int> GroundTruthLeftEnd(const std::vector<NNVec>& ground_truth, int num_neighbors) {
+    std::vector<int> le(ground_truth.size(), 0);
+    for (size_t i = 0; i < ground_truth.size(); ++i) {
+        int l = num_neighbors - 1;
+        const auto& nn = ground_truth[i];
+        while (l >= 0 && nn[l] == nn[num_neighbors - 1]) l--;
+        le[i] = l;
+    }
+    return le;
+}
+
 /**
  * This function also checks whether the computed distances and order in the ground truth are correct. If not, it will emit a warning and reorder the
  * candidates.
  */
-std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
+inline std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>& ground_truth, int k, PointSet& points, PointSet& queries) {
     if (ground_truth.size() != queries.n) {
         std::cout << "Ground truth size and number of queries don't match." << std::endl;
         std::exit(0);
@@ -158,7 +180,7 @@ std::vector<float> ConvertGroundTruthToDistanceToKthNeighbor(std::vector<NNVec>&
     return distance_to_kth_neighbor;
 }
 
-double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {
+inline double Recall(const std::vector<NNVec>& neighbors_per_query, const std::vector<float>& distance_to_kth_neighbor, int k) {
     size_t hits = 0;
     for (size_t i = 0; i < neighbors_per_query.size(); ++i) {
         for (const auto& x : neighbors_per_query[i]) {

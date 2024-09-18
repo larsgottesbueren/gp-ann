@@ -7,6 +7,7 @@
 #include <sstream>
 #include "../external/hnswlib/hnswlib/hnswlib.h"
 #include "defs.h"
+#include "recall.h"
 
 #ifdef MIPS_DISTANCE
 using SpaceType = hnswlib::InnerProductSpace;
@@ -23,11 +24,13 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
     Timer init_timer;
     init_timer.Start();
     std::vector<std::vector<ShardSearch>> shard_searches;
-    for (int _ : num_neighbors_values) {
+    std::vector<std::vector<int>> gt_right_ends;
+    for (int nn : num_neighbors_values) {
         shard_searches.emplace_back(ef_search_param_values.size());
         for (size_t i = 0; i < ef_search_param_values.size(); ++i) {
             shard_searches.back()[i].Init(ef_search_param_values[i], num_shards, queries.n);
         }
+        gt_right_ends.push_back(GroundTruthRightEnd(ground_truth, nn));
     }
     std::cout << "Init search output took " << init_timer.Stop() << std::endl;
 
@@ -104,7 +107,7 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                                 uint32_t neighbor = cluster[top.second];
                                 pq.pop();
                                 bool contained = false;
-                                for (int j = 0; j < num_neighbors; ++j) {
+                                for (int j = 0; j < gt_right_ends[i][q]; ++j) {
                                     if (neighbor == ground_truth[q][j].second) {
                                         contained = true;
                                         break;
@@ -116,6 +119,7 @@ std::vector<std::vector<ShardSearch>> RunInShardSearches(PointSet& points, Point
                                     nn.push_back(cluster[top.second]);
                                 }
                             }
+                            hits = std::min<size_t>(hits, num_neighbors);
                             __atomic_fetch_add(&total_hits, hits, __ATOMIC_RELAXED);
                         });
 

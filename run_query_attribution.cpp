@@ -94,7 +94,7 @@ int main(int argc, const char* argv[]) {
     std::vector<std::vector<ShardSearch>> shard_searches =
             RunInShardSearches(points, queries, HNSWParameters(), num_neighbors_values, clusters, num_shards, ground_truth);
     std::cout << "Finished shard searches" << std::endl;
-    for (int i = 0; i < num_neighbors_values.size(); ++i) {
+    for (size_t i = 0; i < num_neighbors_values.size(); ++i) {
         int num_neighbors = num_neighbors_values[i];
         SerializeShardSearches(shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors) + ".searches");
 
