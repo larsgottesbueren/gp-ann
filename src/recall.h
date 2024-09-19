@@ -92,7 +92,7 @@ inline void CleanGroundTruth(std::vector<NNVec>& ground_truth, PointSet& points,
 inline std::vector<int> GroundTruthRightEnd(const std::vector<NNVec>& ground_truth, int num_neighbors) {
     std::vector<int> re(ground_truth.size(), 0);
     for (size_t i = 0; i < ground_truth.size(); ++i) {
-        int r = num_neighbors;
+        int r = num_neighbors - 1;
         const auto& nn = ground_truth[i];
         while (static_cast<size_t>(r) < nn.size() && nn[r] == nn[num_neighbors - 1]) r++;
         re[i] = r;
