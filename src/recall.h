@@ -94,7 +94,7 @@ inline std::vector<int> GroundTruthRightEnd(const std::vector<NNVec>& ground_tru
     for (size_t i = 0; i < ground_truth.size(); ++i) {
         int r = num_neighbors - 1;
         const auto& nn = ground_truth[i];
-        while (static_cast<size_t>(r) < nn.size() && nn[r] == nn[num_neighbors - 1]) r++;
+        while (static_cast<size_t>(r) < nn.size() && nn[r].first == nn[num_neighbors - 1].first) r++;
         re[i] = r;
     }
     return re;
@@ -105,7 +105,7 @@ inline std::vector<int> GroundTruthLeftEnd(const std::vector<NNVec>& ground_trut
     for (size_t i = 0; i < ground_truth.size(); ++i) {
         int l = num_neighbors - 1;
         const auto& nn = ground_truth[i];
-        while (l >= 0 && nn[l] == nn[num_neighbors - 1]) l--;
+        while (l >= 0 && nn[l].first == nn[num_neighbors - 1].first) l--;
         le[i] = l;
     }
     return le;
