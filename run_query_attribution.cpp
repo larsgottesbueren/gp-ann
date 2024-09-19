@@ -55,9 +55,8 @@ int main(int argc, const char* argv[]) {
     }
 
     std::vector<int> num_neighbors_values = { 100, 10, 1 };
-    CleanGroundTruth(ground_truth, points, queries);
-
-    std::cout << "Finished reordering ground truth" << std::endl;
+    // CleanGroundTruth(ground_truth, points, queries);
+    // std::cout << "Finished reordering ground truth" << std::endl;
 
 #if false
     std::vector<int> partition = ReadMetisPartition(partition_file);
@@ -98,7 +97,7 @@ int main(int argc, const char* argv[]) {
         int num_neighbors = num_neighbors_values[i];
         SerializeShardSearches(shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors) + ".searches");
 
-        PrintCombinationsOfRoutesAndSearches(routes, shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors), num_neighbors, queries.n,
+        PrintCombinationsOfRoutesAndSearches(routes, shard_searches[i], output_file + ".nn=" + std::to_string(num_neighbors), ground_truth, num_neighbors, queries.n,
                                              num_shards, requested_num_shards, part_method);
     }
 }

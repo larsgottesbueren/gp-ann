@@ -5,8 +5,11 @@
 
 #include "routes.h"
 #include "shard_searches.h"
+#include "recall.h"
 
-void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+void AttributeRecallAndQueryTimeIncreasingNumProbes(
+    const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+    const std::vector<int>& gt_left, const std::vector<int>& gt_right,
     int num_neighbors, std::function<void(EmitResult)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
     std::vector<std::unordered_set<uint32_t>> unique_neighbors(num_queries);
@@ -34,7 +37,9 @@ void AttributeRecallAndQueryTimeIncreasingNumProbes(const RoutingConfig& route, 
     }
 }
 
-void AttributeRecallAndQueryTimeVariableNumProbes(const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+void AttributeRecallAndQueryTimeVariableNumProbes(
+    const RoutingConfig& route, const ShardSearch& search, size_t num_queries, size_t num_shards,
+    const std::vector<int>& gt_left, const std::vector<int>& gt_right, 
     int num_neighbors, std::function<void(EmitResult)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
     size_t total_hits = 0;
@@ -118,8 +123,10 @@ void MaxRoutingRecall(const std::vector<RoutingConfig>& routes, const std::vecto
 // TODO pick Pareto configs for variable index size.
 // Pareto configs with index size = 5M; variable ef_search
 
-void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches,
-    const std::string& output_file, int num_neighbors, int num_queries, int num_shards, int num_requested_shards, const std::string& part_method) {
+void PrintCombinationsOfRoutesAndSearches(
+    const std::vector<RoutingConfig>& routes, const std::vector<ShardSearch>& shard_searches, const std::string& output_file,
+    const std::vector<NNVec>& ground_truth, int num_neighbors, int num_queries, int num_shards, int num_requested_shards, 
+    const std::string& part_method) {
 
     // std::ofstream out(output_file);
     // header
@@ -136,6 +143,9 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
     };
 
     std::vector<Desc> outputs;
+
+    auto gt_left = GroundTruthLeftEnd(ground_truth, num_neighbors);
+    auto gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
 
     for (const auto& route : routes) {
         for (const auto& search : shard_searches) {
@@ -183,9 +193,9 @@ void PrintCombinationsOfRoutesAndSearches(const std::vector<RoutingConfig>& rout
                 }
             };
             if (route.try_increasing_num_shards) {
-                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, num_queries, num_shards, num_neighbors, format_output);
+                AttributeRecallAndQueryTimeIncreasingNumProbes(route, search, num_queries, num_shards, gt_left, gt_right, num_neighbors, format_output);
             } else {
-                AttributeRecallAndQueryTimeVariableNumProbes(route, search, num_queries, num_shards, num_neighbors, format_output);
+                AttributeRecallAndQueryTimeVariableNumProbes(route, search, num_queries, num_shards, gt_left, gt_right, num_neighbors, format_output);
             }
         }
     }
