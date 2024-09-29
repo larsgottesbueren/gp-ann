@@ -1,36 +1,34 @@
-#include <iostream>
 #include <filesystem>
+#include <iostream>
 #include <parlay/primitives.h>
 
-#include "routes.h"
-#include "points_io.h"
 #include "metis_io.h"
+#include "points_io.h"
+#include "recall.h"
+#include "routes.h"
 
 
-std::vector<double> RecallForIncreasingProbes(
-    const std::vector<std::vector<int>>& buckets_to_probe, const Cover& cover, const std::vector<NNVec>& ground_truth, int num_neighbors, size_t num_shards) {
+std::vector<double> RecallForIncreasingProbes(const std::vector<std::vector<int>>& buckets_to_probe, const Cover& cover, const std::vector<NNVec>& ground_truth,
+                                              const std::vector<int>& gt_right, int num_neighbors, size_t num_shards) {
     size_t num_queries = ground_truth.size();
     std::vector<std::unordered_set<uint32_t>> neighbors(num_queries);
     std::vector<double> recall_values;
     size_t hits = 0;
     for (size_t probes = 0; probes < num_shards; ++probes) {
-        hits += parlay::reduce(
-           parlay::tabulate(num_queries, [&](size_t q) {
-               int cluster = buckets_to_probe[q][probes];
-               size_t my_new_hits = 0;
-               for (int j = 0; j < num_neighbors; ++j) {
-                   uint32_t neighbor = ground_truth[q][j].second;
-                   // if we haven't seen the neighbor before
-                   // and it's in the cluster we are looking at right now
-                   if (!neighbors[q].contains(neighbor) &&
-                       std::find(cover[neighbor].begin(), cover[neighbor].end(), cluster) != cover[neighbor].end()) {
-                       neighbors[q].insert(neighbor);
-                       my_new_hits++;
-                   }
-               }
-               return my_new_hits;
-           })
-       );
+        hits += parlay::reduce(parlay::tabulate(num_queries, [&](size_t q) {
+            int cluster = buckets_to_probe[q][probes];
+            size_t my_new_hits = 0;
+            for (int j = 0; neighbors[q].size() < num_neighbors && j < gt_right[q]; ++j) {
+                uint32_t neighbor = ground_truth[q][j].second;
+                // if we haven't seen the neighbor before
+                // and it's in the cluster we are looking at right now
+                if (!neighbors[q].contains(neighbor) && std::find(cover[neighbor].begin(), cover[neighbor].end(), cluster) != cover[neighbor].end()) {
+                    neighbors[q].insert(neighbor);
+                    my_new_hits++;
+                }
+            }
+            return my_new_hits;
+        }));
         double recall = static_cast<double>(hits) / num_neighbors / num_queries;
         recall_values.push_back(recall);
     }
@@ -76,8 +74,10 @@ int main(int argc, const char* argv[]) {
         throw std::runtime_error("ground truth file doesnt exist");
     }
 
+    std::vector<int> gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
+
     auto rrv = parlay::map(routes, [&](const RoutingConfig& route) {
-        return RecallForIncreasingProbes(route.buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);
+        return RecallForIncreasingProbes(route.buckets_to_probe, cover, ground_truth, gt_right, num_neighbors, num_shards);
     });
 
     int best = 0;
@@ -97,12 +97,12 @@ int main(int argc, const char* argv[]) {
         out << part_method << "," << j << "," << rrv[best][j] << ",brute-force-shard-search" << std::endl;
     }
 
-    {   // Oracle
+    { // Oracle
         std::vector<std::vector<int>> buckets_to_probe(ground_truth.size());
         parlay::parallel_for(0, ground_truth.size(), [&](size_t q) {
             const NNVec& nn = ground_truth[q];
             std::vector<int> freq(num_shards, 0);
-            for (int j = 0; j < num_neighbors; ++j) {
+            for (int j = 0; j < gt_right[q]; ++j) {
                 for (int c : cover[nn[j].second]) {
                     freq[c]++;
                 }
@@ -114,7 +114,7 @@ int main(int argc, const char* argv[]) {
             buckets_to_probe[q] = std::move(probes);
         });
 
-        auto oracle_recall_values = RecallForIncreasingProbes(buckets_to_probe, cover, ground_truth, num_neighbors, num_shards);
+        auto oracle_recall_values = RecallForIncreasingProbes(buckets_to_probe, cover, ground_truth, gt_right, num_neighbors, num_shards);
         std::cout << "oracle recall. first shard " << oracle_recall_values[0] << std::endl;
         for (size_t j = 0; j < num_shards; ++j) {
             out << part_method << "," << j << "," << oracle_recall_values[j] << ",oracle" << std::endl;
