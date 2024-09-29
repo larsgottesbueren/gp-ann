@@ -42,8 +42,8 @@ void AttributeRecallAndQueryTimeVariableNumProbes(
     const std::vector<int>& gt_left, const std::vector<int>& gt_right, 
     int num_neighbors, std::function<void(EmitResult)>& emit) {
     std::vector<double> local_work(num_shards, 0.0);
-    size_t total_hits = 0;
     size_t total_num_probes = 0;
+    size_t total_hits = 0;
     parlay::parallel_for(0, num_queries, [&](size_t q) {
         std::unordered_set<uint32_t> unique_neighbors;
         for (int b : route.buckets_to_probe[q]) {

@@ -79,9 +79,6 @@ def run_on_all_datasets(my_func):
     for dataset in datasets:
         metric = metrics[dataset]
         for part_method in partitioning_methods:
-            if dataset == 'spacev' and part_method != 'ORKM':
-                print('Skipping', dataset, part_method, 'because it already ran')
-                continue
             for num_shards in num_shards_vals:
                 if part_method not in overlapping_algos:
                     my_func(dataset, metric, part_method, num_shards, 0.0)
@@ -133,7 +130,7 @@ def convert_spacev_orkm():
         print(arglist)
         subprocess.call(arglist)    
 
-convert_spacev_orkm()
+# convert_spacev_orkm()
 
 run_on_all_datasets(extract_recall)
 run_on_all_datasets(analyze_losses)
