@@ -106,5 +106,34 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
     print(arglist)
     subprocess.call(arglist)
 
+def convert_spacev_orkm():
+    dataset = "spacev"
+    metric = metrics[dataset]
+    part_method = "ORKM"
+    num_shards = 40
+    overlap = 0.2
+
+    pfx = os.path.join(data_path, dataset)
+    sfx = ''
+    if part_method in overlapping_algos:
+        sfx = '.o=' + str(overlap)
+    
+
+    for num_neighbors in num_neighbors_values:
+        ## routes searches ground-truth num-neighbors output-file part-method query-file
+        arglist = [build_folders[metric] + '/Convert',
+                    'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.routes',
+                    'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.nn=' + str(num_neighbors) + '.searches',
+                    pfx + '_ground-truth.bin',
+                    str(num_neighbors),
+                    "exp_outputs2/" + dataset + "." + part_method + ".k=" + str(num_shards) + sfx,
+                    part_method,
+                    pfx + '_query' + file_ending[dataset]
+                    ]
+        print(arglist)
+        subprocess.call(arglist)    
+
+convert_spacev_orkm()
+
 run_on_all_datasets(extract_recall)
 run_on_all_datasets(analyze_losses)
