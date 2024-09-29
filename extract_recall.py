@@ -92,6 +92,8 @@ def run_on_all_datasets(my_func):
 
 
 def analyze_losses(dataset, metric, part_method, num_shards, overlap):
+    if part_method != "GP":
+        return
     pfx = os.path.join(data_path, dataset)
     # points queries ground truth num-neighbors partition part-method out-file
     arglist = [build_folders[metric] + '/AnalyzeApproximationLosses',
@@ -105,4 +107,4 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
     subprocess.call(arglist)
 
 run_on_all_datasets(extract_recall)
-#run_on_all_datasets(analyze_losses)
+run_on_all_datasets(analyze_losses)

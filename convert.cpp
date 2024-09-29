@@ -1,10 +1,10 @@
 #include <iostream>
 #include <parlay/primitives.h>
 
-#include "points_io.h"
-#include "metis_io.h"
-#include "route_search_combination.h"
 #include "dist.h"
+#include "metis_io.h"
+#include "points_io.h"
+#include "route_search_combination.h"
 
 int main(int argc, const char* argv[]) {
 #if false
@@ -61,8 +61,8 @@ int main(int argc, const char* argv[]) {
 #endif
 
 #if true
-    if (argc != 6) {
-        std::cerr << "Usage ./Convert routes searches output part-method query-file" << std::endl;
+    if (argc != 8) {
+        std::cerr << "Usage ./Convert routes searches ground_truth num_neighbors output part-method query-file" << std::endl;
         std::abort();
     }
 
@@ -76,9 +76,9 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "num routes " << routes.size() << " num searches " << searches.size() << std::endl;
 
-    std::string output_file = argv[3];
-    std::string part_method = argv[4];
-    std::string query_file = argv[5];
+    std::string output_file = argv[5];
+    std::string part_method = argv[6];
+    std::string query_file = argv[7];
 
     int num_actual_shards = searches.front().neighbors.size();
     std::cout << "num actual shards = " << num_actual_shards << std::endl;
@@ -86,6 +86,14 @@ int main(int argc, const char* argv[]) {
     auto queries = ReadPoints(query_file);
     int num_queries = queries.n;
 
-    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file, 10, num_queries, num_actual_shards, 40, part_method);
+    std::string ground_truth_file = argv[3];
+    auto ground_truth = ReadGroundTruth(ground_truth_file);
+
+    std::string k_string = argv[4];
+    int num_neighbors = std::stoi(k_string);
+
+
+    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file + ".nn=" + std::to_string(num_neighbors), ground_truth, num_neighbors, num_queries,
+                                         num_actual_shards, /*num_desired_shards=*/40, part_method);
 #endif
 }
