@@ -101,7 +101,7 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
                str(num_neighbors),
                pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
                part_method,
-               'exp_outputs/' + dataset + '.' + part_method + '.k=' + str(num_shards) + '.single-center-routes.csv',
+               'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + '.oracle_recall',
                ]
     print(arglist)
     subprocess.call(arglist)
