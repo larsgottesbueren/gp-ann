@@ -95,7 +95,7 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
     for num_neighbors in num_neighbors_values:
         # points queries ground truth num-neighbors partition part-method out-file
         arglist = [build_folders[metric] + '/AnalyzeApproximationLosses',
-                pfx + '_base1B.fbin', pfx + '_query.fbin', pfx + '_ground-truth.bin',
+                pfx + '_base1B' + file_ending[dataset], pfx + '_query' + file_ending[dataset], pfx + '_ground-truth.bin',
                 str(num_neighbors),
                 pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
                 part_method,
