@@ -99,7 +99,7 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
                 str(num_neighbors),
                 pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
                 part_method,
-                'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + '.oracle_recall',
+                'exp_outputs2/' + dataset + '.losses.csv',
                 ]
         print(arglist)
         subprocess.call(arglist)
@@ -133,5 +133,5 @@ def convert_spacev_orkm():
 
 # convert_spacev_orkm()
 
-run_on_all_datasets(extract_recall)
+# run_on_all_datasets(extract_recall)
 run_on_all_datasets(analyze_losses)
