@@ -99,7 +99,7 @@ def analyze_losses(dataset, metric, part_method, num_shards, overlap):
                 str(num_neighbors),
                 pfx + '.partition.k=' + str(num_shards) + '.' + part_method,
                 part_method,
-                'exp_outputs2/' + dataset + '.losses.csv',
+                'exp_outputs2/' + dataset + '.nn=' + str(num_neighbors) + '.losses.csv',
                 ]
         print(arglist)
         subprocess.call(arglist)
