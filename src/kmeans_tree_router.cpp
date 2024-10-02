@@ -16,7 +16,7 @@ void KMeansTreeRouter::Train(PointSet& points, const Clusters& clusters, KMeansT
     int num_shards_processed_in_parallel = 8;
 #ifdef MIPS_DISTANCE
     // not for MIPS_DISTANCE (just for text-to-image...)
-    num_shards_processed_in_parallel = 4;
+    num_shards_processed_in_parallel = 1;
 #endif
 
     parlay::parallel_for(

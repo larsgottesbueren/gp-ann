@@ -176,6 +176,9 @@ int main(int argc, const char* argv[]) {
     std::vector<int> partition(cover.size());
     parlay::parallel_for(0, partition.size(), [&](size_t i) { partition[i] = cover[i].front(); });
     size_t num_shards = clusters.size();
+
+    cover.clear();
+    cover.shrink_to_fit();
 #else
     auto partition = ReadMetisPartition(partition_file);
     auto clusters = ConvertPartitionToClusters(partition);
@@ -196,13 +199,16 @@ int main(int argc, const char* argv[]) {
 
     std::vector<int> gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
 
+    std::ofstream out(out_file);
+
     // --- Routing on full pointset --- //
     Timer timer;
     timer.Start();
     auto full_probes = FullDatasetRouting(ground_truth, queries, points, partition, num_shards);
     std::cout << "Finished full dataset routing. Took " << timer.Stop() << std::endl;
     std::vector<double> recall = RecallForIncreasingProbes(full_probes, partition, ground_truth, gt_right, num_neighbors, num_shards);
-    std::ofstream out(out_file);
+    full_probes.clear(); full_probes.shrink_to_fit();
+    
     out << "partitioning,num probes,recall,type" << std::endl; // header
     for (size_t j = 0; j < num_shards; ++j) {
         out << part_method << "," << j + 1 << "," << recall[j] << ",full data" << std::endl;
@@ -210,11 +216,16 @@ int main(int argc, const char* argv[]) {
 
     // --- Routing on KMTR sample --- //
     timer.Start();
-    KMeansTreeRouterOptions options;
-    options.budget = 10000000;
-    KMeansTreeRouter kmtr;
-    kmtr.Train(points, clusters, options);
-    auto [kmtr_points, kmtr_partition] = kmtr.ExtractPoints();
+    PointSet kmtr_points;
+    std::vector<int> kmtr_partition;
+    {
+        KMeansTreeRouterOptions options;
+        options.budget = 10000000;
+        KMeansTreeRouter kmtr;
+        kmtr.Train(points, clusters, options);
+        std::tie(kmtr_points, kmtr_partition) = kmtr.ExtractPoints();
+    }
+
     std::cout << "Finished KMTR training. Took " << timer.Stop() << std::endl;
     std::cout << kmtr_points.n << " " << kmtr_partition.size() << " " << num_shards << std::endl;
 
@@ -222,6 +233,7 @@ int main(int argc, const char* argv[]) {
     std::vector<std::vector<int>> kmtr_probes = BruteForceRouting(queries, kmtr_points, kmtr_partition, num_shards);
     std::cout << "brute force routing finished. took " << timer.Stop() << std::endl;
     recall = RecallForIncreasingProbes(kmtr_probes, partition, ground_truth, gt_right, num_neighbors, num_shards);
+    kmtr_probes.clear(); kmtr_probes.shrink_to_fit();
     std::cout << "Finished KMTR sample brute force routing." << std::endl;
 
     for (size_t j = 0; j < num_shards; ++j) {
