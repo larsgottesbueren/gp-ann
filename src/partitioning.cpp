@@ -263,7 +263,7 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
     return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(64, parlay::num_workers()), strong);
 }
 
-Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "") {
+Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "") {
     Timer timer;
     timer.Start();
 
@@ -314,7 +314,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
         auto closest_leaders = ConvertTopKToNNVec(closest_leaders_top_k);
         for (const auto& [dist, leader_id] : closest_leaders) {
             int part = aggregate_partition[leader_id];
-            if (num_points_in_cluster[part] < max_points_in_cluster) {
+            if (imbalanced || num_points_in_cluster[part] < max_points_in_cluster) {
                 __atomic_fetch_add(&num_points_in_cluster[part], 1, __ATOMIC_RELAXED);
                 partition[i] = part;
                 return;

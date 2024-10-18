@@ -25,7 +25,7 @@ int main(int argc, const char* argv[]) {
     WriteClusters(clusters, out_file);
 #endif
 
-#if false
+#if true
     std::string file = argv[1];
     std::string str_num_points = argv[2];
     int num_points = std::stoi(str_num_points);
@@ -60,7 +60,7 @@ int main(int argc, const char* argv[]) {
     }
 #endif
 
-#if true
+#if false
     if (argc != 8) {
         std::cerr << "Usage ./Convert routes searches ground_truth num_neighbors output part-method query-file" << std::endl;
         std::abort();

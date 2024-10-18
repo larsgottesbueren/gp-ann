@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-data_path = '/global_data/gottesbueren/anns'
+data_path = '/nfs10g/share/instances/big-ann-benchmarks/'
 
 metrics = {
     'spacev' : 'L2',
@@ -106,5 +106,15 @@ def run_queries_on_all_datasets():
                         run_query_set(dataset, part_method, num_shards, overlap)
 
 
-#compute_all_partitions()
-run_queries_on_all_datasets()
+
+def run_imbalanced_pyramid():
+    for dataset in datasets:
+        pfx = os.path.join(data_path, dataset)
+        arglist = arglist = [build_folders[metrics[dataset]] + '/Partition',
+            pfx + '_base1B' + file_ending[dataset], pfx + '_query' + file_ending[dataset], pfx + '_ground-truth.bin'
+        ]
+
+run_imbalanced_pyramid()
+
+# compute_all_partitions()
+# run_queries_on_all_datasets()

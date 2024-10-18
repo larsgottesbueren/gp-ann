@@ -12,7 +12,7 @@ Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, dou
 
 Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, bool strong, const std::string& graph_output_path = "");
 
-Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, const std::string& routing_index_path = "");
+Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "");
 
 // want to extract only the leaf-level points here
 // and the mapping of top-level points to leaf-level points

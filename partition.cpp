@@ -7,6 +7,7 @@
 #include "overlapping_partitioning.h"
 #include "partitioning.h"
 #include "points_io.h"
+#include "recall.h"
 
 #include <parlay/primitives.h>
 
@@ -34,6 +35,50 @@ void PrintImbalance(std::vector<int>& partition, int k) {
 }
 
 int main(int argc, const char* argv[]) {
+    if (argc != 4) {
+        std::cerr << "Usage ./Partition input-points query-points ground-truth" << std::endl;
+    }
+    std::string point_file = argv[1];
+    std::string query_file = argv[2];
+    std::string ground_truth_file = argv[3];
+    int num_neighbors = 10;
+    int num_shards = 40;
+    double imbalance = 0.05;
+
+    PointSet points = ReadPoints(point_file);
+    PointSet queries = ReadPoints(query_file);
+    std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
+
+    Partition partition = PyramidPartitioning(points, num_shards, imbalance, /*imbalanced=*/true);
+    std::vector<int> cluster_sizes(num_shards, 0);
+    for (int x : partition) {
+        cluster_sizes[x]++;
+    }
+    std::cout << "Max Pyramid cluster size = " << *std::max_element(cluster_sizes.begin(), cluster_sizes.end());
+
+    { // Oracle
+
+        std::vector<int> gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
+        size_t hits = 0;
+        for (size_t q = 0; q < queries.n; ++q) {
+            const NNVec& nn = ground_truth[q];
+            std::vector<int> freq(num_shards, 0);
+            for (int j = 0; j < gt_right[q]; ++j) {
+                int c = partition[nn[j].second];
+                freq[c]++;
+            }
+            hits += *std::max_element(freq.begin(), freq.end());
+        }
+
+        double recall = static_cast<double>(hits) / num_neighbors / queries.n;
+        std::cout << "oracle recall. first shard " << recall << std::endl;
+        
+    }
+
+
+
+    return 0;
+#if false
     if (argc != 6 && argc != 7) {
         std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method (default|strong) [overlap]" << std::endl;
         std::abort();
@@ -141,4 +186,5 @@ int main(int argc, const char* argv[]) {
         clusters = ConvertPartitionToClusters(partition);
     }
     WriteClusters(clusters, part_file);
+#endif
 }
