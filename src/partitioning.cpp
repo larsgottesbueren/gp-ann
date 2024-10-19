@@ -263,12 +263,27 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
     return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(64, parlay::num_workers()), strong);
 }
 
+namespace pyramid {
+    int Top1Neighbor(PointSet& P, float* Q) {
+        int best = -1;
+        float best_dist = std::numeric_limits<float>::max();
+        for (size_t i = 0; i < P.n; ++i) {
+            float new_dist = distance(P.GetPoint(i), Q, P.d);
+            if (new_dist < best_dist) {
+                best_dist = new_dist;
+                best = i;
+            }
+        }
+        return best;
+    }
+}
+
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "") {
     Timer timer;
     timer.Start();
 
     // Subsample points
-    size_t num_subsample_points = std::min<size_t>(10000000, points.n / 10); // reasonable value. didn't make much difference
+    size_t num_subsample_points = std::min<size_t>(1000000, points.n / 10); // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
 
     // Aggregate via k-means
@@ -304,7 +319,9 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
 
     // partition
     Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false, true);
-    WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
+    if (!routing_index_path.empty()) {
+        WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
+    }
     std::cout << "Partitioning finished" << std::endl;
 
     // Assign points to the partition of the closest point in the aggregate set
@@ -333,9 +350,13 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
         unfinished_points_lock.unlock();
     };
 
-    parlay::parallel_for(0, points.n, assign_point);
+    parlay::parallel_for(0, points.n, [&](size_t i) {
+        const int leader = pyramid::Top1Neighbor(aggregate_points, points.GetPoint(i));
+        partition[i] = aggregate_partition[leader];
+    });
+    /// parlay::parallel_for(0, points.n, assign_point);
     std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
-
+    return partition;
     size_t num_extra_rounds = 0;
     std::vector<uint32_t> frontier;
     while (!unfinished_points.empty()) {
