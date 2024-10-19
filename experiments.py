@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-data_path = '/nfs10g/share/instances/big-ann-benchmarks/'
+data_path = '/nfs/share/instances/big-ann-benchmarks/'
 
 metrics = {
     'spacev' : 'L2',
@@ -113,6 +113,8 @@ def run_imbalanced_pyramid():
         arglist = arglist = [build_folders[metrics[dataset]] + '/Partition',
             pfx + '_base1B' + file_ending[dataset], pfx + '_query' + file_ending[dataset], pfx + '_ground-truth.bin'
         ]
+        print(arglist)
+        subprocess.call(arglist)
 
 run_imbalanced_pyramid()
 
