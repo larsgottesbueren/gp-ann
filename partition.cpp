@@ -58,17 +58,17 @@ int main(int argc, const char* argv[]) {
     std::cout << "Max Pyramid cluster size = " << *std::max_element(cluster_sizes.begin(), cluster_sizes.end()) << std::endl;
 
     { // Oracle
-
+        std::vector<int> gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
         size_t hits = 0;
         std::vector<int> freq;
         for (size_t q = 0; q < queries.n; ++q) {
             const NNVec& nn = ground_truth[q];
             freq.assign(num_shards, 0);
-            for (int j = 0; j < num_neighbors; ++j) {
+            for (int j = 0; j < gt_right[q]; ++j) {
                 int c = partition[nn[j].second];
                 freq[c]++;
             }
-            hits += *std::max_element(freq.begin(), freq.end());
+            hits += std::min<int>(num_neighbors, *std::max_element(freq.begin(), freq.end()));
         }
 
         double recall = static_cast<double>(hits) / num_neighbors / queries.n;
