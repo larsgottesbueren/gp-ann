@@ -59,12 +59,12 @@ int main(int argc, const char* argv[]) {
 
     { // Oracle
 
-        std::vector<int> gt_right = GroundTruthRightEnd(ground_truth, num_neighbors);
         size_t hits = 0;
+        std::vector<int> freq;
         for (size_t q = 0; q < queries.n; ++q) {
             const NNVec& nn = ground_truth[q];
-            std::vector<int> freq(num_shards, 0);
-            for (int j = 0; j < gt_right[q]; ++j) {
+            freq.assign(num_shards, 0);
+            for (int j = 0; j < num_neighbors; ++j) {
                 int c = partition[nn[j].second];
                 freq[c]++;
             }
