@@ -239,6 +239,7 @@ std::vector<int> KMeans(PointSet& P, PointSet& centroids) {
     for (size_t r = 0; r < NUM_ROUNDS; ++r) {
         NearestCenters(P, centroids, closest_center);
         AggregateClustersParallel(P, centroids, closest_center, vector_sqrt_norms);
+        std::cout << "Finished k-means round " << r << std::endl;
     }
     return closest_center;
 }

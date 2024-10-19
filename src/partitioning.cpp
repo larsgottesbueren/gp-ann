@@ -268,13 +268,18 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     timer.Start();
 
     // Subsample points
-    size_t num_subsample_points = 10000000; // reasonable value. didn't make much difference
+    size_t num_subsample_points = std::min<size_t>(10000000, points.n / 10); // reasonable value. didn't make much difference
     PointSet subsample_points = RandomSample(points, num_subsample_points, 555);
 
     // Aggregate via k-means
-    const size_t num_aggregate_points = 10000; // from the paper
+    const size_t num_aggregate_points = std::min<size_t>(10000, num_subsample_points); // from the paper
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
+
+    std::cout << "Sampling finished" << std::endl;
+
     Partition subsample_partition = KMeans(subsample_points, aggregate_points);
+
+    std::cout << "KMeans finished" << std::endl;
 
     if (!routing_index_path.empty()) {
 #ifdef MIPS_DISTANCE
@@ -293,12 +298,14 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     // Build kNN graph
     ApproximateKNNGraphBuilder graph_builder;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(aggregate_points, 10);
+    std::cout << "Graph building finished" << std::endl;
     Symmetrize(knn_graph);
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
     // partition
     Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false, true);
     WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
+    std::cout << "Partitioning finished" << std::endl;
 
     // Assign points to the partition of the closest point in the aggregate set
     size_t max_points_in_cluster = points.n * (1 + epsilon) / num_clusters;

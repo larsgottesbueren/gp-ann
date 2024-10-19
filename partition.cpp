@@ -50,11 +50,12 @@ int main(int argc, const char* argv[]) {
     std::vector<NNVec> ground_truth = ReadGroundTruth(ground_truth_file);
 
     Partition partition = PyramidPartitioning(points, num_shards, imbalance, /*imbalanced=*/true);
+    std::cout << "Finished Pyramid" << std::endl;
     std::vector<int> cluster_sizes(num_shards, 0);
     for (int x : partition) {
         cluster_sizes[x]++;
     }
-    std::cout << "Max Pyramid cluster size = " << *std::max_element(cluster_sizes.begin(), cluster_sizes.end());
+    std::cout << "Max Pyramid cluster size = " << *std::max_element(cluster_sizes.begin(), cluster_sizes.end()) << std::endl;
 
     { // Oracle
 
