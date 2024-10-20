@@ -335,7 +335,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     });
 
     /// parlay::parallel_for(0, points.n, assign_point);
-    std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
+    std::cout << "Main Pyramid assignment round finished." << std::endl;
 
     std::vector<size_t> num_points_in_cluster(oversampled_num_clusters, 0);
     for (size_t i = 0; i < points.n; ++i) {
