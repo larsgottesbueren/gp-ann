@@ -325,7 +325,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
         WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
     }
     std::cout << "Partitioning finished" << std::endl;
-    timer.Restart();
+    timer.Start();
 
     // Assign points to the partition of the closest point in the aggregate set
     Partition partition(points.n);
@@ -335,7 +335,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     });
 
     /// parlay::parallel_for(0, points.n, assign_point);
-    std::cout << "Main Pyramid assignment round finished." << std::endl;
+    std::cout << "Main Pyramid assignment round finished. Took " << timer.Stop() << " seconds" << std::endl;
 
     std::vector<size_t> num_points_in_cluster(oversampled_num_clusters, 0);
     for (size_t i = 0; i < points.n; ++i) {
