@@ -280,7 +280,7 @@ namespace pyramid {
 
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "") {
     Timer timer;
-    timer.Start();
+    
 
     // Subsample points
     size_t num_subsample_points = std::min<size_t>(1000000, points.n / 10); // reasonable value. didn't make much difference
@@ -291,10 +291,11 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     PointSet aggregate_points = RandomSample(subsample_points, num_aggregate_points, 555);
 
     std::cout << "Sampling finished" << std::endl;
+    timer.Start();
 
     Partition subsample_partition = KMeans(subsample_points, aggregate_points);
 
-    std::cout << "KMeans finished" << std::endl;
+    std::cout << "KMeans finished. Took " << timer.Stop() << " seconds " << std::endl;
 
     if (!routing_index_path.empty()) {
 #ifdef MIPS_DISTANCE
@@ -318,16 +319,73 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     CSR csr = ConvertAdjGraphToCSR(knn_graph);
 
     // partition
-    Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false, true);
+    const int oversampled_num_clusters = 10 * num_clusters;
+    Partition aggregate_partition = PartitionGraphWithKaMinPar(csr, oversampled_num_clusters, epsilon, std::min<int>(32, parlay::num_workers()), false, true);
     if (!routing_index_path.empty()) {
         WriteMetisPartition(aggregate_partition, routing_index_path + ".routing_index_partition");
     }
     std::cout << "Partitioning finished" << std::endl;
+    timer.Restart();
 
     // Assign points to the partition of the closest point in the aggregate set
-    size_t max_points_in_cluster = points.n * (1 + epsilon) / num_clusters;
-    std::vector<size_t> num_points_in_cluster(num_clusters, 0);
     Partition partition(points.n);
+    parlay::parallel_for(0, points.n, [&](size_t i) {
+        const int leader = pyramid::Top1Neighbor(aggregate_points, points.GetPoint(i));
+        partition[i] = aggregate_partition[leader];
+    });
+
+    /// parlay::parallel_for(0, points.n, assign_point);
+    std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
+
+    std::vector<size_t> num_points_in_cluster(oversampled_num_clusters, 0);
+    for (size_t i = 0; i < points.n; ++i) {
+        num_points_in_cluster[partition[i]]++;
+    }
+
+    size_t max_points_in_cluster = points.n * (1 + epsilon) / num_clusters;
+
+    std::vector<int> remapped_cluster_ids(oversampled_num_clusters, -1);
+
+    // First fit -- Decreasing
+    std::vector<int> cluster_ids_by_size(oversampled_num_clusters);
+    for (int i = 0; i < oversampled_num_clusters; ++i) {
+        cluster_ids_by_size[i] = i;
+    }
+    std::sort(cluster_ids_by_size.begin(), cluster_ids_by_size.end(), [&](int l, int r) {
+        return std::tie(num_points_in_cluster[l], l) < std::tie(num_points_in_cluster[r], r);
+    });
+
+    std::vector<int> bin_sizes;
+    for (int c : cluster_ids_by_size) {
+        // find first fit
+        int pos = -1;
+        for (int i = 0; i < bin_sizes.size(); ++i) {
+            if (num_points_in_cluster[c] + bin_sizes[i] <= max_points_in_cluster) {
+                pos = i;
+                break;
+            }
+        }
+
+        if (pos == -1) {
+            // open new bucket
+            bin_sizes.push_back(num_points_in_cluster[c]);
+            remapped_cluster_ids[c] = bin_sizes.size() - 1;
+        } else {
+            // insert to bucket 'pos'
+            bin_sizes[pos] += num_points_in_cluster[c];
+            remapped_cluster_ids[c] = pos;
+        }
+    }
+
+    for (size_t i = 0; i < points.n; ++i) {
+        partition[i] = remapped_cluster_ids[partition[i]];
+    }
+    
+
+    return partition;
+
+    #if false
+
 
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
@@ -349,14 +407,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
         unfinished_points.push_back(i);
         unfinished_points_lock.unlock();
     };
-
-    parlay::parallel_for(0, points.n, [&](size_t i) {
-        const int leader = pyramid::Top1Neighbor(aggregate_points, points.GetPoint(i));
-        partition[i] = aggregate_partition[leader];
-    });
-    /// parlay::parallel_for(0, points.n, assign_point);
-    std::cout << "Main Pyramid assignment round finished. " << unfinished_points.size() << " still unassigned" << std::endl;
-    return partition;
+    
     size_t num_extra_rounds = 0;
     std::vector<uint32_t> frontier;
     while (!unfinished_points.empty()) {
@@ -381,6 +432,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     std::cout << "Pyramid partitioning took " << timer.Stop() << " seconds" << std::endl;
 
     return partition;
+    #endif
 }
 
 // want to extract only the leaf-level points here
