@@ -77,13 +77,14 @@ int main(int argc, const char* argv[]) {
     std::vector<RoutingConfig> routes_single;
     for (size_t i = 0; i < routes.size(); ++i) {
         const auto& r = routes[i];
+        std::cout << r.index_trainer << " " << r.routing_algorithm << std::endl;
         if (r.index_trainer == "Single-Center") {
             routes_single.push_back(r);
             routes.erase(routes.begin() + i);
         }
     }
 
-    std::cout << "num routes " << routes.size() << " num searches " << searches.size() << std::endl;
+    std::cout << "num routes " << routes.size() << " num native routes " << routes_single.size() << " num searches " << searches.size() << std::endl;
 
     std::string output_file = argv[5];
     std::string part_method = argv[6];
