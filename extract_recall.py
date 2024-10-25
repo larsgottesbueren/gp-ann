@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-data_path = '/global_data/gottesbueren/anns'
+data_path = '/nfs/share/instances/big-ann-benchmarks/'
 
 
 metrics = {
