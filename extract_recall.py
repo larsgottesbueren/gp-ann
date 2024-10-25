@@ -144,13 +144,15 @@ def native_routing():
     for dataset in datasets:
         pfx = os.path.join(data_path, dataset)
         sfx = ''
+
+        metric = metrics[dataset]
         # "Usage ./Convert routes searches ground_truth num_neighbors output part-method query-file"
         arglist = [build_folders[metric] + '/Convert',
                     'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.routes',
                     'exp_outputs2/' + dataset + '.' + part_method + '.k=' + str(num_shards) + sfx + '.nn=' + str(num_neighbors) + '.searches',
                     pfx + '_ground-truth.bin',
                     str(num_neighbors),
-                    "exp_outputs2/" + dataset + "." + part_method + ".k=" + str(num_shards) + sfx,
+                    "exp_outputs3/" + dataset + "." + part_method + ".k=" + str(num_shards) + sfx,
                     part_method,
                     pfx + '_query' + file_ending[dataset]
                     ]
