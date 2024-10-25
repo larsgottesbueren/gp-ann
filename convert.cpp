@@ -25,7 +25,7 @@ int main(int argc, const char* argv[]) {
     WriteClusters(clusters, out_file);
 #endif
 
-#if true
+#if false
     std::string file = argv[1];
     std::string str_num_points = argv[2];
     int num_points = std::stoi(str_num_points);
@@ -60,7 +60,7 @@ int main(int argc, const char* argv[]) {
     }
 #endif
 
-#if false
+#if true
     if (argc != 8) {
         std::cerr << "Usage ./Convert routes searches ground_truth num_neighbors output part-method query-file" << std::endl;
         std::abort();
@@ -73,6 +73,15 @@ int main(int argc, const char* argv[]) {
 
     std::string routes_file = argv[1];
     auto routes = DeserializeRoutes(routes_file);
+
+    std::vector<RoutingConfig> routes_single;
+    for (size_t i = 0; i < routes.size(); ++i) {
+        const auto& r = routes[i];
+        if (r.index_trainer == 'Single-Center') {
+            routes_single.push_back(r);
+            routes.erase(routes.begin() + i);
+        }
+    }
 
     std::cout << "num routes " << routes.size() << " num searches " << searches.size() << std::endl;
 
@@ -91,9 +100,10 @@ int main(int argc, const char* argv[]) {
 
     std::string k_string = argv[4];
     int num_neighbors = std::stoi(k_string);
-
-
-    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file + ".nn=" + std::to_string(num_neighbors), ground_truth, num_neighbors, num_queries,
+  
+    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file + ".nn=" + std::to_string(num_neighbors) + ".r=kRt", ground_truth, num_neighbors, num_queries,
                                          num_actual_shards, /*num_desired_shards=*/40, part_method);
+    PrintCombinationsOfRoutesAndSearches(routes_single, searches, output_file + ".nn=" + std::to_string(num_neighbors) + ".r=native", ground_truth, num_neighbors, num_queries,
+    num_actual_shards, /*num_desired_shards=*/40, part_method);
 #endif
 }
