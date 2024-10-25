@@ -77,7 +77,7 @@ int main(int argc, const char* argv[]) {
     std::vector<RoutingConfig> routes_single;
     for (size_t i = 0; i < routes.size(); ++i) {
         const auto& r = routes[i];
-        if (r.index_trainer == 'Single-Center') {
+        if (r.index_trainer == "Single-Center") {
             routes_single.push_back(r);
             routes.erase(routes.begin() + i);
         }
