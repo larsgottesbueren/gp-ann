@@ -1,10 +1,14 @@
 #include <iostream>
 #include <parlay/primitives.h>
 
+#include <unordered_map>
+
 #include "dist.h"
 #include "metis_io.h"
 #include "points_io.h"
 #include "route_search_combination.h"
+
+
 
 int main(int argc, const char* argv[]) {
 #if false
@@ -72,19 +76,15 @@ int main(int argc, const char* argv[]) {
     std::cout << "Finished loading searches" << std::endl;
 
     std::string routes_file = argv[1];
-    auto routes = DeserializeRoutes(routes_file);
+    auto all_routes = DeserializeRoutes(routes_file);
 
-    std::vector<RoutingConfig> routes_single;
-    for (size_t i = 0; i < routes.size(); ++i) {
-        const auto& r = routes[i];
-        std::cout << r.index_trainer << " " << r.routing_algorithm << std::endl;
-        if (r.index_trainer == "Single-Center") {
-            routes_single.push_back(r);
-            routes.erase(routes.begin() + i);
-        }
+    std::unordered_map<int, std::vector<RoutingConfig>> routes_separated;
+    for (size_t i = 0; i < all_routes.size(); ++i) {
+        const auto& r = all_routes[i];
+        routes_separated[r.routing_index_options.budget].push_back(r);
     }
-
-    std::cout << "num routes " << routes.size() << " num native routes " << routes_single.size() << " num searches " << searches.size() << std::endl;
+    
+    std::cout << all_routes.size() << " total num routes " << routes_separated.size() << " num router sizes" << std::endl;
 
     std::string output_file = argv[5];
     std::string part_method = argv[6];
@@ -101,10 +101,11 @@ int main(int argc, const char* argv[]) {
 
     std::string k_string = argv[4];
     int num_neighbors = std::stoi(k_string);
+
+    for (const auto& [router_size, routes] : routes_separated) {
+        PrintCombinationsOfRoutesAndSearches(routes, searches, output_file + ".nn=" + std::to_string(num_neighbors) + ".router_size=" + std::to_string(router_size), ground_truth, num_neighbors, num_queries,
+                                             num_actual_shards, /*num_desired_shards=*/40, part_method);
+    }
   
-    PrintCombinationsOfRoutesAndSearches(routes, searches, output_file + ".nn=" + std::to_string(num_neighbors) + ".r=kRt", ground_truth, num_neighbors, num_queries,
-                                         num_actual_shards, /*num_desired_shards=*/40, part_method);
-    PrintCombinationsOfRoutesAndSearches(routes_single, searches, output_file + ".nn=" + std::to_string(num_neighbors) + ".r=native", ground_truth, num_neighbors, num_queries,
-    num_actual_shards, /*num_desired_shards=*/40, part_method);
 #endif
 }
