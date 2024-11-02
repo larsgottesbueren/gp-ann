@@ -58,6 +58,8 @@ struct HNSWParameters {
 using Duration = std::chrono::duration<double>;
 using Timepoint = decltype(std::chrono::high_resolution_clock::now());
 
+double GetTotalSystemMemoryGB();
+
 struct Timer {
     bool running = false;
     Timepoint start;

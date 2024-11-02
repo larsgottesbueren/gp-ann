@@ -8,6 +8,18 @@
 #include "topn.h"
 #include "dist.h"
 
+#include <unistd.h>
+
+unsigned long long GetTotalSystemMemory() {
+    long pages = sysconf(_SC_PHYS_PAGES);
+    long page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
+}
+
+double GetTotalSystemMemoryGB() { 
+    return static_cast<double>(GetTotalSystemMemory()) / 1e9;
+}
+
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {
     PointSet ps;
     ps.n = bucket.size();
