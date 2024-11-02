@@ -280,6 +280,7 @@ namespace pyramid {
 
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "") {
     throw std::runtime_error("The current Pyramid implementation is not working, because we made some changes for additional experiments.");
+    // TODO the assigment stage needs to perform balance checks, as before.
     
     Timer timer;
 
