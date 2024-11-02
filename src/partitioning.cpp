@@ -279,8 +279,9 @@ namespace pyramid {
 }
 
 Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon, bool imbalanced = false, const std::string& routing_index_path = "") {
-    Timer timer;
+    throw std::runtime_error("The current Pyramid implementation is not working, because we made some changes for additional experiments.");
     
+    Timer timer;
 
     // Subsample points
     size_t num_subsample_points = std::min<size_t>(1000000, points.n / 10); // reasonable value. didn't make much difference
@@ -337,6 +338,9 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     /// parlay::parallel_for(0, points.n, assign_point);
     std::cout << "Main Pyramid assignment round finished. Took " << timer.Stop() << " seconds" << std::endl;
 
+// bin packing Pyramid
+#if false
+
     std::vector<size_t> num_points_in_cluster(oversampled_num_clusters, 0);
     for (size_t i = 0; i < points.n; ++i) {
         num_points_in_cluster[partition[i]]++;
@@ -380,13 +384,10 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     for (size_t i = 0; i < points.n; ++i) {
         partition[i] = remapped_cluster_ids[partition[i]];
     }
-    
+#endif
 
-    return partition;
-
-    #if false
-
-
+// rebalanced Pyramid
+#if true
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
 
@@ -432,7 +433,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
     std::cout << "Pyramid partitioning took " << timer.Stop() << " seconds" << std::endl;
 
     return partition;
-    #endif
+#endif
 }
 
 // want to extract only the leaf-level points here
