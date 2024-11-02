@@ -35,6 +35,7 @@ void PrintImbalance(std::vector<int>& partition, int k) {
 }
 
 int main(int argc, const char* argv[]) {
+    #if false
     if (argc != 4) {
         std::cerr << "Usage ./Partition input-points query-points ground-truth" << std::endl;
     }
@@ -79,7 +80,7 @@ int main(int argc, const char* argv[]) {
 
 
     return 0;
-#if false
+#else
     if (argc != 6 && argc != 7) {
         std::cerr << "Usage ./Partition input-points output-path num-clusters partitioning-method (default|strong) [overlap]" << std::endl;
         std::abort();
