@@ -138,7 +138,7 @@ int main(int argc, const char* argv[]) {
     if (part_method == "GP") {
         partition = GraphPartitioning(points, k, eps, strong);
     } else if (part_method == "Pyramid") {
-        partition = PyramidPartitioning(points, k, eps, part_file + ".pyramid_routing_index");
+        partition = PyramidPartitioning(points, k, eps, /*imbalanced=*/false, part_file + ".pyramid_routing_index");
     } else if (part_method == "KMeans") {
         partition = KMeansPartitioning(points, k, eps);
     } else if (part_method == "BalancedKMeans") {
