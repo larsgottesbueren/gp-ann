@@ -176,6 +176,8 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     if (strong) {
         context = kaminpar::shm::create_strong_context();
     }
+    context.partitioning.deep_initial_partitioning_mode = InitialPartitioningMode::SEQUENTIAL;
+
     context.partition.epsilon = epsilon;
     kaminpar::KaMinPar shm(num_threads, context);
     if (quiet) {
