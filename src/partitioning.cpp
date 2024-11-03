@@ -395,7 +395,7 @@ Partition PyramidPartitioning(PointSet& points, int num_clusters, double epsilon
 #endif
 
 // rebalanced Pyramid
-#if true
+#if false
     SpinLock unfinished_points_lock;
     std::vector<uint32_t> unfinished_points;
 
