@@ -267,7 +267,7 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
     }
     points.Drop();
     std::cout << "memory after points drop " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
-    return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, std::min<int>(64, parlay::num_workers()), strong);
+    return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, parlay::num_workers(), strong);
 }
 
 namespace pyramid {
