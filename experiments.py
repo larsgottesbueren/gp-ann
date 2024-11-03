@@ -30,14 +30,14 @@ datasets = [
 partitioning_methods = [
     'GP', 
     #'KMeans',
-    'BalancedKMeans',
-    'OGP',
+    #'BalancedKMeans',
+    #'OGP',
     #'OGPS',
-    'OBKM',
+    #'OBKM',
     #'OKM',
-    'Pyramid',
-    'RKM',
-    'ORKM',
+    #'Pyramid',
+    #'RKM',
+    #'ORKM',
     # 'OurPyramid'
 ]
 
@@ -116,7 +116,7 @@ def run_imbalanced_pyramid():
         print(arglist)
         subprocess.call(arglist)
 
-run_imbalanced_pyramid()
+#run_imbalanced_pyramid()
 
-# compute_all_partitions()
+compute_all_partitions()
 # run_queries_on_all_datasets()
