@@ -181,7 +181,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     if (quiet) {
         shm.set_output_level(kaminpar::OutputLevel::QUIET);
     }
-    shm.take_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
+    shm.borrow_and_mutate_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
     std::cout << "memory after take graph " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
