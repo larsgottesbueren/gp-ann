@@ -23,7 +23,7 @@ double GetTotalSystemMemoryGB() {
 
 double GetRSSGiB() {
     struct rusage usage;
-    getrusage(RUSAGE_SELF, &usage)
+    getrusage(RUSAGE_SELF, &usage);
     return static_cast<double>(usage.ru_maxrss) / (1 << 20);
 }
 
