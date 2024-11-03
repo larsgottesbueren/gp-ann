@@ -9,6 +9,7 @@
 #include "dist.h"
 
 #include <unistd.h>
+#include <sys/resource.h>
 
 unsigned long long GetTotalSystemMemory() {
     long pages = sysconf(_SC_PHYS_PAGES);
@@ -18,6 +19,12 @@ unsigned long long GetTotalSystemMemory() {
 
 double GetTotalSystemMemoryGB() { 
     return static_cast<double>(GetTotalSystemMemory()) / 1e9;
+}
+
+double GetRSSGiB() {
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage)
+    return static_cast<double>(usage.ru_maxrss) / (1 << 20);
 }
 
 PointSet ExtractPointsInBucket(const std::vector<uint32_t>& bucket, PointSet& points) {

@@ -60,6 +60,8 @@ using Timepoint = decltype(std::chrono::high_resolution_clock::now());
 
 double GetTotalSystemMemoryGB();
 
+double GetRSSGiB();
+
 struct Timer {
     bool running = false;
     Timepoint start;
