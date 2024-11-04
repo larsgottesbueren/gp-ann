@@ -11,16 +11,6 @@
 #include <unistd.h>
 #include <sys/resource.h>
 
-unsigned long long GetTotalSystemMemory() {
-    long pages = sysconf(_SC_PHYS_PAGES);
-    long page_size = sysconf(_SC_PAGE_SIZE);
-    return pages * page_size;
-}
-
-double GetTotalSystemMemoryGB() { 
-    return static_cast<double>(GetTotalSystemMemory()) / 1e9;
-}
-
 double GetRSSGiB() {
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);

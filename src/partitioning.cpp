@@ -176,7 +176,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     if (strong) {
         context = kaminpar::shm::create_strong_context();
     }
-    context.partitioning.deep_initial_partitioning_mode = InitialPartitioningMode::SEQUENTIAL;
+    context.partitioning.deep_initial_partitioning_mode = kaminpar::shm::InitialPartitioningMode::SEQUENTIAL;
 
     context.partition.epsilon = epsilon;
     kaminpar::KaMinPar shm(num_threads, context);
@@ -186,7 +186,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     shm.borrow_and_mutate_graph(num_nodes, graph.xadj.data(), graph.adjncy.data(),
                    /* vwgt = */ graph.node_weights.empty() ? nullptr : graph.node_weights.data(),
                    /* adjwgt = */ nullptr);
-    std::cout << "memory after take graph " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory after take graph. RSS " << GetRSSGiB() << " GiB" << std::endl;
     Timer timer;
     timer.Start();
     shm.compute_partition(k, kaminpar_partition.data());
@@ -194,7 +194,7 @@ Partition PartitionGraphWithKaMinPar(CSR& graph, int k, double epsilon, int num_
     if (!quiet) {
         std::cout << "Partitioning with KaMinPar took " << time << " seconds" << std::endl;
     }
-    std::cout << "memory after KaMinPar " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory after KaMinPar. RSS " << GetRSSGiB() << " GiB" << std::endl;
     Partition partition(num_nodes);
     for (size_t i = 0; i < partition.size(); ++i) {
         partition[i] = kaminpar_partition[i]; // convert unsigned int partition ID to signed int partition ID
@@ -249,7 +249,7 @@ CSR ParallelSymmetrizeAndConvertToCSR(const AdjGraph& adj_graph) {
 
 Partition PartitionAdjListGraph(const AdjGraph& adj_graph, int num_clusters, double epsilon, int num_threads = 1, bool strong = false, bool quiet = false) {
     CSR csr = ParallelSymmetrizeAndConvertToCSR(adj_graph);
-    std::cout << "memory after CSR " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory after CSR. RSS " << GetRSSGiB() << " GiB" << std::endl;
     return PartitionGraphWithKaMinPar(csr, num_clusters, epsilon, num_threads, strong, quiet);
 }
 
@@ -259,16 +259,16 @@ Partition GraphPartitioning(PointSet& points, int num_clusters, double epsilon, 
         graph_builder.FANOUT = 5;
         graph_builder.REPETITIONS = 5;
     }
-    std::cout << "memory before graph-building " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory before graph-building. RSS " << GetRSSGiB() << " GiB" << std::endl;
     AdjGraph knn_graph = graph_builder.BuildApproximateNearestNeighborGraph(points, 10);
-    std::cout << "memory after graph-building " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory after graph-building. RSS " << GetRSSGiB() << " GiB" << std::endl;
 
     if (!graph_output_path.empty()) {
         std::cout << "Writing knn graph file to " << graph_output_path << std::endl;
         WriteMetisGraph(graph_output_path, knn_graph);
     }
     points.Drop();
-    std::cout << "memory after points drop " << GetTotalSystemMemoryGB() << " GB. RSS " << GetRSSGiB() << " GiB" << std::endl;
+    std::cout << "memory after points drop. RSS " << GetRSSGiB() << " GiB" << std::endl;
     return PartitionAdjListGraph(knn_graph, num_clusters, epsilon, parlay::num_workers(), strong);
 }
 
